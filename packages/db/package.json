@@ -9,9 +9,17 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "ultracite check",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "node src/bin/migrate.ts",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@workspace/testing": "workspace:*"
+    "@types/pg": "^8.23.1",
+    "@workspace/testing": "workspace:*",
+    "drizzle-kit": "^0.31.11"
   }
 }

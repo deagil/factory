@@ -14,7 +14,8 @@
     "//#lint:root": {},
     "test": {
       "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": [],
+      "env": ["DATABASE_URL", "DATABASE_ADMIN_URL"]
     },
     "dev": {
       "cache": false,
