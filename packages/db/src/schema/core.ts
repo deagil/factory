@@ -151,11 +151,6 @@ export const auditLog = pgTable(
     id: id(),
     object: text("object").notNull(),
     recordId: uuid("record_id").notNull(),
-    // Replaced by before and after (decision 0018). Nothing writes them; the
-    // contract step in P1.05a drops them.
-    field: text("field"),
-    oldValue: jsonb("old_value"),
-    newValue: jsonb("new_value"),
     before: jsonb("before")
       .$type<Record<string, unknown>>()
       .notNull()
