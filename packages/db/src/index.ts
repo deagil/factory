@@ -12,6 +12,7 @@ export {
   splitStatements,
 } from "./migration-lint.ts";
 export type { MigrationFinding } from "./migration-lint.ts";
+export { ascNullsLast, descNullsLast } from "./ordering.ts";
 export {
   assertSchema,
   checkSchema,

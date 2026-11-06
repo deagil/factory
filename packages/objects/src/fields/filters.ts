@@ -29,6 +29,9 @@ import type {
   MainColumn,
 } from "./field.ts";
 
+/** Anything with filter operators: a field, or a housekeeping column. */
+export type Filterable = Pick<AnyField, "kind" | "filters">;
+
 /** The most values an `in` filter takes. */
 export const maxInValues = 100;
 
@@ -79,7 +82,7 @@ export const escapeLike = (value: string): string =>
  * The schema for a filter on `field`: an object of its operators, at least
  * one, with no unknown ones.
  */
-export const filterSchema = (field: AnyField) => {
+export const filterSchema = (field: Filterable) => {
   const shape: Record<string, z.ZodOptional<z.ZodType>> = {};
   for (const [name, op] of Object.entries(field.filters)) {
     shape[name] = (op as FilterOperator<FieldColumns>).value.optional();
@@ -96,7 +99,7 @@ export const filterSchema = (field: AnyField) => {
  * Throws on an unknown operator, which a parsed filter never has.
  */
 export const filterWhere = (
-  field: AnyField,
+  field: Filterable,
   columns: BuiltColumns<FieldColumns>,
   filter: Record<string, unknown>
 ): SQL => {

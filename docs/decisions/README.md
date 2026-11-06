@@ -20,6 +20,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0014 | [How field types store and filter values](0014-field-types.md) | Accepted |
 | 0015 | [defineObject's tables, records and registry](0015-define-object-tables-and-records.md) | Accepted |
 | 0016 | [What the schema check compares](0016-schema-check.md) | Accepted |
+| 0017 | [How the data access layer lists, pages and follows refs](0017-data-access-layer.md) | Accepted |
 
 ## Template
 
