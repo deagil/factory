@@ -19,6 +19,7 @@ import type {
   ExtraConfigColumn,
   PgColumn,
   PgColumnBuilderBase,
+  PgTable,
   PgTableExtraConfigValue,
   PgTableWithColumns,
   PgUUIDBuilder,
@@ -280,9 +281,32 @@ export interface ObjectDefinition<
   ) => ObjectRecord<TFields, TCustomFields>;
 }
 
+/* oxlint-disable typescript/no-explicit-any -- AnyObjectDefinition is the
+   widest definition: its functions take any, so every object's fit it. */
 /** Any object definition. */
-// oxlint-disable-next-line typescript/no-explicit-any -- the widest definition
-export type AnyObjectDefinition = ObjectDefinition<string, any, boolean, any>;
+export interface AnyObjectDefinition {
+  readonly name: string;
+  readonly label: string;
+  readonly description: string | undefined;
+  readonly tableName: string;
+  readonly table: PgTable;
+  readonly fields: ObjectFields;
+  readonly fieldLabels: Readonly<Record<string, string>>;
+  readonly customFields: boolean;
+  readonly list: readonly string[];
+  readonly actions: ObjectActions<string>;
+  readonly schemas: {
+    readonly create: z.ZodType;
+    readonly update: z.ZodType;
+    readonly record: z.ZodType;
+  };
+  readonly columnsOf: (
+    key: any
+  ) => BuiltColumns<Record<string, PgColumnBuilderBase>>;
+  readonly toRow: (values: any) => Record<string, unknown>;
+  readonly fromRow: (row: Record<string, unknown>) => Record<string, unknown>;
+}
+/* oxlint-enable typescript/no-explicit-any */
 
 // defineObject.
 

@@ -2,7 +2,7 @@
 
 defineObject, the field types library, the data access layer (the only way to read records) and repositories (the only way to write them), including field history in audit_log.
 
-**Status:** the field types (P1.01; decision [0014](../../docs/decisions/0014-field-types.md)) and `defineObject` (P1.02; decision [0015](../../docs/decisions/0015-define-object-tables-and-records.md)) are built. The data access layer and repositories come next in phase 1.
+**Status:** the field types (P1.01; decision [0014](../../docs/decisions/0014-field-types.md)) and `defineObject` (P1.02; decision [0015](../../docs/decisions/0015-define-object-tables-and-records.md)) are built. The data access layer (P1.04; decision [0017](../../docs/decisions/0017-data-access-layer.md)) is built too; repositories come next.
 
 ```ts
 import { f } from "@workspace/objects";
@@ -36,6 +36,22 @@ export const contact = defineObject({
 contact.table; // a real Drizzle table
 contact.schemas.create; // and update, record
 contact.fromRow(row); // a JSON-safe record
+```
+
+Reads go through the data access layer:
+
+```ts
+const dal = createDataAccess({ executor: db, canRead: () => "all" });
+const page = await dal.list(contact, {
+  filter: { lastName: { startsWith: "Lo" }, active: { eq: true } },
+  sort: "-createdAt",
+  limit: 50,
+  expand: ["organisation"],
+});
+page.records; // contacts
+page.related.organisation; // { [id]: organisation }
+page.nextCursor; // pass as `cursor` for the next page
+await dal.get(contact, id); // { record, related } or null
 ```
 
 Schema files that drizzle-kit loads run as CommonJS, so they can't use `import.meta`. Import the core tables from `@workspace/db/schema`.

@@ -42,6 +42,7 @@ export {
   filterWhere,
   maxInValues,
 } from "./fields/filters.ts";
+export type { Filterable } from "./fields/filters.ts";
 export { currencyCode, formatMoney, minorDigits } from "./fields/money.ts";
 export type { Money, MoneyField, MoneyOptions } from "./fields/money.ts";
 export type { NumberField, NumberOptions } from "./fields/number.ts";
@@ -49,3 +50,26 @@ export type { RefField, RefTarget } from "./fields/ref.ts";
 export type { TextField, TextOptions } from "./fields/text.ts";
 export { labelFor, snakeCase, tableNameFor } from "./naming.ts";
 export { getObject, listObjects } from "./registry.ts";
+export { createDataAccess } from "./dal/data-access.ts";
+export type {
+  ActorSummary,
+  DataAccess,
+  DataAccessOptions,
+  GetOptions,
+  GetResult,
+  ListResult,
+  ReadAccess,
+  RecordOf,
+  Related,
+} from "./dal/data-access.ts";
+export {
+  decodeCursor,
+  defaultPageSize,
+  defaultSort,
+  encodeCursor,
+  listInputSchema,
+  maxPageSize,
+  refKeysOf,
+  sortKeysOf,
+} from "./dal/list-input.ts";
+export type { ArchivedMode, Cursor, ListInput } from "./dal/list-input.ts";

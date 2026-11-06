@@ -1,112 +1,36 @@
 // The Done-when test for P1.02: objects generate a migration through
 // drizzle-kit, and the migration builds tables that store and return records.
 
-import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-import {
-  actors,
-  checkSchema,
-  closeDb,
-  coreTables,
-  createDb,
-  migrationsFolder,
-  users,
-} from "@workspace/db";
-import type { Db } from "@workspace/db";
-import { createTestDatabase } from "@workspace/testing";
-import type { TestDatabase } from "@workspace/testing";
+import { checkSchema, coreTables } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import {
+  createCrmDatabase,
+  createStaffActor,
+} from "./test-fixtures/crm-database.ts";
+import type { CrmDatabase } from "./test-fixtures/crm-database.ts";
 import { contact, organisation } from "./test-fixtures/crm-schema.ts";
 
-const packageDir = path.resolve(import.meta.dirname, "..");
-const coreSchema = path.resolve(packageDir, "../db/src/schema/core.ts");
-const fixtureSchema = path.resolve(
-  import.meta.dirname,
-  "test-fixtures/crm-schema.ts"
-);
-
-/**
- * Runs drizzle-kit generate for the core tables and the fixture objects,
- * against a copy of the core migrations, and returns the new migration.
- * drizzle-kit mangles absolute paths, so every path is relative to this
- * package.
- */
-const generate = (out: string) => {
-  cpSync(migrationsFolder, out, { recursive: true });
-  const relative = (to: string) => path.relative(packageDir, to);
-  const config = path.join(out, "drizzle.config.mjs");
-  writeFileSync(
-    config,
-    `export default ${JSON.stringify({
-      dialect: "postgresql",
-      schema: [relative(coreSchema), relative(fixtureSchema)],
-      out: relative(out),
-    })};\n`
-  );
-  const result = spawnSync(
-    "pnpm",
-    [
-      "exec",
-      "drizzle-kit",
-      "generate",
-      "--config",
-      relative(config),
-      "--name",
-      "crm",
-    ],
-    { cwd: packageDir, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
-  );
-  const sqlFile = readdirSync(out).find((name) => name.endsWith("_crm.sql"));
-  if (!sqlFile) {
-    throw new Error(
-      `drizzle-kit generated no migration:\n${result.stdout}${result.stderr}`
-    );
-  }
-  return readFileSync(path.join(out, sqlFile), "utf-8");
-};
-
 describe("a migration from defineObject", () => {
-  let out: string;
-  let migration: string;
-  let database: TestDatabase;
-  let db: Db;
+  let crm: CrmDatabase;
 
   beforeAll(async () => {
-    out = mkdtempSync(path.join(tmpdir(), "objects-migration-"));
-    migration = generate(out);
-    database = await createTestDatabase();
-    db = createDb(database.url);
-    await migrate(db, { migrationsFolder: out });
+    crm = await createCrmDatabase();
   }, 60_000);
 
   afterAll(async () => {
-    if (db) {
-      await closeDb(db);
-    }
-    await database?.drop();
-    rmSync(out, { recursive: true, force: true });
+    await crm?.close();
   });
 
   it("creates only the object tables, not the core ones again", () => {
-    expect(migration).toContain('CREATE TABLE "organisations"');
-    expect(migration).toContain('CREATE TABLE "contacts"');
-    expect(migration).not.toContain('CREATE TABLE "actors"');
+    expect(crm.migration).toContain('CREATE TABLE "organisations"');
+    expect(crm.migration).toContain('CREATE TABLE "contacts"');
+    expect(crm.migration).not.toContain('CREATE TABLE "actors"');
   });
 
   it("has the housekeeping and field columns", () => {
+    const { migration } = crm;
     expect(migration).toContain(
       '"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL'
     );
@@ -119,6 +43,7 @@ describe("a migration from defineObject", () => {
   });
 
   it("adds foreign keys and indexes", () => {
+    const { migration } = crm;
     expect(migration).toMatch(
       /FOREIGN KEY \("organisation_id"\) REFERENCES "public"\."organisations"\("id"\)/u
     );
@@ -133,7 +58,7 @@ describe("a migration from defineObject", () => {
   });
 
   it("passes the schema check", async () => {
-    const result = await checkSchema(db, [
+    const result = await checkSchema(crm.db, [
       ...coreTables,
       organisation.table,
       contact.table,
@@ -142,22 +67,15 @@ describe("a migration from defineObject", () => {
   });
 
   it("stores records and reads them back through fromRow", async () => {
-    const [user] = await db
-      .insert(users)
-      .values({ name: "Sarah", email: "sarah@example.com" })
-      .returning();
-    const [actor] = await db
-      .insert(actors)
-      .values({ kind: "staff", name: "Sarah", userId: user?.id })
-      .returning();
-    const actorId = actor?.id ?? "";
-    const by = { createdBy: actorId, updatedBy: actorId };
+    const { db } = crm;
+    const actor = await createStaffActor(db);
+    const by = { createdBy: actor.id, updatedBy: actor.id };
 
     const [org] = await db
       .insert(organisation.table)
       .values({
         ...by,
-        ...organisation.toRow({ name: "Acme", owner: actorId }),
+        ...organisation.toRow({ name: "Acme", owner: actor.id }),
       } as never)
       .returning();
     const values = contact.schemas.create.parse({
@@ -185,7 +103,7 @@ describe("a migration from defineObject", () => {
       lifetimeValue: { amount: 123_450, currency: "GBP" },
       archivedAt: null,
       version: 1,
-      createdBy: actorId,
+      createdBy: actor.id,
     });
   });
 });
