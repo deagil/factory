@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 is done.
-- **Next task:** P1.02. Fields give their columns as a map from a suffix to a builder (`""` for the main column), so defineObject names the table properties `<field><Suffix>` and passes the field's snake-case name to `columns()`. A `ref` field doesn't add its foreign key; defineObject does. See decision 0014.
+- **Status:** in progress. P1.01 and P1.02 are done.
+- **Next task:** P1.03. `listObjects()` gives every defined object and `coreTableNames` the core's tables. Object schema files load under drizzle-kit only if they avoid `import.meta`, so import the core tables from `@workspace/db/schema` (decision 0015).
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
@@ -38,7 +38,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - Each type gives its Drizzle column, a Zod rule for input, a Zod rule for output, a plain display value, and the filter operators it supports.
   - **Done when:** every type has tests for column shape, valid and invalid input, and its filters.
 
-- [ ] **P1.02 `defineObject`**
+- [x] **P1.02 `defineObject`**
   - Returns a real Drizzle table with housekeeping columns (`id`, `created_at`, `updated_at`, `archived_at`, `custom_fields`). It also returns derived create, update and record schemas, and registers the object by name.
   - Supports `list`, `label`, the `actions` options (`readOnly`, off) and a `drizzle` escape hatch for indexes.
   - Refs point at other objects or at `actor`.
@@ -201,3 +201,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - 2026-11-06 · plan written.
 - 2026-11-06 · P1.01 · [#20](https://github.com/deagil/factory/pull/20) · `f.text`, `f.number`, `f.money`, `f.date`, `f.boolean` and `f.ref` in `packages/objects/src/fields`, with decision 0014 for what the design left open. Money is a `bigint` of minor units plus a `<field>_currency` column, and its value is `{ amount, currency }`. Dates are `YYYY-MM-DD` strings. Refs are `<field>_id` uuid columns. Input schemas hold the rules; output schemas only check the shape. Filters are objects of operators (`{ gte: 10, lt: 20 }`); `filterSchema(field)` validates one and `filterWhere(field, columns, filter)` builds its condition, for P1.04. Tests render the conditions with Drizzle's `PgDialect`; P1.04 runs them against Postgres. Ultracite turns `type X = { ... }` into an interface, and an interface doesn't fit `Record<string, …>`, so column maps are written as `MainColumn<…>` (a `Record`). Its Vitest rules want `toStrictEqual`, `toBeFalsy` and at most five `expect`s per test.
+- 2026-11-06 · P1.02 · [#21](https://github.com/deagil/factory/pull/21) · `defineObject` in `packages/objects/src/define-object.ts`, with decision 0015. Besides the plan's housekeeping columns it adds `created_by`, `updated_by` and `version` from SYSTEM_DESIGN section 3, and `custom_fields` only with `customFields: true`. Records are JSON-safe, with ISO timestamps; `fromRow` and `toRow` map between records and rows, and `columnsOf(key)` gives a field's columns for P1.04's filters. The `update` schema already leaves out `readOnly` fields, so P1.09 can use it as it is. Refs get a foreign key and an index; refs to objects not yet defined resolve lazily. The Done-when test runs `drizzle-kit generate` on a fixture CRM against a copy of the core migrations, applies the result to a test database, and round-trips a record. Found on the way: drizzle-kit loads schema files as CommonJS, so `import.meta` fails there, hence the new `@workspace/db/schema` entry point; repeated `--schema` flags don't add up, so the test writes a temporary config; and `--out` must be a relative path. Field factories now return `NoInfer<…>` types, or `required: true` inside a `fields` literal widens to `boolean`.

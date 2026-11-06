@@ -160,6 +160,9 @@ importers:
 
   packages/objects:
     dependencies:
+      '@workspace/db':
+        specifier: workspace:*
+        version: link:../db
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
@@ -170,6 +173,9 @@ importers:
       '@workspace/testing':
         specifier: workspace:*
         version: link:../testing
+      drizzle-kit:
+        specifier: ^0.31.11
+        version: 0.31.11
 
   packages/sdk:
     devDependencies:

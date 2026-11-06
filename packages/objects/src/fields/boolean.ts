@@ -32,7 +32,7 @@ export type BooleanField<TRequired extends boolean = boolean> = Field<
 /** Yes or no, stored as `boolean`. A field that isn't required can be unset. */
 export const boolean = <TRequired extends boolean = false>(
   options?: FieldOptions<TRequired>
-): BooleanField<TRequired> => {
+): BooleanField<NoInfer<TRequired>> => {
   const base = baseOptions(options);
   return {
     kind: "boolean",

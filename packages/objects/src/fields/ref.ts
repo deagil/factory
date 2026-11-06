@@ -52,7 +52,7 @@ export const ref = <
 >(
   target: TTarget,
   options?: FieldOptions<TRequired>
-): RefField<TTarget, TRequired> => {
+): RefField<NoInfer<TTarget>, NoInfer<TRequired>> => {
   const base = baseOptions(options);
   return {
     kind: "ref",
