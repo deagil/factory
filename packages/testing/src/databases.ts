@@ -1,5 +1,6 @@
-// Test databases: one fresh database per test file, cloned from a migrated
-// template. Tests never touch the dev database.
+// Database admin helpers: create, clone, list and drop databases, and build
+// migrated templates. Used by test databases and by `fx start`. Nothing here
+// imports Vitest, so tools can use it.
 //
 // This package must not depend on other workspace packages (they all
 // devDepend on it), so it applies the migration files itself rather than
@@ -12,7 +13,6 @@ import path from "node:path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Client } from "pg";
-import { inject } from "vitest";
 
 /** The core migrations, by path: see the note at the top of this file. */
 export const coreMigrationsFolder = path.resolve(
@@ -24,7 +24,7 @@ const prefix = "factory";
 export const templatePrefix = `${prefix}_template_`;
 export const testDatabasePrefix = `${prefix}_test_`;
 
-const adminUrl = (): string => {
+export const adminUrl = (): string => {
   const url = process.env.DATABASE_ADMIN_URL;
   if (!url) {
     throw new Error(
@@ -160,48 +160,3 @@ export const createDatabaseFromTemplate = async (
     `create database ${quote(name)} template ${quote(template)}`
   );
 };
-
-/** A fresh, migrated database for one test file. */
-export interface TestDatabase {
-  /** The database name, unique to this test file. */
-  readonly name: string;
-  /** A connection URL for the database. */
-  readonly url: string;
-  /** Drops the database. Call it in `afterAll`. */
-  readonly drop: () => Promise<void>;
-}
-
-const runId = (): string => {
-  try {
-    return inject("testDatabaseRunId");
-  } catch {
-    // Outside the shared Vitest config there is no run ID; make one.
-    return randomSuffix();
-  }
-};
-
-/**
- * Creates a fresh database for this test file from the migrated template.
- * Close your own connections, then call `drop()` in `afterAll`; the shared
- * Vitest config also drops anything a crashed file left behind.
- */
-export const createTestDatabase = async (): Promise<TestDatabase> => {
-  const url = adminUrl();
-  const template = await ensureTemplateDatabase(coreMigrationsFolder, url);
-  const name = `${testDatabasePrefix}${runId()}_${randomSuffix()}`;
-  await withAdmin(
-    (client) => createDatabaseFromTemplate(client, name, template),
-    url
-  );
-  return {
-    name,
-    url: databaseUrl(url, name),
-    drop: () => withAdmin((client) => dropDatabase(client, name), url),
-  };
-};
-
-declare module "vitest" {
-  interface ProvidedContext {
-    testDatabaseRunId: string;
-  }
-}

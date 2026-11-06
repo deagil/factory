@@ -11,7 +11,7 @@ import {
   listDatabases,
   testDatabasePrefix,
   withAdmin,
-} from "./database.ts";
+} from "./databases.ts";
 
 const globalSetup = (project: TestProject) => {
   const runId = randomBytes(4).toString("hex");

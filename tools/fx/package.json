@@ -11,7 +11,11 @@
     "lint": "ultracite check",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@workspace/testing": "workspace:*",
+    "pg": "^8.23.1"
+  },
   "devDependencies": {
-    "@workspace/testing": "workspace:*"
+    "@types/pg": "^8.23.1"
   }
 }

@@ -6,13 +6,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 
-import {
-  createTestDatabase,
-  listDatabases,
-  testDatabasePrefix,
-  withAdmin,
-} from "./database.ts";
-import type { TestDatabase } from "./database.ts";
+import { listDatabases, testDatabasePrefix, withAdmin } from "./databases.ts";
+import { createTestDatabase } from "./test-database.ts";
+import type { TestDatabase } from "./test-database.ts";
 
 const otherTestDatabase = (own: string) =>
   withAdmin(async (client) => {
