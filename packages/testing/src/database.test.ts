@@ -1,4 +1,5 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { cpSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -7,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   coreMigrationsFolder,
   databaseUrl,
+  dropDatabase,
   ensureTemplateDatabase,
   listDatabases,
   migrationsHash,
@@ -37,21 +39,30 @@ describe(migrationsHash, () => {
 });
 
 describe(ensureTemplateDatabase, () => {
-  it("builds one template for the current migrations, even when called concurrently", async () => {
-    const names = await Promise.all([
-      ensureTemplateDatabase(),
-      ensureTemplateDatabase(),
-      ensureTemplateDatabase(),
-    ]);
-    const expected = `${templatePrefix}${migrationsHash(coreMigrationsFolder)}`;
-    expect(names).toStrictEqual([expected, expected, expected]);
+  it("builds one template, even when called concurrently", async () => {
+    // A copy of the core migrations with a unique hash, so this test's
+    // template and builds can't be confused with other test files'.
+    const folder = mkdtempSync(path.join(tmpdir(), "migrations-"));
+    cpSync(coreMigrationsFolder, folder, { recursive: true });
+    writeFileSync(
+      path.join(folder, "unique.json"),
+      JSON.stringify(randomBytes(8).toString("hex"))
+    );
+    const expected = `${templatePrefix}${migrationsHash(folder)}`;
 
-    const templates = await withAdmin((client) =>
-      listDatabases(client, templatePrefix)
-    );
-    expect(templates).toContain(expected);
-    expect(templates.filter((name) => name.includes("_build_"))).toStrictEqual(
-      []
-    );
+    const names = await Promise.all([
+      ensureTemplateDatabase(folder),
+      ensureTemplateDatabase(folder),
+      ensureTemplateDatabase(folder),
+    ]);
+    const [templates, builds] = await withAdmin(async (client) => {
+      const found = await listDatabases(client, expected);
+      await dropDatabase(client, expected);
+      return [found, found.filter((name) => name.includes("_build_"))];
+    });
+
+    expect(names).toStrictEqual([expected, expected, expected]);
+    expect(templates).toStrictEqual([expected]);
+    expect(builds).toStrictEqual([]);
   });
 });

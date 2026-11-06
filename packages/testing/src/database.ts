@@ -118,6 +118,9 @@ const applyMigrations = async (url: string, folder: string): Promise<void> => {
  * and returns its name. The name includes a hash of the migrations, so it is
  * rebuilt when they change. Safe to call from parallel processes: each
  * builder works under its own name and renames it into place.
+ *
+ * Templates for older migrations are kept, because another worktree or run
+ * may still be cloning from them. They are small; `fx done` prunes them.
  */
 export const ensureTemplateDatabase = async (
   folder: string = coreMigrationsFolder,
@@ -143,15 +146,6 @@ export const ensureTemplateDatabase = async (
       }
       throw error;
     }
-    // Best effort: remove templates for older migrations. One in use by
-    // another run fails to drop and is left alone.
-    const templates = await listDatabases(client, templatePrefix);
-    const stale = templates.filter(
-      (other) => other !== name && !other.includes("_build_")
-    );
-    await Promise.allSettled(
-      stale.map((other) => client.query(`drop database ${quote(other)}`))
-    );
     return name;
   }, url);
 };
