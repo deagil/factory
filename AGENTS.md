@@ -9,9 +9,9 @@ Instructions for coding agents (Claude Code, Cursor and others) working in this 
 
 ## Current state
 
-Phase 0. Most packages are placeholders with a README describing their job. `apps/web` and `packages/ui` come from the shadcn TanStack Start template.
+Phase 0 is done: the workspace, local Postgres with the core tables, CI and `fx` all work. Phase 1 builds objects and actions, so most packages are still placeholders with a README describing their job. `apps/web` and `packages/ui` come from the shadcn TanStack Start template.
 
-**Work from the plans.** Before starting, open [docs/plans/](docs/plans/README.md), find the current phase, read its **Resume here** section and pick the next unticked task whose dependencies are done. Tick it off, log it and update **Resume here** in the same PR as the work.
+**Work from the plans.** Before starting, open [docs/plans/](docs/plans/README.md), find the current phase, read its **Resume here** section and pick the next unticked task whose dependencies are done. Tick it off, log it and update **Resume here** in the same PR as the work. A change that isn't a plan task leaves the plan alone.
 
 ## Commands
 
@@ -24,7 +24,18 @@ pnpm format
 pnpm test
 ```
 
-Once `fx` exists, use it for all change management (start, ship, switch) and never run raw git branch commands or Drizzle commands yourself.
+## Making a change
+
+Use `fx` for all change management, and never run raw git branch commands or Drizzle commands yourself. Run it as `pnpm fx` from any checkout; there is no global `fx`. Every command takes `--json`. [tools/fx/README.md](tools/fx/README.md) has the details.
+
+1. `pnpm fx start "<name>"` makes the branch `change/<slug>`, a worktree at `../factory.worktrees/<slug>`, and the change's own database and `.env`. Work in that worktree. For a plan task, put its ID in the name: `pnpm fx start "P1.01 define object"`.
+2. Edit and commit. `pnpm fx dev` runs the dev servers on the change's database and pushes schema edits to it on save. You need it only to try the change by hand. An agent runs `pnpm fx dev --json` in the background, waits for the `schema_pushed` line, and stops it with SIGTERM.
+3. `pnpm fx ship`, with everything committed, rebases on `origin/main` and writes the change's one migration. Then it runs every check CI runs, pushes and opens the PR. The PR's title and body come from the first commit, so write that commit for the reader of the PR.
+4. Once the PR is merged, `pnpm fx done` removes the worktree, the branches and the database.
+
+Tests run on databases built from the migrations, not from the schema. After a schema edit, tests that use it fail until there is a migration. `fx ship` writes the migration before it runs the checks, so use it to check a schema change. It pushes nothing if a check fails.
+
+`main` takes only squash-merged PRs with a green `check`; see [docs/branch-protection.md](docs/branch-protection.md).
 
 ## Architecture rules
 
@@ -57,6 +68,6 @@ TypeScript (strict), Node 24, Hono, DBOS, Drizzle, Postgres, Zod 4, Better Auth,
 
 - Small and focused: one ticket, one change, merged within hours or days.
 - Comes with tests for what it adds.
-- Passes typecheck, lint and tests locally before the PR.
+- Passes typecheck, lint and tests locally before the PR. `fx ship` runs them all and stops before pushing if one fails.
 - Updates docs or a decision record when it changes how something works.
 - Commit messages use conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).

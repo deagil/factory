@@ -11,10 +11,12 @@
 
 ## Resume here
 
-- **Status:** not started; needs phase 0 done.
+- **Status:** not started. Phase 0 is done.
 - **Next task:** P1.01.
-- **Known issues:** none yet.
-- **How to start:** see [docs/plans/README.md](README.md). Every change goes through `fx start` → `fx dev` → `fx ship`.
+- **Known issues:**
+  - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
+  - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
+- **How to start:** see [docs/plans/README.md](README.md). Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`; AGENTS.md says how.
 
 ## Decisions for this phase
 

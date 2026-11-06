@@ -101,6 +101,7 @@ describe("fx start", () => {
     // No package.json, so pnpm install fails after the database exists.
     await expect(start(repo, "try it", quiet)).rejects.toMatchObject({
       code: "command_failed",
+      message: expect.stringContaining("pnpm install failed"),
     });
 
     expect(

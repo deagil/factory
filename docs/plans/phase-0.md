@@ -6,13 +6,8 @@
 
 ## Resume here
 
-- **Status:** in progress.
-- **Next task:** P0.14, the phase exit check. Everything else in phase 0 is done.
-- **Known issues:**
-  - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
-  - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
-- **Use `fx` for every change:** `fx start`, `fx dev`, `fx ship`, then `fx done` once the PR is merged. `fx switch` moves between open changes.
-- **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
+- **Status:** done.
+- **Next:** phase 1, starting at P1.01 in [phase-1.md](phase-1.md). The known issues moved there.
 
 ## Tasks
 
@@ -118,7 +113,7 @@
 
 ### Exit
 
-- [ ] **P0.14 Phase exit check**
+- [x] **P0.14 Phase exit check**
   - A fresh agent session, given only the repo, follows the README and `AGENTS.md`. It runs `fx start`, makes a trivial change with a schema edit, runs `fx ship`, and the PR goes green.
   - Fix whatever it trips over, update `AGENTS.md` and the README, and set phase 0 to Done in `docs/plans/README.md`.
   - **Needs:** all of the above except P0.13.
@@ -142,3 +137,12 @@
 - 2026-11-06 · P0.12 · [#15](https://github.com/deagil/factory/pull/15) · `fx ship` first takes out the migration commit an earlier ship wrote, found by its `Fx-Migration: <slug>` trailer. It then rebases on `origin/main` and refuses hand edits to `packages/db/migrations`. It writes the migration with `drizzle-kit generate --name <slug>` and commits it last, so a migration that lands on main first renumbers it instead of conflicting. Next it runs the migration lint, typecheck, lint, tests and `db:check-migrations`, stopping at the first failure, and records `lastCheck`. Finally it pushes with `--force-with-lease` and opens the PR with `gh pr create --fill-first`, so the first commit's subject is the title; without `gh` it prints a GitHub-style compare URL. `--contract-step "<why>"` writes the marker, and later ships keep it. A rename stops it with expand/contract advice instead of a prompt. `db:check-migrations` now also fails when drizzle-kit stops to ask; before, an unmigrated rename passed. Proof: a real `fx start` change shipped as [#14](https://github.com/deagil/factory/pull/14) with one migration and green CI. A second commit and ship still left one migration, now with both columns, and #14 was closed. Found on the way: oxfmt rejected drizzle-kit's JSON, so every new migration failed lint; fixed in [#13](https://github.com/deagil/factory/pull/13).
 - 2026-11-06 · P0.13 · [#16](https://github.com/deagil/factory/pull/16) · `fx done` treats a branch as merged when its commits are in `origin/main`'s history, when merging it into main changes nothing (a squash merge, checked with `git merge-tree --write-tree`), or when `gh` reports a merged PR. It refuses unmerged or uncommitted work unless given `--force`, and deletes origin's branch only once merged. Afterwards it drops `factory_template_*` databases that neither the main checkout nor an open change uses. This is the pruning P0.06 deferred; a template still being built is left alone. `fx switch` prints the `cd`, or the bare path with `--path`, because a command can't move its shell. Tests use a real squash merge into a bare origin. `fx done ship-demo --force` cleared P0.12's closed demo and pruned two stale templates.
 - 2026-11-06 · P0.08 · [#17](https://github.com/deagil/factory/pull/17) · Dylan made `deagil/factory` public, since GitHub Free can't protect a private repo. The `main` ruleset from [branch-protection.md](../branch-protection.md) is active. It blocks deletion and force pushes, requires a PR with the `check` status passing on an up-to-date branch, and allows only squash merges. It has no bypass actors, so admins are held to it too. The repo allows only squash merges, titled with the PR title. A direct push to `main` was refused with `GH013: Repository rule violations found`. This is the first change made with `fx start` and `fx ship`.
+- 2026-11-06 · P0.14 · [#19](https://github.com/deagil/factory/pull/19) · A fresh agent, given only the repo, followed the README and AGENTS.md. It ran `fx start`, added a nullable `api_keys.expires_at` with a test, and ran `fx ship`. Its PR, [#18](https://github.com/deagil/factory/pull/18), went green without help, and was closed unmerged because the column was only a probe. Fixed what it tripped over:
+  - the README said fx didn't exist yet, used a bare `fx`, and listed `fx release` but not `fx done`;
+  - nothing said that tests fail after a schema edit until `fx ship` writes the migration;
+  - the plans' branch naming rule contradicted fx's `change/<slug>`;
+  - phase 0 was still listed as Not started;
+  - `packages/db/README.md` was stale;
+  - `pnpm test` showed a passing fx test's install failure as a red ×, so `fx start` now captures `pnpm install`'s output and shows it only if the install fails.
+
+  AGENTS.md now has a Making a change section. Phase 1's plan was already written.

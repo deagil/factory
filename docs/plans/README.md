@@ -4,7 +4,7 @@ One plan file per phase, with tasks to tick off. The phase goals are in the [REA
 
 | Phase               | Plan                         | Status      |
 | ------------------- | ---------------------------- | ----------- |
-| 0. Foundations      | [phase-0.md](phase-0.md)     | Not started |
+| 0. Foundations      | [phase-0.md](phase-0.md)     | Done        |
 | 1. Walking skeleton | [phase-1.md](phase-1.md)     | Not started |
 | 2. Config over git  | Written when phase 1 is done |             |
 | 3. CRM, hosted      |                              |             |
@@ -21,7 +21,7 @@ One plan file per phase, with tasks to tick off. The phase goals are in the [REA
 
 **Working a task:**
 
-- One task is one change: one branch, one PR, merged within hours or days. Name the branch and PR after the task ID, for example `p0-04-db-core-tables`.
+- One task is one change: one branch, one PR, merged within hours or days. Start it with the task ID in its name: `pnpm fx start "P0.04 db core tables"` makes the branch `change/p0-04-db-core-tables`. Put the ID in the first commit's subject too, as in `feat: core tables (P0.04)`, since `fx ship` makes that the PR title.
 - A task is done only when everything under **Done when** is true, tests included.
 - If a task turns out to be too big, split it into lettered tasks (P1.08a, P1.08b) in the plan, in the same PR.
 - If you make a decision the design doesn't cover, write a decision record in `docs/decisions/` and mention it in the log.
