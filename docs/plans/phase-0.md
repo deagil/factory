@@ -7,7 +7,7 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.05.
+- **Next task:** P0.06.
 - **Known issues:** none yet.
 - **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
@@ -43,7 +43,7 @@
   - **Needs:** P0.01.
   - **Done when:** `pnpm db:up` gives a database reachable at `DATABASE_URL`, and the README steps work from a clean clone.
 
-- [ ] **P0.05 `@workspace/db`: connection and core tables**
+- [x] **P0.05 `@workspace/db`: connection and core tables**
   - Set up the Drizzle connection (node-postgres), a typed `db` export, a transaction helper, and the drizzle-kit config.
   - Define the core tables phase 1 needs: `users`, `actors`, `actor_roles`, `api_keys`, `action_log`, `audit_log` and `event_log` (columns in SYSTEM_DESIGN §3).
   - Leave out the approval, workflow, config and draft tables; they arrive with the phases that use them.
@@ -130,3 +130,4 @@
 - 2026-11-06 · P0.02 · [#1](https://github.com/deagil/factory/pull/1) · shared config is `tsconfig.base.json` (NodeNext, `erasableSyntaxOnly`, `allowImportingTsExtensions`) so Node 24 can run package sources directly; use `.ts` extensions on relative imports. Workspace scripts use the root `tsc`, so packages don't each need `typescript`.
 - 2026-11-06 · P0.03 · [#2](https://github.com/deagil/factory/pull/2) · Ultracite replaces ESLint and Prettier (decision 0012). Each package's `lint` is `ultracite check`; `pnpm format` fixes the whole repo. Shared Vitest config is `@workspace/testing/vitest`; packages devDepend on `@workspace/testing`, so `testing` must never depend on another workspace package or Turborepo sees a cycle.
 - 2026-11-06 · P0.04 · [#3](https://github.com/deagil/factory/pull/3) · `postgres:18-alpine` with `max_connections=300` for per-file test databases; the named volume mounts at `/var/lib/postgresql` (Postgres 18 layout). `pnpm db:up` waits for the health check. `DATABASE_ADMIN_URL` points at the `postgres` maintenance database. `.env` (not `.env.local`) is the local env file.
+- 2026-11-06 · P0.05 · [#4](https://github.com/deagil/factory/pull/4) · Drizzle 0.45 (stable; 1.0 is still beta) on `pg`. "Typed `db` export" is the `Db` type plus `createDb(url)`, not a global, so services come through `ctx`. IDs use Postgres 18 `uuidv7()`. Status/kind columns are text with TS enums, not check constraints, so widening them never needs a destructive migration. `audit_log`/`event_log` have FKs to `action_log`: P1.05/P1.07 must insert the `action_log` row first in the transaction. Retry-key uniqueness is left to P1.08. CI now has a Postgres 18 service, because the db test needs it; P0.07 adds the migration checks.
