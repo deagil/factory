@@ -2,6 +2,16 @@
 // section 7. Agents. The entry point is src/cli.ts.
 export { commands, helpText, parseCliArgs } from "./args.ts";
 export type { CommandName, ParsedArgs } from "./args.ts";
+export {
+  createPushQueue,
+  dev,
+  formatDevEvent,
+  pushFailure,
+  pushSchema,
+  schemaDir,
+  watchSchema,
+} from "./commands/dev.ts";
+export type { DevEvent, DevOptions, PushResult } from "./commands/dev.ts";
 export { formatStatus, status } from "./commands/status.ts";
 export type { StatusReport } from "./commands/status.ts";
 export { FxError } from "./errors.ts";

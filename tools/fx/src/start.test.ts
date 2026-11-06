@@ -71,12 +71,14 @@ const changeUrl = (change: Change) =>
 
 describe("fx start", () => {
   afterAll(async () => {
-    await withAdmin(async (client) => {
-      const names = await Promise.all(
-        created.map(({ repoName }) => listDatabases(client, `${repoName}_`))
-      );
-      await Promise.all(names.flat().map((name) => dropDatabase(client, name)));
-    });
+    // One query per connection: pg doesn't allow concurrent queries on one client.
+    const names = await withAdmin((client) => listDatabases(client, "fxtest"));
+    const ours = names.filter((name) =>
+      created.some(({ repoName }) => name.startsWith(`${repoName}_`))
+    );
+    await Promise.all(
+      ours.map((name) => withAdmin((client) => dropDatabase(client, name)))
+    );
     for (const { parent } of created) {
       rmSync(parent, { recursive: true, force: true });
     }

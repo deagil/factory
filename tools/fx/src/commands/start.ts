@@ -13,6 +13,7 @@ import {
   withAdmin,
 } from "@workspace/testing/databases";
 
+import { requireAdminUrl } from "../admin.ts";
 import { setEnvValue } from "../env-file.ts";
 import { FxError } from "../errors.ts";
 import { findRepo, git } from "../git.ts";
@@ -31,18 +32,6 @@ export interface StartOptions {
 /** The folder holding a repo's change worktrees: `../<repo>.worktrees`. */
 export const worktreesRoot = (repo: Repo): string =>
   path.join(path.dirname(repo.mainRoot), `${repo.name}.worktrees`);
-
-const requireAdminUrl = (): string => {
-  const url = process.env.DATABASE_ADMIN_URL;
-  if (!url) {
-    throw new FxError(
-      "command_failed",
-      "DATABASE_ADMIN_URL is not set.",
-      "Copy .env.example to .env at the repo root and run `pnpm db:up`."
-    );
-  }
-  return url;
-};
 
 const assertClean = async (worktreeRoot: string): Promise<void> => {
   const changes = await git(worktreeRoot, "status", "--porcelain");

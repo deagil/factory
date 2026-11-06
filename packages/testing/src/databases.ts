@@ -150,6 +150,14 @@ export const ensureTemplateDatabase = async (
   }, url);
 };
 
+/** Creates an empty database `name`. */
+export const createDatabase = async (
+  client: Client,
+  name: string
+): Promise<void> => {
+  await client.query(`create database ${quote(name)}`);
+};
+
 /** Creates database `name` as a copy of `template`. */
 export const createDatabaseFromTemplate = async (
   client: Client,

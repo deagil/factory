@@ -6,6 +6,7 @@ export type FxErrorCode =
   | "change_exists"
   | "change_not_found"
   | "dirty_worktree"
+  | "schema_push_failed"
   | "command_failed";
 
 /**
