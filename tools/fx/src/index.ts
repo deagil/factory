@@ -12,6 +12,32 @@ export {
   watchSchema,
 } from "./commands/dev.ts";
 export type { DevEvent, DevOptions, PushResult } from "./commands/dev.ts";
+export {
+  compareUrl,
+  contractReason,
+  defaultChecks,
+  dropMigrationCommits,
+  formatShip,
+  generateMigration,
+  migrationCommits,
+  migrationName,
+  migrationTrailer,
+  openWithGh,
+  rebaseOn,
+  runGenerate,
+  ship,
+  webUrl,
+  withContractStep,
+} from "./commands/ship.ts";
+export type {
+  Check,
+  CheckRun,
+  Generate,
+  OpenPullRequest,
+  PullRequest,
+  ShipOptions,
+  ShipResult,
+} from "./commands/ship.ts";
 export { formatStatus, status } from "./commands/status.ts";
 export type { StatusReport } from "./commands/status.ts";
 export { FxError } from "./errors.ts";

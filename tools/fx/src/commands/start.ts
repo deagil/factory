@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process";
-import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { copyFile, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -16,9 +14,10 @@ import {
 import { requireAdminUrl } from "../admin.ts";
 import { setEnvValue } from "../env-file.ts";
 import { FxError } from "../errors.ts";
-import { findRepo, git } from "../git.ts";
+import { findRepo, git, hasOrigin } from "../git.ts";
 import type { Repo } from "../git.ts";
 import { branchName, databaseName, slugify } from "../names.ts";
+import { runToStderr } from "../process.ts";
 import { findChange, saveChange } from "../state.ts";
 import type { Change } from "../state.ts";
 
@@ -48,11 +47,6 @@ const assertClean = async (worktreeRoot: string): Promise<void> => {
 const branchExists = async (repo: Repo, branch: string): Promise<boolean> => {
   const found = await git(repo.mainRoot, "branch", "--list", branch);
   return found !== "";
-};
-
-const hasOrigin = async (repo: Repo): Promise<boolean> => {
-  const remotes = await git(repo.mainRoot, "remote");
-  return remotes.split("\n").includes("origin");
 };
 
 const assertNew = async (
@@ -96,11 +90,9 @@ const assertNew = async (
 
 /** Runs `pnpm install` in the worktree, with its output on stderr. */
 const install = async (cwd: string): Promise<void> => {
-  const child = spawn("pnpm", ["install", "--frozen-lockfile"], {
+  const code = await runToStderr("pnpm", ["install", "--frozen-lockfile"], {
     cwd,
-    stdio: ["ignore", 2, 2],
   });
-  const [code] = (await once(child, "exit")) as [number | null];
   if (code !== 0) {
     throw new FxError(
       "command_failed",
@@ -165,7 +157,7 @@ export const start = async (
   const undo: (() => Promise<unknown>)[] = [];
   try {
     let base = "main";
-    if (await hasOrigin(repo)) {
+    if (await hasOrigin(repo.mainRoot)) {
       log("Fetching origin/main…");
       await git(repo.mainRoot, "fetch", "--quiet", "origin", "main");
       base = "origin/main";

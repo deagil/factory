@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync, watch } from "node:fs";
 import path from "node:path";
-import { stripVTControlCharacters } from "node:util";
 
 import {
   createDatabase,
@@ -12,8 +11,10 @@ import {
 } from "@workspace/testing/databases";
 
 import { describeDatabase, requireAdminUrl } from "../admin.ts";
+import { dbPackageDir, renameQuestion, wantedToAsk } from "../drizzle.ts";
 import { FxError } from "../errors.ts";
 import { findRepo } from "../git.ts";
+import { capture, errorLine, plainText } from "../process.ts";
 import { changeForPath, listChanges } from "../state.ts";
 
 /** The Drizzle schema folder in a worktree. `fx dev` watches it. */
@@ -35,29 +36,19 @@ const resetHint =
  * fails, so success is the message it prints, not the exit code.
  */
 export const pushFailure = (output: string): FxError | undefined => {
-  const text = stripVTControlCharacters(output);
+  const text = plainText(output);
   if (
     text.includes("Changes applied") ||
     text.includes("No changes detected")
   ) {
     return undefined;
   }
-  if (text.includes("Interactive prompts require a TTY")) {
-    return new FxError(
-      "schema_push_failed",
-      "drizzle-kit can't tell whether a table or column was renamed, or dropped and another added, without asking.",
-      resetHint
-    );
+  if (wantedToAsk(text)) {
+    return new FxError("schema_push_failed", renameQuestion, resetHint);
   }
-  const lines = text
-    .split(/[\r\n]+/u)
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
-  const reason =
-    lines.find((line) => /error/iu.test(line)) ?? lines.at(-1) ?? "no output";
   return new FxError(
     "schema_push_failed",
-    `drizzle-kit push failed: ${reason}`,
+    `drizzle-kit push failed: ${errorLine(text)}`,
     `Fix the schema and save it again; fx dev pushes on every save. ${resetHint}`
   );
 };
@@ -72,23 +63,18 @@ export const pushSchema = async (
   url: string
 ): Promise<PushResult> => {
   const started = performance.now();
-  const child = spawn("pnpm", ["exec", "drizzle-kit", "push", "--force"], {
-    cwd: path.join(worktree, "packages", "db"),
-    env: { ...process.env, DATABASE_URL: url },
-    stdio: ["ignore", "pipe", "pipe"],
-    signal: AbortSignal.timeout(pushTimeoutMs),
-  });
-  let output = "";
-  child.stdout.on("data", (chunk: Buffer) => {
-    output += chunk.toString();
-  });
-  child.stderr.on("data", (chunk: Buffer) => {
-    output += chunk.toString();
-  });
   let error: FxError | undefined;
   try {
-    await once(child, "close");
-    error = pushFailure(output);
+    const { stdout, stderr } = await capture(
+      "pnpm",
+      ["exec", "drizzle-kit", "push", "--force"],
+      {
+        cwd: dbPackageDir(worktree),
+        env: { ...process.env, DATABASE_URL: url },
+        timeoutMs: pushTimeoutMs,
+      }
+    );
+    error = pushFailure(`${stdout}${stderr}`);
   } catch (error_) {
     error =
       error_ instanceof Error && error_.name === "AbortError"

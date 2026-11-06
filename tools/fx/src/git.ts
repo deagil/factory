@@ -63,3 +63,9 @@ export const currentBranch = async (
   const branch = await git(cwd, "branch", "--show-current");
   return branch || undefined;
 };
+
+/** True when the repo has a remote called origin. */
+export const hasOrigin = async (cwd: string): Promise<boolean> => {
+  const remotes = await git(cwd, "remote");
+  return remotes.split("\n").includes("origin");
+};

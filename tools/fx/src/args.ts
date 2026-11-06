@@ -39,6 +39,13 @@ export const commands = {
     options: { reset: { type: "boolean", default: false } },
     positionals: { min: 0, max: 0 },
   },
+  ship: {
+    summary:
+      "Rebase on main, write the change's one migration, run every check, then push and open a PR",
+    usage: 'fx ship [--contract-step "<why it is safe now>"] [--json]',
+    options: { "contract-step": { type: "string" } },
+    positionals: { min: 0, max: 0 },
+  },
 } as const satisfies Record<string, CommandSpec>;
 
 export type CommandName = keyof typeof commands;

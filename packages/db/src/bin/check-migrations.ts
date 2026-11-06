@@ -1,10 +1,11 @@
 // `pnpm db:check-migrations`: applies every migration to an empty database,
 // then fails if drizzle-kit would generate a new migration, which means the
 // schema changed without one.
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { stripVTControlCharacters } from "node:util";
 
 import { databaseUrl, dropDatabase, withAdmin } from "@workspace/testing";
 
@@ -37,18 +38,31 @@ process.stdout.write(
   `Applied ${migrationTags().length} migration(s) to an empty database.\n`
 );
 
-// 2. The schema has no changes that lack a migration.
+// 2. The schema has no changes that lack a migration. drizzle-kit exits 0
+// even when it fails (for example when it would have to ask whether a
+// column was renamed), so its output decides.
 const before = new Set(migrationTags());
-execFileSync("drizzle-kit", ["generate"], {
+const generate = spawnSync("drizzle-kit", ["generate"], {
   cwd: path.resolve(migrationsFolder, ".."),
-  stdio: ["ignore", "ignore", "inherit"],
+  encoding: "utf-8",
+  stdio: ["ignore", "pipe", "pipe"],
 });
+const output = stripVTControlCharacters(`${generate.stdout}${generate.stderr}`);
 const added = migrationTags().filter((tag) => !before.has(tag));
 if (added.length > 0) {
   process.stderr.write(
     `The schema has changes with no migration. drizzle-kit just generated ${added.map((tag) => `migrations/${tag}.sql`).join(", ")}.\nReview and commit it; fx ship does this for you.\n`
   );
   process.exitCode = 1;
-} else {
+} else if (output.includes("nothing to migrate")) {
   process.stdout.write("Schema and migrations match.\n");
+} else {
+  process.stderr.write(
+    `drizzle-kit generate didn't finish, so the schema may have changes with no migration:\n${output
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("at "))
+      .join("\n")
+      .trim()}\n`
+  );
+  process.exitCode = 1;
 }
