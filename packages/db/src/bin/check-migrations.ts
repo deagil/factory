@@ -1,6 +1,6 @@
 // `pnpm db:check-migrations`: applies every migration to an empty database,
-// then fails if drizzle-kit would generate a new migration, which means the
-// schema changed without one.
+// runs the schema check on it, then fails if drizzle-kit would generate a new
+// migration, which means the schema changed without one.
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -9,8 +9,14 @@ import { stripVTControlCharacters } from "node:util";
 
 import { databaseUrl, dropDatabase, withAdmin } from "@workspace/testing";
 
+import { closeDb, createDb } from "../client.ts";
 import { loadEnv, requireEnv } from "../env.ts";
 import { migrationsFolder, runMigrations } from "../migrate.ts";
+import {
+  checkSchema,
+  coreTables,
+  formatSchemaProblems,
+} from "../schema-check.ts";
 
 const journalFile = path.join(migrationsFolder, "meta", "_journal.json");
 const migrationTags = (): string[] =>
@@ -29,16 +35,32 @@ await withAdmin(
   (client) => client.query(`create database "${name}"`),
   adminUrl
 );
+let schemaProblems = "";
 try {
-  await runMigrations(databaseUrl(adminUrl, name));
+  const url = databaseUrl(adminUrl, name);
+  await runMigrations(url);
+  // 2. The migrated database matches the tables the code defines.
+  const db = createDb(url, { max: 1 });
+  try {
+    const result = await checkSchema(db, coreTables);
+    schemaProblems = result.ok ? "" : formatSchemaProblems(result.problems);
+  } finally {
+    await closeDb(db);
+  }
 } finally {
   await withAdmin((client) => dropDatabase(client, name), adminUrl);
 }
 process.stdout.write(
   `Applied ${migrationTags().length} migration(s) to an empty database.\n`
 );
+if (schemaProblems) {
+  process.stderr.write(`${schemaProblems}\n`);
+  process.exitCode = 1;
+} else {
+  process.stdout.write("The migrated database passes the schema check.\n");
+}
 
-// 2. The schema has no changes that lack a migration. drizzle-kit exits 0
+// 3. The schema has no changes that lack a migration. drizzle-kit exits 0
 // even when it fails (for example when it would have to ask whether a
 // column was renamed), so its output decides.
 const before = new Set(migrationTags());

@@ -15,7 +15,9 @@ import path from "node:path";
 
 import {
   actors,
+  checkSchema,
   closeDb,
+  coreTables,
   createDb,
   migrationsFolder,
   users,
@@ -128,6 +130,15 @@ describe("a migration from defineObject", () => {
       'CREATE INDEX "organisations_custom_fields_idx" ON "organisations" USING gin'
     );
     expect(migration).toContain('CREATE INDEX "contacts_last_name_idx"');
+  });
+
+  it("passes the schema check", async () => {
+    const result = await checkSchema(db, [
+      ...coreTables,
+      organisation.table,
+      contact.table,
+    ]);
+    expect(result.problems).toStrictEqual([]);
   });
 
   it("stores records and reads them back through fromRow", async () => {

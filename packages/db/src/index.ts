@@ -13,6 +13,15 @@ export {
 } from "./migration-lint.ts";
 export type { MigrationFinding } from "./migration-lint.ts";
 export {
+  assertSchema,
+  checkSchema,
+  coreTables,
+  formatSchemaProblems,
+  normaliseType,
+  SchemaCheckError,
+} from "./schema-check.ts";
+export type { SchemaCheckResult, SchemaProblem } from "./schema-check.ts";
+export {
   actionLog,
   actionStatuses,
   actorKinds,
