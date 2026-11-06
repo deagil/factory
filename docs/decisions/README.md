@@ -17,6 +17,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0011 | [Who actions run as](0011-who-actions-run-as.md) | Accepted |
 | 0012 | [Ultracite for linting and formatting](0012-ultracite-for-lint-and-format.md) | Accepted |
 | 0013 | [Marking a migration as the contract step](0013-contract-step-marker.md) | Accepted |
+| 0014 | [How field types store and filter values](0014-field-types.md) | Accepted |
 
 ## Template
 

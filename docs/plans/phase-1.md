@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** not started. Phase 0 is done.
-- **Next task:** P1.01.
+- **Status:** in progress. P1.01 is done.
+- **Next task:** P1.02. Fields give their columns as a map from a suffix to a builder (`""` for the main column), so defineObject names the table properties `<field><Suffix>` and passes the field's snake-case name to `columns()`. A `ref` field doesn't add its foreign key; defineObject does. See decision 0014.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
@@ -33,7 +33,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Objects (`@workspace/objects`; SYSTEM_DESIGN §4.1)
 
-- [ ] **P1.01 Field types**
+- [x] **P1.01 Field types**
   - A field type library with `text`, `number`, `money`, `date`, `boolean` and `ref`.
   - Each type gives its Drizzle column, a Zod rule for input, a Zod rule for output, a plain display value, and the filter operators it supports.
   - **Done when:** every type has tests for column shape, valid and invalid input, and its filters.
@@ -200,3 +200,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 <!-- One line per finished task: YYYY-MM-DD · P1.xx · PR link · notes for the next person -->
 
 - 2026-11-06 · plan written.
+- 2026-11-06 · P1.01 · [#20](https://github.com/deagil/factory/pull/20) · `f.text`, `f.number`, `f.money`, `f.date`, `f.boolean` and `f.ref` in `packages/objects/src/fields`, with decision 0014 for what the design left open. Money is a `bigint` of minor units plus a `<field>_currency` column, and its value is `{ amount, currency }`. Dates are `YYYY-MM-DD` strings. Refs are `<field>_id` uuid columns. Input schemas hold the rules; output schemas only check the shape. Filters are objects of operators (`{ gte: 10, lt: 20 }`); `filterSchema(field)` validates one and `filterWhere(field, columns, filter)` builds its condition, for P1.04. Tests render the conditions with Drizzle's `PgDialect`; P1.04 runs them against Postgres. Ultracite turns `type X = { ... }` into an interface, and an interface doesn't fit `Record<string, …>`, so column maps are written as `MainColumn<…>` (a `Record`). Its Vitest rules want `toStrictEqual`, `toBeFalsy` and at most five `expect`s per test.

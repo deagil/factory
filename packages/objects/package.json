@@ -11,6 +11,10 @@
     "lint": "ultracite check",
     "test": "vitest run"
   },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
     "@workspace/testing": "workspace:*"
   }
