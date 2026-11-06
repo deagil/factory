@@ -7,6 +7,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "ultracite check",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@workspace/testing": "workspace:*"
   }
 }

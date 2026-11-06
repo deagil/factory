@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./vitest": "./src/vitest.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "ultracite check",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "vitest": "^5.1.0"
   }
 }

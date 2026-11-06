@@ -51,7 +51,7 @@ Use the glossary terms exactly: object, record, action, query, actor, user, perm
 
 ## Stack
 
-TypeScript (strict), Node 24, Hono, DBOS, Drizzle, Postgres, Zod 4, Better Auth, the official MCP SDK, TanStack, shadcn, Vitest. Do not introduce Effect or other frameworks that replace these; see decision 0008. Prefer adding nothing: ask before adding a dependency.
+TypeScript (strict), Node 24, Hono, DBOS, Drizzle, Postgres, Zod 4, Better Auth, the official MCP SDK, TanStack, shadcn, Vitest, and Ultracite (Oxlint + Oxfmt) for linting and formatting; see decision 0012. Do not introduce Effect or other frameworks that replace these; see decision 0008. Prefer adding nothing: ask before adding a dependency.
 
 ## Every change
 

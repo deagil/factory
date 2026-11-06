@@ -97,7 +97,7 @@ export default defineSystem({
   modules: [comms(), documents()],
   objects: [organisation, contact, deal, activity],
   actions: [moveDealStage, createFollowUp],
-})
+});
 ```
 
 ---
@@ -199,7 +199,7 @@ export const deal = defineObject({
   list: ["title", "organisation", "value", "stage"],
   actions: { update: { readOnly: ["stage"] } }, // stage moves only through deal.moveStage
   drizzle: (t) => [index().on(t.stage, t.owner)],
-})
+});
 ```
 
 - `defineObject` returns a real Drizzle table, so drizzle-kit, migrations and typed queries work as normal.
@@ -226,20 +226,20 @@ export const moveDealStage = defineAction({
   }),
   output: z.object({ deal: dealSchema }),
   async handler(ctx, { dealId, stage, reason }) {
-    const deal = await ctx.repo.deal.get(dealId, { lock: true })
-    const option = ctx.config.choice("deal-stages").get(stage) // validated, not archived
+    const deal = await ctx.repo.deal.get(dealId, { lock: true });
+    const option = ctx.config.choice("deal-stages").get(stage); // validated, not archived
     if (option.category === "lost" && !reason)
-      throw ctx.invalid("A reason is required for lost deals")
-    const updated = await ctx.repo.deal.update(dealId, { stage })
+      throw ctx.invalid("A reason is required for lost deals");
+    const updated = await ctx.repo.deal.update(dealId, { stage });
     ctx.emit("deal.stageChanged", {
       dealId,
       from: deal.stage,
       to: stage,
       category: option.category,
-    })
-    return { deal: updated }
+    });
+    return { deal: updated };
   },
-})
+});
 ```
 
 Every action, whoever calls it, runs the same pipeline in one database transaction:
@@ -323,11 +323,11 @@ The config service uses plain git (clone, branch, commit, push, fetch) against a
 
 **How it works.** Each option has a key (stored on records), a label (what people see), an optional category, and an archived flag. The field's `control` decides what staff can change:
 
-| Control  | Staff can                                                   | Code acts on    | Example                      |
-| -------- | ----------------------------------------------------------- | --------------- | ---------------------------- |
-| `system` | Rename labels                                               | Specific keys   | Booking status               |
+| Control | Staff can | Code acts on | Example |
+| --- | --- | --- | --- |
+| `system` | Rename labels | Specific keys | Booking status |
 | `mapped` | Add, rename, reorder, archive; each option picks a category | Categories only | Deal stages: open, won, lost |
-| `custom` | Anything                                                    | Nothing         | Activity type, industry      |
+| `custom` | Anything | Nothing | Activity type, industry |
 
 ```yaml
 # config/choices/deal-stages.yaml
@@ -430,12 +430,12 @@ The web surface shows a timeline on every record, built from `audit_log` and `ac
 
 All surfaces are generated from the same registry of objects, actions, queries and config types.
 
-| Surface            | For                               | Built from                                                                                                                                         |
-| ------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP API + OpenAPI | The web surface, external systems | A route per action and query, with the Zod schemas                                                                                                 |
-| MCP server         | In-app and external agents        | A tool per action and query the actor may call, plus config and introspection tools                                                                |
-| Web                | Staff                             | Generated list and record screens per object, forms from action inputs, config editors, drafts and approvals inbox, run inspector, record timeline |
-| SDK                | Developers of external systems    | Generated from the OpenAPI spec                                                                                                                    |
+| Surface | For | Built from |
+| --- | --- | --- |
+| HTTP API + OpenAPI | The web surface, external systems | A route per action and query, with the Zod schemas |
+| MCP server | In-app and external agents | A tool per action and query the actor may call, plus config and introspection tools |
+| Web | Staff | Generated list and record screens per object, forms from action inputs, config editors, drafts and approvals inbox, run inspector, record timeline |
+| SDK | Developers of external systems | Generated from the OpenAPI spec |
 
 The page builder (phase 4) adds staff-composed pages from blocks over the same queries and actions. The pages are config files.
 
@@ -454,7 +454,7 @@ export const comms = () =>
     configTypes: [emailTemplate],
     events: ["email.sent", "email.failed"],
     screens: [templatesScreen],
-  })
+  });
 ```
 
 A client's `system.ts` switches modules on. Its tables exist only in instances that use it.
@@ -496,11 +496,11 @@ You run `fx start "deal forecasting"`, add a `forecast` field and a `deal.foreca
 
 ### Branches and environments
 
-| Branch          | Runs on        | Receives                                                    |
-| --------------- | -------------- | ----------------------------------------------------------- |
-| Change branches | Local, preview | One change each, merged into `main` within hours or days    |
-| `main`          | Staging        | Every merged change; staff publishes copied back by the bot |
-| `production`    | Production     | Releases promoted from `main`; staff publishes              |
+| Branch | Runs on | Receives |
+| --- | --- | --- |
+| Change branches | Local, preview | One change each, merged into `main` within hours or days |
+| `main` | Staging | Every merged change; staff publishes copied back by the bot |
+| `production` | Production | Releases promoted from `main`; staff publishes |
 
 ### Migrations
 
@@ -527,12 +527,12 @@ Agents use the system in two ways, through one set of tools.
 
 Agents work like a developer with `fx`, either as the CLI or as `fx`'s MCP tools, inside a client repo or the core repo.
 
-| Tool group    | Examples                                                                             |
-| ------------- | ------------------------------------------------------------------------------------ |
-| Changes       | `fx start`, `fx switch`, `fx ship`, `fx status`                                      |
+| Tool group | Examples |
+| --- | --- |
+| Changes | `fx start`, `fx switch`, `fx ship`, `fx status` |
 | Introspection | `fx describe` lists objects, fields, actions, events, config types and their schemas |
-| Scaffolding   | `fx add object`, `fx add action`, `fx add config workflow`                           |
-| Checks        | `fx check` runs types, tests, `validateConfig` and migration lint locally            |
+| Scaffolding | `fx add object`, `fx add action`, `fx add config workflow` |
+| Checks | `fx check` runs types, tests, `validateConfig` and migration lint locally |
 
 The repo's `AGENTS.md` sets the rules: use `fx`, never raw git or Drizzle; every capability is an action; every table is a `defineObject`; every change ships with tests. A typical ticket is: describe, scaffold, implement, check, ship. CI is the final word.
 
@@ -540,12 +540,12 @@ The repo's `AGENTS.md` sets the rules: use `fx`, never raw git or Drizzle; every
 
 At runtime, agents connect to an instance's MCP server as an actor acting for a person.
 
-| Tool group | Examples                                                      | Who can use it                                 |
-| ---------- | ------------------------------------------------------------- | ---------------------------------------------- |
-| Operate    | `deal.moveStage`, `contact.create`, start a workflow, approve | Whatever the actor's permissions allow         |
-| Query      | Search and read records, history, workflow runs               | Filtered by the same permissions               |
-| Configure  | List config types, draft, validate, submit and publish drafts | Config permissions; approval rules still apply |
-| Introspect | Describe objects, actions, choices, workflows                 | Anyone signed in                               |
+| Tool group | Examples | Who can use it |
+| --- | --- | --- |
+| Operate | `deal.moveStage`, `contact.create`, start a workflow, approve | Whatever the actor's permissions allow |
+| Query | Search and read records, history, workflow runs | Filtered by the same permissions |
+| Configure | List config types, draft, validate, submit and publish drafts | Config permissions; approval rules still apply |
+| Introspect | Describe objects, actions, choices, workflows | Anyone signed in |
 
 - **The in-app agent** (phase 4) is a client of this MCP server running as the signed-in staff member. It has no tools an external agent with the same permissions lacks.
 - **External agents** (Claude Code, Cursor or the client's own) connect with the same tools. With repo access as well, they can also develop.
@@ -566,23 +566,23 @@ At runtime, agents connect to an instance's MCP server as an actor acting for a 
 
 Plain TypeScript on boring, popular tools. Decision record: [0008](decisions/0008-plain-typescript-effect-deferred.md).
 
-| Layer                    | Choice                                                                                | Notes                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Language and runtime     | TypeScript on Node 24 LTS                                                             | Strict mode everywhere                                                                |
-| HTTP                     | Hono                                                                                  | Routes are generated from the action registry                                         |
-| Validation and contracts | Zod 4                                                                                 | One schema per action drives validation, OpenAPI, MCP tools and forms                 |
-| API transport            | Our own generator on Hono, or oRPC                                                    | Prototype both in phase 1 and keep whichever is less code                             |
-| Durable workflows        | DBOS Transact                                                                         | Needs only the program and Postgres                                                   |
-| Database                 | Postgres and Drizzle                                                                  | Start on current stable; move to v1 when it is stable                                 |
-| Auth                     | Better Auth                                                                           | Client SSO plus magic link                                                            |
-| MCP                      | Official TypeScript MCP SDK                                                           | Tools generated from the action registry                                              |
-| Web surface              | TanStack Start in SPA mode, TanStack Router, Query, Table and Form; shadcn on Base UI | From the template; no server functions for data, everything goes through the HTTP API |
-| AI and in-app agent      | Vercel AI SDK; harness still open                                                     | Phase 4                                                                               |
-| Git from the server      | git command-line tool                                                                 |                                                                                       |
-| Config files             | YAML via the `yaml` package                                                           | Rewrites files without losing comments                                                |
-| Tests                    | Vitest on real Postgres                                                               | Plus generated contract tests                                                         |
-| Monorepo                 | pnpm and Turborepo                                                                    |                                                                                       |
-| Observability            | OpenTelemetry                                                                         |                                                                                       |
+| Layer | Choice | Notes |
+| --- | --- | --- |
+| Language and runtime | TypeScript on Node 24 LTS | Strict mode everywhere |
+| HTTP | Hono | Routes are generated from the action registry |
+| Validation and contracts | Zod 4 | One schema per action drives validation, OpenAPI, MCP tools and forms |
+| API transport | Our own generator on Hono, or oRPC | Prototype both in phase 1 and keep whichever is less code |
+| Durable workflows | DBOS Transact | Needs only the program and Postgres |
+| Database | Postgres and Drizzle | Start on current stable; move to v1 when it is stable |
+| Auth | Better Auth | Client SSO plus magic link |
+| MCP | Official TypeScript MCP SDK | Tools generated from the action registry |
+| Web surface | TanStack Start in SPA mode, TanStack Router, Query, Table and Form; shadcn on Base UI | From the template; no server functions for data, everything goes through the HTTP API |
+| AI and in-app agent | Vercel AI SDK; harness still open | Phase 4 |
+| Git from the server | git command-line tool |  |
+| Config files | YAML via the `yaml` package | Rewrites files without losing comments |
+| Tests | Vitest on real Postgres | Plus generated contract tests |
+| Monorepo | pnpm and Turborepo |  |
+| Observability | OpenTelemetry |  |
 
 **Effect is deferred, not rejected.** In Effect 4.0 the HTTP, HttpApi, SQL, RPC, workflow, cluster, AI and observability modules are marked unstable, workflows are less mature than DBOS, agents need the Effect source vendored to write correct v4 code, and client developers would have to learn it at handover. Code is written so a later move stays cheap:
 
@@ -596,43 +596,43 @@ A one-week trial after phase 1 rebuilds the action pipeline, one route, one MCP 
 
 ## 10. Glossary
 
-| Term                  | Meaning                                                                                                                                                                                        |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Object**            | A record type, such as Deal or Contact, defined with `defineObject`.                                                                                                                           |
-| **Record**            | One instance of an object: a row in its table.                                                                                                                                                 |
-| **Field type**        | A kind of field (text, money, date, choice, reference and so on) that knows its column, validation, input and display.                                                                         |
-| **Custom fields**     | Fields staff add to an object through config, stored in the record's `custom_fields` column.                                                                                                   |
-| **Choice field**      | A dropdown field. Its options are `system` (code owns the values; staff rename only), `mapped` (staff add options, each in a category code knows), or `custom` (staff own them entirely).      |
-| **Category**          | One of the few outcomes code acts on for a mapped choice field, such as open, won or lost.                                                                                                     |
-| **Action**            | Anything that changes data, defined with `defineAction`. Generated ones (create, update, archive) come with each object.                                                                       |
-| **Query**             | Anything that reads data, defined with `defineQuery`.                                                                                                                                          |
-| **Action pipeline**   | The fixed sequence every action runs through: identify, validate, retry check, authorise, approve, run, record, commit.                                                                        |
-| **Action registry**   | Every action and query, from which every surface is generated.                                                                                                                                 |
-| **Surface**           | A way into the system: the HTTP API, MCP, the CLI or the web. All are equal clients of the action registry.                                                                                    |
-| **Repository**        | The only code that writes records; called only from inside actions.                                                                                                                            |
-| **Data access layer** | The only code that reads records; applies permissions and scopes.                                                                                                                              |
-| **User**              | A person who signs in.                                                                                                                                                                         |
-| **Actor**             | Whoever performs an action: staff, an agent, an integration or automation.                                                                                                                     |
-| **Origin user**       | The person at the start of a chain of actions, recorded on every action so "who started this" is always answerable.                                                                            |
-| **Role**              | A named set of permissions, defined in config.                                                                                                                                                 |
-| **Permission**        | One line in a role: which object or action, what can be done, and the scope.                                                                                                                   |
-| **Scope**             | Which records a permission covers. Only `all` in version one.                                                                                                                                  |
-| **Approval rule**     | When an action or a draft needs sign-off, and from whom.                                                                                                                                       |
-| **`action_log`**      | Every action run: who, for whom, input, result, config version.                                                                                                                                |
-| **`audit_log`**       | Every field change to every record: old value, new value, which action, which actor.                                                                                                           |
-| **Event**             | A fact that something happened, named in the past tense, declared on the action that emits it.                                                                                                 |
-| **`event_log`**       | Every event, written by actions and dispatched to workflows.                                                                                                                                   |
-| **Config**            | Staff-editable definitions kept as files in git: choices, fields, roles, approvals, workflows, templates, pages, flags.                                                                        |
-| **Config loader**     | Loads config from git into the running system and swaps it in without a deploy.                                                                                                                |
-| **Draft**             | A staff edit of one or more config files, validated, approved if needed, then published together.                                                                                              |
-| **Workflow**          | A config file describing steps that run when an event, schedule or manual start triggers it. The only thing that reacts to events. Acts as itself, with permissions worked out from its steps. |
-| **Step**              | One line of a workflow: either runs an action or controls flow (condition, wait, wait for approval).                                                                                           |
-| **Dispatcher**        | Starts one workflow run per matching event and workflow.                                                                                                                                       |
-| **Module**            | An optional package of objects, actions and config types, such as comms or payments.                                                                                                           |
-| **System**            | One client's system: a client repo with `defineSystem`, deployed as its own instance.                                                                                                          |
-| **Change**            | One developer unit of work: ticket, branch, worktree, local database, preview and PR, managed by `fx`.                                                                                         |
-| **`main`**            | The next release; staging runs it.                                                                                                                                                             |
-| **`production`**      | What production runs; releases promote `main` into it, and staff drafts publish to it.                                                                                                         |
-| **Sync bot**          | Copies every staff publish from `production` back into `main`.                                                                                                                                 |
-| **Schema check**      | Start-up and CI check that the database matches the object definitions.                                                                                                                        |
-| **Example systems**   | The CRM, bookings and cases systems used to design and test the core.                                                                                                                          |
+| Term | Meaning |
+| --- | --- |
+| **Object** | A record type, such as Deal or Contact, defined with `defineObject`. |
+| **Record** | One instance of an object: a row in its table. |
+| **Field type** | A kind of field (text, money, date, choice, reference and so on) that knows its column, validation, input and display. |
+| **Custom fields** | Fields staff add to an object through config, stored in the record's `custom_fields` column. |
+| **Choice field** | A dropdown field. Its options are `system` (code owns the values; staff rename only), `mapped` (staff add options, each in a category code knows), or `custom` (staff own them entirely). |
+| **Category** | One of the few outcomes code acts on for a mapped choice field, such as open, won or lost. |
+| **Action** | Anything that changes data, defined with `defineAction`. Generated ones (create, update, archive) come with each object. |
+| **Query** | Anything that reads data, defined with `defineQuery`. |
+| **Action pipeline** | The fixed sequence every action runs through: identify, validate, retry check, authorise, approve, run, record, commit. |
+| **Action registry** | Every action and query, from which every surface is generated. |
+| **Surface** | A way into the system: the HTTP API, MCP, the CLI or the web. All are equal clients of the action registry. |
+| **Repository** | The only code that writes records; called only from inside actions. |
+| **Data access layer** | The only code that reads records; applies permissions and scopes. |
+| **User** | A person who signs in. |
+| **Actor** | Whoever performs an action: staff, an agent, an integration or automation. |
+| **Origin user** | The person at the start of a chain of actions, recorded on every action so "who started this" is always answerable. |
+| **Role** | A named set of permissions, defined in config. |
+| **Permission** | One line in a role: which object or action, what can be done, and the scope. |
+| **Scope** | Which records a permission covers. Only `all` in version one. |
+| **Approval rule** | When an action or a draft needs sign-off, and from whom. |
+| **`action_log`** | Every action run: who, for whom, input, result, config version. |
+| **`audit_log`** | Every field change to every record: old value, new value, which action, which actor. |
+| **Event** | A fact that something happened, named in the past tense, declared on the action that emits it. |
+| **`event_log`** | Every event, written by actions and dispatched to workflows. |
+| **Config** | Staff-editable definitions kept as files in git: choices, fields, roles, approvals, workflows, templates, pages, flags. |
+| **Config loader** | Loads config from git into the running system and swaps it in without a deploy. |
+| **Draft** | A staff edit of one or more config files, validated, approved if needed, then published together. |
+| **Workflow** | A config file describing steps that run when an event, schedule or manual start triggers it. The only thing that reacts to events. Acts as itself, with permissions worked out from its steps. |
+| **Step** | One line of a workflow: either runs an action or controls flow (condition, wait, wait for approval). |
+| **Dispatcher** | Starts one workflow run per matching event and workflow. |
+| **Module** | An optional package of objects, actions and config types, such as comms or payments. |
+| **System** | One client's system: a client repo with `defineSystem`, deployed as its own instance. |
+| **Change** | One developer unit of work: ticket, branch, worktree, local database, preview and PR, managed by `fx`. |
+| **`main`** | The next release; staging runs it. |
+| **`production`** | What production runs; releases promote `main` into it, and staff drafts publish to it. |
+| **Sync bot** | Copies every staff publish from `production` back into `main`. |
+| **Schema check** | Start-up and CI check that the database matches the object definitions. |
+| **Example systems** | The CRM, bookings and cases systems used to design and test the core. |
