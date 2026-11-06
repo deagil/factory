@@ -6,6 +6,7 @@
 export {
   adminUrl,
   coreMigrationsFolder,
+  createDatabase,
   createDatabaseFromTemplate,
   databaseUrl,
   dropDatabase,

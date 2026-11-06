@@ -8,6 +8,8 @@ Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), sections 6. Delive
 
 ```bash
 pnpm fx start "deal pipeline"   # branch, worktree, database and .env in one step
+pnpm fx dev               # in the worktree: dev servers on the change's database
+pnpm fx dev --reset       # rebuild the change's database from the schema first
 pnpm fx status            # the current change, its branch, database and last checks
 pnpm fx status --json     # the same, as JSON on stdout, for agents
 pnpm fx --help
@@ -30,5 +32,14 @@ pnpm fx --help
   - `pnpm install` in the worktree, then the entry in `.fx/`.
 
   It refuses a dirty working tree, or a name already taken by a state entry, branch, folder or database. If a step fails, it undoes the earlier ones.
+
+- `fx dev` runs in a change's worktree. It prints which database it uses, then:
+  - pushes the Drizzle schema to the change's database with `drizzle-kit push --force`. Data in a change database is disposable, and no migration files are written; `fx ship` writes the one migration;
+  - runs the worktree's `turbo dev --ui=stream` with `DATABASE_URL` pointed at the change's database;
+  - pushes again whenever a `.ts` file under `packages/db/src/schema` is saved (test files are ignored), one push at a time.
+
+  A failed push is reported and the dev servers keep running; the next save tries again. drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. When it needs to, restart with `fx dev --reset`, which drops the database and rebuilds it, empty, from the schema.
+
+  With `--json`, fx dev prints one JSON object per line (`started`, `schema_pushed`, `schema_push_failed`, `stopped`, each with `ok`), and the dev servers' output goes to stderr. Stop it with Ctrl-C or SIGTERM. fx dev passes SIGTERM on to the dev servers once, and kills them if they haven't stopped after 10 seconds.
 
 - fx loads the main checkout's `.env` for `DATABASE_ADMIN_URL`. The template helpers come from `@workspace/testing/databases`, which doesn't load Vitest.

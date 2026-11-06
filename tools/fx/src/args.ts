@@ -32,6 +32,13 @@ export const commands = {
     options: { "skip-install": { type: "boolean", default: false } },
     positionals: { min: 1, max: 1 },
   },
+  dev: {
+    summary:
+      "Run the dev servers on the change's database, pushing schema edits to it as you save",
+    usage: "fx dev [--reset] [--json]",
+    options: { reset: { type: "boolean", default: false } },
+    positionals: { min: 0, max: 0 },
+  },
 } as const satisfies Record<string, CommandSpec>;
 
 export type CommandName = keyof typeof commands;

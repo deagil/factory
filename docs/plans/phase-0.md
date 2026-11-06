@@ -7,8 +7,10 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.11.
-- **Known issues:** none yet.
+- **Next task:** P0.12.
+- **Known issues:**
+  - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` reports this and points to `fx dev --reset`. `fx ship` (P0.12) will hit the same question when it generates the migration, so it needs an answer that works for agents.
+  - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
 - **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
 
@@ -94,7 +96,7 @@
   - **Needs:** P0.06, P0.09.
   - **Done when:** `fx start "try it"` leaves a worktree that passes `pnpm test` against its own database, and running it twice with the same name gives a clear error.
 
-- [ ] **P0.11 `fx dev`**
+- [x] **P0.11 `fx dev`**
   - Runs the dev servers with the change's database. When the Drizzle schema changes, it pushes the schema to that database with `drizzle-kit push`, without writing migration files.
   - Prints which database it is using.
   - **Needs:** P0.10.
@@ -135,3 +137,4 @@
 - 2026-11-06 · P0.07 · [#6](https://github.com/deagil/factory/pull/6) · Each CI check runs even if an earlier one failed, so one run shows every problem. Contract steps are marked with a first-line `-- contract-step: <why>` (decision 0013). The lint also refuses `TRUNCATE` and new `NOT NULL` columns without a default. `db:check-migrations` uses its own throwaway database, never `DATABASE_URL`. CI also fails if any `factory_test_*` database is left behind.
 - 2026-11-06 · P0.09 · [#7](https://github.com/deagil/factory/pull/7) · `pnpm fx` runs `tools/fx/src/cli.ts` with Node's type stripping; no build and no dependencies. `--json` output and errors go to stdout (pnpm's banner goes to stderr), with typed error codes and exit code 2 for usage errors. State is `.fx/changes/<slug>.json` in the main checkout, found from worktrees through `--git-common-dir`. `lastCheck` stays null until `fx ship` records results.
 - 2026-11-06 · P0.10 · [#9](https://github.com/deagil/factory/pull/9) · `fx start` branches from `origin/main` after a fetch (local `main` if there's no remote). It clones the change database from the same migrations-hash template the tests use, via `@workspace/testing/databases`, a Vitest-free split of the test helpers. It runs `pnpm install` in the worktree and undoes earlier steps in reverse if any step fails. Tests drive it against a temporary repo with a bare origin; `--skip-install` exists for them.
+- 2026-11-06 · P0.11 · [#10](https://github.com/deagil/factory/pull/10) · `fx dev` must run in a change's worktree. It pushes the schema with `drizzle-kit push --force` (a change database's data is disposable), then runs the worktree's `turbo dev --ui=stream` with `DATABASE_URL` set (turbo's `dev` task passes it through), then pushes again on every save under `packages/db/src/schema`. drizzle-kit exits 0 even when a push fails, so success is read from its output. `--reset` rebuilds the database empty and pushes the whole schema, which is the way past a rename. Turbo runs directly, in its own process group with no stdin, and always gets SIGTERM, once: pnpm's launcher drops some signals, and turbo leaves its tasks running if it gets a second one. Ctrl-C, and SIGTERM to the outer `pnpm`, the inner `pnpm` or fx itself, were each checked to stop everything. A column added while it ran reached the database in 2.5s, with no migration file.

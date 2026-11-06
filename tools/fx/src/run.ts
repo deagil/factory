@@ -1,5 +1,6 @@
 import { helpText, parseCliArgs } from "./args.ts";
 import type { ParsedArgs } from "./args.ts";
+import { dev } from "./commands/dev.ts";
 import { formatStart, start } from "./commands/start.ts";
 import { formatStatus, status } from "./commands/status.ts";
 import { writeError, writeResult } from "./output.ts";
@@ -33,6 +34,13 @@ export const run = async (
         });
         writeResult(args.json, { change }, formatStart(change, cwd));
         return 0;
+      }
+      case "dev": {
+        // Long-running: it writes its own output as it goes.
+        return await dev(cwd, {
+          reset: args.options.reset === true,
+          json: args.json,
+        });
       }
       default: {
         const unreachable: never = args.command;

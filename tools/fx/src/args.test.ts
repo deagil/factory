@@ -40,8 +40,19 @@ describe(parseCliArgs, () => {
     });
   });
 
+  it("parses fx dev --reset", () => {
+    expect(parseCliArgs(["dev", "--reset", "--json"])).toStrictEqual({
+      command: "dev",
+      positionals: [],
+      options: { reset: true },
+      json: true,
+      help: false,
+    });
+  });
+
   it.each([
     [["nope"], /Unknown command "nope"/u],
+    [["dev", "extra"], /Wrong number of arguments/u],
     [["status", "--bogus"], /--bogus/u],
     [["status", "extra"], /Wrong number of arguments/u],
   ])("refuses %j with a usage error", (argv, message) => {
