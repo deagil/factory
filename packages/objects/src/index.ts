@@ -73,3 +73,13 @@ export {
   sortKeysOf,
 } from "./dal/list-input.ts";
 export type { ArchivedMode, Cursor, ListInput } from "./dal/list-input.ts";
+export { createRepository } from "./repository.ts";
+export type {
+  ArchiveResult,
+  Changes,
+  Repository,
+  RepositoryOptions,
+  UpdateOptions,
+  UpdateResult,
+  WriteValues,
+} from "./repository.ts";

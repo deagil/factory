@@ -120,7 +120,7 @@ api_keys           id, actor_id, key_hash, label, last_used_at, revoked_at
 action_log         id, name, actor_id, origin_user_id, run_id, input jsonb, result jsonb,
                    error jsonb, status (pending_approval | succeeded | failed | rejected),
                    retry_key, dry_run, config_sha, created_at, completed_at
-audit_log          id, object, record_id, field, old_value jsonb, new_value jsonb,
+audit_log          id, object, record_id, before jsonb, after jsonb,  -- changed fields only
                    action_id, actor_id, at
 approvals          id, subject (action | draft), subject_id, rule_key, approver_role,
                    required, status
@@ -420,7 +420,8 @@ steps:
 
 **How it works.** Repositories write it, inside the action pipeline, not database triggers:
 
-- each update reads the current row, applies the change, compares old and new field by field (custom fields per key), and writes `audit_log` rows;
+- each update reads the current row, applies the change, compares old and new field by field (custom fields per key), and writes one `audit_log` row holding the changed fields `before` and `after` (decision 0018);
+- a create writes one row with an empty `before`; a change that changes nothing writes none;
 - the action_log row, audit_log rows and events commit together;
 - housekeeping columns are skipped; the API's database role is the only writer, and backfills run as actions under the automation actor.
 
@@ -619,7 +620,7 @@ A one-week trial after phase 1 rebuilds the action pipeline, one route, one MCP 
 | **Scope** | Which records a permission covers. Only `all` in version one. |
 | **Approval rule** | When an action or a draft needs sign-off, and from whom. |
 | **`action_log`** | Every action run: who, for whom, input, result, config version. |
-| **`audit_log`** | Every field change to every record: old value, new value, which action, which actor. |
+| **`audit_log`** | Every change to every record: one row per record per action, with the changed fields `before` and `after`, which action, which actor. |
 | **Event** | A fact that something happened, named in the past tense, declared on the action that emits it. |
 | **`event_log`** | Every event, written by actions and dispatched to workflows. |
 | **Config** | Staff-editable definitions kept as files in git: choices, fields, roles, approvals, workflows, templates, pages, flags. |
