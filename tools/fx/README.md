@@ -12,6 +12,8 @@ pnpm fx dev               # in the worktree: dev servers on the change's databas
 pnpm fx dev --reset       # rebuild the change's database from the schema first
 pnpm fx ship              # rebase, write the one migration, run every check, push, open the PR
 pnpm fx ship --contract-step "x is unused since #12"   # the migration is a contract step
+pnpm fx switch refunds    # where another change's worktree is: cd "$(pnpm --silent fx switch refunds --path)"
+pnpm fx done              # once merged: remove the worktree, branch, database and .fx entry
 pnpm fx status            # the current change, its branch, database and last checks
 pnpm fx status --json     # the same, as JSON on stdout, for agents
 pnpm fx --help
@@ -52,5 +54,8 @@ pnpm fx --help
   5. pushes with `--force-with-lease`, then opens a PR with `gh pr create --fill-first`, or finds the open one. Without `gh`, it prints the compare URL.
 
   `--contract-step "<why>"` makes the migration a contract step: it becomes the first line, `-- contract-step: <why>`, which the migration lint needs before it allows a destructive statement. Later ships keep it. If drizzle-kit would have to ask whether something was renamed, fx ship stops: renames aren't expand-safe, so add the new column in this change and drop the old one in a later contract step.
+
+- `fx switch <name>` finds another change's worktree. A command can't change its shell's directory, so it prints the `cd`; `--path` prints only the path.
+- `fx done [<name>]` (the current change if no name is given) checks that the branch is merged into `origin/main`. Merged means one of: its commits are in main's history; merging it into main changes nothing, which is how a squash merge looks; or `gh` knows of a merged PR from it. Then it removes the worktree, the local branch, origin's branch, the database and the `.fx` entry. Last, it drops template databases that neither the main checkout nor an open change uses, since tests rebuild them on demand. It refuses an unmerged change or uncommitted work unless given `--force`, which leaves origin's branch alone.
 
 - fx loads the main checkout's `.env` for `DATABASE_ADMIN_URL`. The template helpers come from `@workspace/testing/databases`, which doesn't load Vitest.

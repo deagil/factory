@@ -40,6 +40,19 @@ describe(parseCliArgs, () => {
     });
   });
 
+  it("parses fx switch and fx done", () => {
+    expect(parseCliArgs(["switch", "deal pipeline", "--path"])).toMatchObject({
+      command: "switch",
+      positionals: ["deal pipeline"],
+      options: { path: true },
+    });
+    expect(parseCliArgs(["done", "--force"])).toMatchObject({
+      command: "done",
+      positionals: [],
+      options: { force: true },
+    });
+  });
+
   it("parses fx ship --contract-step", () => {
     expect(
       parseCliArgs(["ship", "--contract-step", "x is unused since #12"])

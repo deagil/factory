@@ -12,6 +12,10 @@ export {
   watchSchema,
 } from "./commands/dev.ts";
 export type { DevEvent, DevOptions, PushResult } from "./commands/dev.ts";
+export { done, formatDone, isMerged, staleTemplates } from "./commands/done.ts";
+export type { DoneOptions, DoneResult } from "./commands/done.ts";
+export { formatSwitch, requireChange, switchTo } from "./commands/switch.ts";
+export type { SwitchResult } from "./commands/switch.ts";
 export {
   compareUrl,
   contractReason,
