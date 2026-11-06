@@ -6,6 +6,13 @@ export type { Db, Executor, Schema, Tx } from "./client.ts";
 export { loadEnv, redactUrl, requireEnv, rootEnvFile } from "./env.ts";
 export { migrationsFolder, runMigrations } from "./migrate.ts";
 export {
+  contractMarker,
+  isContractStep,
+  lintMigration,
+  splitStatements,
+} from "./migration-lint.ts";
+export type { MigrationFinding } from "./migration-lint.ts";
+export {
   actionLog,
   actionStatuses,
   actorKinds,
