@@ -1,6 +1,7 @@
 import { helpText, parseCliArgs } from "./args.ts";
 import type { ParsedArgs } from "./args.ts";
 import { dev } from "./commands/dev.ts";
+import { formatShip, ship } from "./commands/ship.ts";
 import { formatStart, start } from "./commands/start.ts";
 import { formatStatus, status } from "./commands/status.ts";
 import { writeError, writeResult } from "./output.ts";
@@ -33,6 +34,15 @@ export const run = async (
           skipInstall: args.options["skip-install"] === true,
         });
         writeResult(args.json, { change }, formatStart(change, cwd));
+        return 0;
+      }
+      case "ship": {
+        const contractStep = args.options["contract-step"];
+        const result = await ship(cwd, {
+          contractStep:
+            typeof contractStep === "string" ? contractStep : undefined,
+        });
+        writeResult(args.json, result, formatShip(result));
         return 0;
       }
       case "dev": {

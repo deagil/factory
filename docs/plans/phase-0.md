@@ -7,11 +7,12 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.12.
+- **Next task:** P0.13 (stretch). P0.14 waits on P0.08.
 - **Known issues:**
-  - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` reports this and points to `fx dev --reset`. `fx ship` (P0.12) will hit the same question when it generates the migration, so it needs an answer that works for agents.
+  - `main` isn't protected yet: P0.08 needs GitHub Pro or a public repo, which is Dylan's call. Until then, nothing stops a direct push, so always go through `fx ship`.
+  - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
-- **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
+- **Use `fx` for every change:** `fx start`, `fx dev`, `fx ship`. Until P0.13 adds `fx done`, remove a finished change by hand: its worktree, branch, database and `.fx/changes/<slug>.json`.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
 
 ## Tasks
@@ -103,7 +104,7 @@
   - **Needs:** P0.10.
   - **Done when:** adding a column to a schema file shows up in the change's database within a few seconds while `fx dev` runs, and no migration file is created.
 
-- [ ] **P0.12 `fx ship`**
+- [x] **P0.12 `fx ship`**
   - Rebases on `main`, then generates one migration for the change by diffing against `main`'s schema, and runs the migration lint. It then runs typecheck, lint and tests, and applies the migration to a fresh database.
   - If all of that passes, it pushes the branch and opens a PR. It uses `gh` when it's installed; otherwise it prints the compare URL.
   - Running `fx ship` again after more commits replaces the change's migration rather than adding a second one.
@@ -139,3 +140,4 @@
 - 2026-11-06 · P0.09 · [#7](https://github.com/deagil/factory/pull/7) · `pnpm fx` runs `tools/fx/src/cli.ts` with Node's type stripping; no build and no dependencies. `--json` output and errors go to stdout (pnpm's banner goes to stderr), with typed error codes and exit code 2 for usage errors. State is `.fx/changes/<slug>.json` in the main checkout, found from worktrees through `--git-common-dir`. `lastCheck` stays null until `fx ship` records results.
 - 2026-11-06 · P0.10 · [#9](https://github.com/deagil/factory/pull/9) · `fx start` branches from `origin/main` after a fetch (local `main` if there's no remote). It clones the change database from the same migrations-hash template the tests use, via `@workspace/testing/databases`, a Vitest-free split of the test helpers. It runs `pnpm install` in the worktree and undoes earlier steps in reverse if any step fails. Tests drive it against a temporary repo with a bare origin; `--skip-install` exists for them.
 - 2026-11-06 · P0.11 · [#10](https://github.com/deagil/factory/pull/10) · `fx dev` must run in a change's worktree. It pushes the schema with `drizzle-kit push --force` (a change database's data is disposable), then runs the worktree's `turbo dev --ui=stream` with `DATABASE_URL` set (turbo's `dev` task passes it through), then pushes again on every save under `packages/db/src/schema`. drizzle-kit exits 0 even when a push fails, so success is read from its output. `--reset` rebuilds the database empty and pushes the whole schema, which is the way past a rename. Turbo runs directly, in its own process group with no stdin, and always gets SIGTERM, once: pnpm's launcher drops some signals, and turbo leaves its tasks running if it gets a second one. Ctrl-C, and SIGTERM to the outer `pnpm`, the inner `pnpm` or fx itself, were each checked to stop everything. A column added while it ran reached the database in 2.5s, with no migration file.
+- 2026-11-06 · P0.12 · [#15](https://github.com/deagil/factory/pull/15) · `fx ship` first takes out the migration commit an earlier ship wrote, found by its `Fx-Migration: <slug>` trailer. It then rebases on `origin/main` and refuses hand edits to `packages/db/migrations`. It writes the migration with `drizzle-kit generate --name <slug>` and commits it last, so a migration that lands on main first renumbers it instead of conflicting. Next it runs the migration lint, typecheck, lint, tests and `db:check-migrations`, stopping at the first failure, and records `lastCheck`. Finally it pushes with `--force-with-lease` and opens the PR with `gh pr create --fill-first`, so the first commit's subject is the title; without `gh` it prints a GitHub-style compare URL. `--contract-step "<why>"` writes the marker, and later ships keep it. A rename stops it with expand/contract advice instead of a prompt. `db:check-migrations` now also fails when drizzle-kit stops to ask; before, an unmigrated rename passed. Proof: a real `fx start` change shipped as [#14](https://github.com/deagil/factory/pull/14) with one migration and green CI. A second commit and ship still left one migration, now with both columns, and #14 was closed. Found on the way: oxfmt rejected drizzle-kit's JSON, so every new migration failed lint; fixed in [#13](https://github.com/deagil/factory/pull/13).

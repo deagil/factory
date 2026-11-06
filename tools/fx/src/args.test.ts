@@ -40,6 +40,15 @@ describe(parseCliArgs, () => {
     });
   });
 
+  it("parses fx ship --contract-step", () => {
+    expect(
+      parseCliArgs(["ship", "--contract-step", "x is unused since #12"])
+    ).toMatchObject({
+      command: "ship",
+      options: { "contract-step": "x is unused since #12" },
+    });
+  });
+
   it("parses fx dev --reset", () => {
     expect(parseCliArgs(["dev", "--reset", "--json"])).toStrictEqual({
       command: "dev",

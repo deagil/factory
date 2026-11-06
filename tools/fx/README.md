@@ -10,6 +10,8 @@ Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), sections 6. Delive
 pnpm fx start "deal pipeline"   # branch, worktree, database and .env in one step
 pnpm fx dev               # in the worktree: dev servers on the change's database
 pnpm fx dev --reset       # rebuild the change's database from the schema first
+pnpm fx ship              # rebase, write the one migration, run every check, push, open the PR
+pnpm fx ship --contract-step "x is unused since #12"   # the migration is a contract step
 pnpm fx status            # the current change, its branch, database and last checks
 pnpm fx status --json     # the same, as JSON on stdout, for agents
 pnpm fx --help
@@ -41,5 +43,14 @@ pnpm fx --help
   A failed push is reported and the dev servers keep running; the next save tries again. drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. When it needs to, restart with `fx dev --reset`, which drops the database and rebuilds it, empty, from the schema.
 
   With `--json`, fx dev prints one JSON object per line (`started`, `schema_pushed`, `schema_push_failed`, `stopped`, each with `ok`), and the dev servers' output goes to stderr. Stop it with Ctrl-C or SIGTERM. fx dev passes SIGTERM on to the dev servers once, and kills them if they haven't stopped after 10 seconds.
+
+- `fx ship` runs in a change's worktree, on its branch, with everything committed. In order, it:
+  1. fetches `origin/main` and rebases the branch on it, after taking out the migration commit an earlier ship wrote. The person's commits come first and the migration commit always comes last, so main's new migrations never conflict with it;
+  2. refuses if the branch edits `packages/db/migrations` itself: fx ship writes the change's one migration;
+  3. runs `drizzle-kit generate --name <slug>` and commits the result as `chore: migration for <name>` with an `Fx-Migration: <slug>` trailer. That trailer is how the next ship finds the commit and replaces it. If the schema didn't change, there is no migration;
+  4. runs the checks CI runs, stopping at the first that fails: the migration lint, typecheck, lint, tests, and the migrations on a fresh database (`pnpm db:check-migrations`). The result goes in the change's `lastCheck`;
+  5. pushes with `--force-with-lease`, then opens a PR with `gh pr create --fill-first`, or finds the open one. Without `gh`, it prints the compare URL.
+
+  `--contract-step "<why>"` makes the migration a contract step: it becomes the first line, `-- contract-step: <why>`, which the migration lint needs before it allows a destructive statement. Later ships keep it. If drizzle-kit would have to ask whether something was renamed, fx ship stops: renames aren't expand-safe, so add the new column in this change and drop the old one in a later contract step.
 
 - fx loads the main checkout's `.env` for `DATABASE_ADMIN_URL`. The template helpers come from `@workspace/testing/databases`, which doesn't load Vitest.

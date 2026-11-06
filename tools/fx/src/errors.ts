@@ -7,6 +7,10 @@ export type FxErrorCode =
   | "change_not_found"
   | "dirty_worktree"
   | "schema_push_failed"
+  | "rebase_conflict"
+  | "migration_failed"
+  | "nothing_to_ship"
+  | "checks_failed"
   | "command_failed";
 
 /**
