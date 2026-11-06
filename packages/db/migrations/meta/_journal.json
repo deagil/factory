@@ -8,6 +8,13 @@
       "when": 1793994382404,
       "tag": "0000_core_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794000155778,
+      "tag": "0001_api_key_expiry",
+      "breakpoints": true
     }
   ]
 }
