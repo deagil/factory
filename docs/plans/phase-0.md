@@ -7,7 +7,7 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.02.
+- **Next task:** P0.03.
 - **Known issues:** none yet.
 - **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
@@ -20,7 +20,7 @@
   - Commit the docs, decision records, placeholder packages and workspace changes currently in the working tree, using the message `docs: factory design, decisions and workspace structure`.
   - **Done when:** `git status` is clean on `main`, and the remote has it.
 
-- [ ] **P0.02 Pin the toolchain**
+- [x] **P0.02 Pin the toolchain**
   - Set `engines.node` to `>=24` to match `.nvmrc`. Keep `packageManager: pnpm@11.25.0`.
   - Replace every `latest` version in `apps/web/package.json` with the version currently resolved in the lockfile, and change `@types/node` to `^24`.
   - Add a shared strict `tsconfig` base. Placeholder packages extend it, and `apps/web` keeps its own settings on top.
@@ -127,3 +127,4 @@
 
 - 2026-11-06 · plan written.
 - 2026-11-06 · P0.01 · direct commit to `main` (no remote existed yet) · created private repo `deagil/factory` and pushed. Linting will use Ultracite instead of the template's ESLint (Dylan's request); see P0.03.
+- 2026-11-06 · P0.02 · PR TBD · shared config is `tsconfig.base.json` (NodeNext, `erasableSyntaxOnly`, `allowImportingTsExtensions`) so Node 24 can run package sources directly; use `.ts` extensions on relative imports. Workspace scripts use the root `tsc`, so packages don't each need `typescript`.
