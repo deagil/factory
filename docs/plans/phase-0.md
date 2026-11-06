@@ -7,7 +7,7 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.09 (P0.08 is Dylan's; P0.09 only needs P0.03).
+- **Next task:** P0.10.
 - **Known issues:** none yet.
 - **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
@@ -73,7 +73,7 @@
 
 ### `fx`
 
-- [ ] **P0.09 `fx` skeleton and `fx status`**
+- [x] **P0.09 `fx` skeleton and `fx status`**
   - `tools/fx` is a Node 24 CLI. Use the built-in `util.parseArgs` unless an agent-friendly CLI library is clearly worth adding; ask before adding a dependency.
   - Add a root `pnpm fx` script.
   - Keep the state of changes in `.fx/` (gitignored): one entry per change, with its name, branch, worktree path and database name.
@@ -133,3 +133,4 @@
 - 2026-11-06 · P0.05 · [#4](https://github.com/deagil/factory/pull/4) · Drizzle 0.45 (stable; 1.0 is still beta) on `pg`. "Typed `db` export" is the `Db` type plus `createDb(url)`, not a global, so services come through `ctx`. IDs use Postgres 18 `uuidv7()`. Status/kind columns are text with TS enums, not check constraints, so widening them never needs a destructive migration. `audit_log`/`event_log` have FKs to `action_log`: P1.05/P1.07 must insert the `action_log` row first in the transaction. Retry-key uniqueness is left to P1.08. CI now has a Postgres 18 service, because the db test needs it; P0.07 adds the migration checks.
 - 2026-11-06 · P0.06 · [#8](https://github.com/deagil/factory/pull/8) · `createTestDatabase()` clones `factory_template_<migrations hash>`, which is built on first use and is safe under parallel builders (build under a temporary name, then rename). The global teardown drops leftovers from the run. Templates for older migrations are never dropped automatically, because another worktree may be cloning from them; `fx done` (P0.13) should prune them. The shared Vitest config deletes `DATABASE_URL`. `@workspace/testing` applies `packages/db/migrations` by path, to stay a leaf package. Its own tests use `maxWorkers: 2`, so the isolation test can prove two files run at once on 2-CPU CI runners.
 - 2026-11-06 · P0.07 · [#6](https://github.com/deagil/factory/pull/6) · Each CI check runs even if an earlier one failed, so one run shows every problem. Contract steps are marked with a first-line `-- contract-step: <why>` (decision 0013). The lint also refuses `TRUNCATE` and new `NOT NULL` columns without a default. `db:check-migrations` uses its own throwaway database, never `DATABASE_URL`. CI also fails if any `factory_test_*` database is left behind.
+- 2026-11-06 · P0.09 · [#7](https://github.com/deagil/factory/pull/7) · `pnpm fx` runs `tools/fx/src/cli.ts` with Node's type stripping; no build and no dependencies. `--json` output and errors go to stdout (pnpm's banner goes to stderr), with typed error codes and exit code 2 for usage errors. State is `.fx/changes/<slug>.json` in the main checkout, found from worktrees through `--git-common-dir`. `lastCheck` stays null until `fx ship` records results.
