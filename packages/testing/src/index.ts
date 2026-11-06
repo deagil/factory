@@ -1,3 +1,16 @@
-// Seed fixtures, test database helpers and generated contract tests.
-// Placeholder until phase 0. See docs/SYSTEM_DESIGN.md, section 6. Delivery.
-export const packageName = "@workspace/testing";
+// Seed fixtures, test database helpers and, from phase 1, generated contract
+// tests. See docs/SYSTEM_DESIGN.md, section 6. Delivery.
+export {
+  coreMigrationsFolder,
+  createDatabaseFromTemplate,
+  createTestDatabase,
+  databaseUrl,
+  dropDatabase,
+  ensureTemplateDatabase,
+  listDatabases,
+  migrationsHash,
+  templatePrefix,
+  testDatabasePrefix,
+  withAdmin,
+} from "./database.ts";
+export type { TestDatabase } from "./database.ts";
