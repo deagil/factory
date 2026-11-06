@@ -8,6 +8,13 @@
       "when": 1793994382404,
       "tag": "0000_core_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793998898688,
+      "tag": "0001_ship_demo",
+      "breakpoints": true
     }
   ]
 }
