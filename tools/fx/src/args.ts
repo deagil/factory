@@ -25,6 +25,13 @@ export const commands = {
     options: {},
     positionals: { min: 0, max: 0 },
   },
+  start: {
+    summary:
+      "Start a change: branch, worktree, database and .env, all in one step",
+    usage: 'fx start "<name>" [--json]',
+    options: { "skip-install": { type: "boolean", default: false } },
+    positionals: { min: 1, max: 1 },
+  },
 } as const satisfies Record<string, CommandSpec>;
 
 export type CommandName = keyof typeof commands;

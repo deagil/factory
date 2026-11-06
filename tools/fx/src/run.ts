@@ -1,5 +1,6 @@
 import { helpText, parseCliArgs } from "./args.ts";
 import type { ParsedArgs } from "./args.ts";
+import { formatStart, start } from "./commands/start.ts";
 import { formatStatus, status } from "./commands/status.ts";
 import { writeError, writeResult } from "./output.ts";
 
@@ -23,6 +24,14 @@ export const run = async (
       case "status": {
         const report = await status(cwd);
         writeResult(args.json, report, formatStatus(report));
+        return 0;
+      }
+      case "start": {
+        const [name = ""] = args.positionals;
+        const change = await start(cwd, name, {
+          skipInstall: args.options["skip-install"] === true,
+        });
+        writeResult(args.json, { change }, formatStart(change, cwd));
         return 0;
       }
       default: {

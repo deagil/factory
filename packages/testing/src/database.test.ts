@@ -14,7 +14,7 @@ import {
   migrationsHash,
   templatePrefix,
   withAdmin,
-} from "./database.ts";
+} from "./databases.ts";
 
 describe(databaseUrl, () => {
   it("swaps the database name and keeps the rest", () => {
