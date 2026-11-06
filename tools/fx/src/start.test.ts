@@ -1,21 +1,8 @@
-import { execFileSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
-  coreMigrationsFolder,
   databaseUrl,
-  dropDatabase,
   listDatabases,
   withAdmin,
 } from "@workspace/testing/databases";
@@ -25,44 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { start } from "./commands/start.ts";
 import { listChanges } from "./state.ts";
 import type { Change } from "./state.ts";
-
-const run = (cwd: string, ...args: string[]) =>
-  execFileSync(
-    "git",
-    ["-c", "user.email=t@example.com", "-c", "user.name=T", ...args],
-    { cwd, encoding: "utf-8" }
-  ).trim();
-
-const created: { parent: string; repoName: string }[] = [];
-
-/** A repo with the core migrations, pushed to a bare origin. */
-const tempRepo = () => {
-  const parent = realpathSync(mkdtempSync(path.join(tmpdir(), "fx-start-")));
-  const repoName = `fxtest${Math.random().toString(36).slice(2, 8)}`;
-  const repo = path.join(parent, repoName);
-  const origin = path.join(parent, "origin.git");
-  execFileSync("git", ["init", "-q", "--bare", "-b", "main", origin]);
-  execFileSync("git", ["init", "-q", "-b", "main", repo]);
-  mkdirSync(path.join(repo, "packages", "db"), { recursive: true });
-  cpSync(
-    coreMigrationsFolder,
-    path.join(repo, "packages", "db", "migrations"),
-    {
-      recursive: true,
-    }
-  );
-  writeFileSync(
-    path.join(repo, ".env.example"),
-    "DATABASE_URL=placeholder\nOTHER=kept\n"
-  );
-  writeFileSync(path.join(repo, ".gitignore"), ".fx/\n.env\n");
-  run(repo, "add", "-A");
-  run(repo, "commit", "-q", "-m", "init");
-  run(repo, "remote", "add", "origin", origin);
-  run(repo, "push", "-q", "origin", "main");
-  created.push({ parent, repoName });
-  return { repo, repoName, parent };
-};
+import { gitAs as run, removeTempRepos, tempRepo } from "./test-repo.ts";
 
 const quiet = { log: () => {} };
 
@@ -70,19 +20,7 @@ const changeUrl = (change: Change) =>
   databaseUrl(process.env.DATABASE_ADMIN_URL ?? "", change.database);
 
 describe("fx start", () => {
-  afterAll(async () => {
-    // One query per connection: pg doesn't allow concurrent queries on one client.
-    const names = await withAdmin((client) => listDatabases(client, "fxtest"));
-    const ours = names.filter((name) =>
-      created.some(({ repoName }) => name.startsWith(`${repoName}_`))
-    );
-    await Promise.all(
-      ours.map((name) => withAdmin((client) => dropDatabase(client, name)))
-    );
-    for (const { parent } of created) {
-      rmSync(parent, { recursive: true, force: true });
-    }
-  });
+  afterAll(removeTempRepos);
 
   describe("on success", () => {
     let repo: string;

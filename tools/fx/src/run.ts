@@ -1,9 +1,11 @@
 import { helpText, parseCliArgs } from "./args.ts";
 import type { ParsedArgs } from "./args.ts";
 import { dev } from "./commands/dev.ts";
+import { done, formatDone } from "./commands/done.ts";
 import { formatShip, ship } from "./commands/ship.ts";
 import { formatStart, start } from "./commands/start.ts";
 import { formatStatus, status } from "./commands/status.ts";
+import { formatSwitch, switchTo } from "./commands/switch.ts";
 import { writeError, writeResult } from "./output.ts";
 
 /** Runs one fx invocation and returns its exit code. */
@@ -43,6 +45,24 @@ export const run = async (
             typeof contractStep === "string" ? contractStep : undefined,
         });
         writeResult(args.json, result, formatShip(result));
+        return 0;
+      }
+      case "switch": {
+        const [name = ""] = args.positionals;
+        const result = await switchTo(cwd, name);
+        if (args.options.path === true && !args.json) {
+          process.stdout.write(`${result.cd}\n`);
+        } else {
+          writeResult(args.json, result, formatSwitch(result, cwd));
+        }
+        return 0;
+      }
+      case "done": {
+        const [name] = args.positionals;
+        const result = await done(cwd, name, {
+          force: args.options.force === true,
+        });
+        writeResult(args.json, result, formatDone(result));
         return 0;
       }
       case "dev": {

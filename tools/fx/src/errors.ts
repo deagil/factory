@@ -11,6 +11,7 @@ export type FxErrorCode =
   | "migration_failed"
   | "nothing_to_ship"
   | "checks_failed"
+  | "change_not_merged"
   | "command_failed";
 
 /**

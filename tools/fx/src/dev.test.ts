@@ -146,11 +146,15 @@ describe(watchSchema, () => {
     const calls: string[] = [];
     const close = watchSchema(dir, (file) => calls.push(file), 100);
     try {
+      // The OS watcher takes a moment to start, longer on a busy machine.
+      await sleep(200);
       writeFileSync(path.join(dir, "notes.md"), "ignored");
       writeFileSync(path.join(dir, "core.test.ts"), "ignored");
       writeFileSync(path.join(dir, "core.ts"), "one");
       writeFileSync(path.join(dir, "core.ts"), "two");
-      await vi.waitFor(() => expect(calls).toStrictEqual(["core.ts"]));
+      await vi.waitFor(() => expect(calls).toStrictEqual(["core.ts"]), {
+        timeout: 5000,
+      });
       await sleep(300);
       expect(calls).toStrictEqual(["core.ts"]);
     } finally {

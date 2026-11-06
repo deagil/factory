@@ -7,12 +7,12 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.13 (stretch). P0.14 waits on P0.08.
+- **Next task:** P0.14, once P0.08 is enforced. Everything else in phase 0 is done.
 - **Known issues:**
   - `main` isn't protected yet: P0.08 needs GitHub Pro or a public repo, which is Dylan's call. Until then, nothing stops a direct push, so always go through `fx ship`.
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
-- **Use `fx` for every change:** `fx start`, `fx dev`, `fx ship`. Until P0.13 adds `fx done`, remove a finished change by hand: its worktree, branch, database and `.fx/changes/<slug>.json`.
+- **Use `fx` for every change:** `fx start`, `fx dev`, `fx ship`, then `fx done` once the PR is merged. `fx switch` moves between open changes.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
 
 ## Tasks
@@ -111,7 +111,7 @@
   - **Needs:** P0.07, P0.11.
   - **Done when:** a change that adds a column ships as one PR with exactly one new migration, CI passes, and a second `fx ship` still leaves one migration.
 
-- [ ] **P0.13 `fx switch` and `fx done`** _(stretch)_
+- [x] **P0.13 `fx switch` and `fx done`** _(stretch)_
   - `fx switch <name>` moves to another change's worktree.
   - `fx done` removes the worktree, database and state entry once the branch is merged, and refuses if it isn't merged.
   - **Needs:** P0.10.
@@ -141,3 +141,4 @@
 - 2026-11-06 · P0.10 · [#9](https://github.com/deagil/factory/pull/9) · `fx start` branches from `origin/main` after a fetch (local `main` if there's no remote). It clones the change database from the same migrations-hash template the tests use, via `@workspace/testing/databases`, a Vitest-free split of the test helpers. It runs `pnpm install` in the worktree and undoes earlier steps in reverse if any step fails. Tests drive it against a temporary repo with a bare origin; `--skip-install` exists for them.
 - 2026-11-06 · P0.11 · [#10](https://github.com/deagil/factory/pull/10) · `fx dev` must run in a change's worktree. It pushes the schema with `drizzle-kit push --force` (a change database's data is disposable), then runs the worktree's `turbo dev --ui=stream` with `DATABASE_URL` set (turbo's `dev` task passes it through), then pushes again on every save under `packages/db/src/schema`. drizzle-kit exits 0 even when a push fails, so success is read from its output. `--reset` rebuilds the database empty and pushes the whole schema, which is the way past a rename. Turbo runs directly, in its own process group with no stdin, and always gets SIGTERM, once: pnpm's launcher drops some signals, and turbo leaves its tasks running if it gets a second one. Ctrl-C, and SIGTERM to the outer `pnpm`, the inner `pnpm` or fx itself, were each checked to stop everything. A column added while it ran reached the database in 2.5s, with no migration file.
 - 2026-11-06 · P0.12 · [#15](https://github.com/deagil/factory/pull/15) · `fx ship` first takes out the migration commit an earlier ship wrote, found by its `Fx-Migration: <slug>` trailer. It then rebases on `origin/main` and refuses hand edits to `packages/db/migrations`. It writes the migration with `drizzle-kit generate --name <slug>` and commits it last, so a migration that lands on main first renumbers it instead of conflicting. Next it runs the migration lint, typecheck, lint, tests and `db:check-migrations`, stopping at the first failure, and records `lastCheck`. Finally it pushes with `--force-with-lease` and opens the PR with `gh pr create --fill-first`, so the first commit's subject is the title; without `gh` it prints a GitHub-style compare URL. `--contract-step "<why>"` writes the marker, and later ships keep it. A rename stops it with expand/contract advice instead of a prompt. `db:check-migrations` now also fails when drizzle-kit stops to ask; before, an unmigrated rename passed. Proof: a real `fx start` change shipped as [#14](https://github.com/deagil/factory/pull/14) with one migration and green CI. A second commit and ship still left one migration, now with both columns, and #14 was closed. Found on the way: oxfmt rejected drizzle-kit's JSON, so every new migration failed lint; fixed in [#13](https://github.com/deagil/factory/pull/13).
+- 2026-11-06 · P0.13 · [#16](https://github.com/deagil/factory/pull/16) · `fx done` treats a branch as merged when its commits are in `origin/main`'s history, when merging it into main changes nothing (a squash merge, checked with `git merge-tree --write-tree`), or when `gh` reports a merged PR. It refuses unmerged or uncommitted work unless given `--force`, and deletes origin's branch only once merged. Afterwards it drops `factory_template_*` databases that neither the main checkout nor an open change uses. This is the pruning P0.06 deferred; a template still being built is left alone. `fx switch` prints the `cd`, or the bare path with `--path`, because a command can't move its shell. Tests use a real squash merge into a bare origin. `fx done ship-demo --force` cleared P0.12's closed demo and pruned two stale templates.
