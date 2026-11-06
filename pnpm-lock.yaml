@@ -85,6 +85,32 @@ importers:
         specifier: ^8
         version: 8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.21.0)
 
+  modules/comms: {}
+
+  modules/documents: {}
+
+  modules/payments: {}
+
+  modules/reports: {}
+
+  packages/actions: {}
+
+  packages/auth: {}
+
+  packages/config: {}
+
+  packages/db: {}
+
+  packages/events: {}
+
+  packages/objects: {}
+
+  packages/sdk: {}
+
+  packages/server: {}
+
+  packages/testing: {}
+
   packages/ui:
     dependencies:
       '@base-ui/react':
@@ -145,6 +171,10 @@ importers:
       typescript:
         specifier: ^6.0.2
         version: 6.0.3
+
+  packages/workflows: {}
+
+  tools/fx: {}
 
 packages:
 

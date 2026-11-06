@@ -1,0 +1,200 @@
+# Phase 1: Walking skeleton
+
+**Goal:** one path through every layer. Two objects (organisation and contact) are defined once with `defineObject`. They get generated actions, history and logs, and appear on every surface: the HTTP API with OpenAPI, MCP, and generated list and record screens in the web app. A record created from the web, from Claude Code over MCP or with `curl` produces the same `action_log`, `audit_log` and `event_log` rows.
+
+**Out of scope:**
+
+- Choice fields, custom fields edited by staff, config over git, drafts and approval rules (phase 2).
+- Workflows and the event dispatcher (phase 2). Events are written to `event_log` but nothing reacts to them yet.
+- Client SSO and hosting (phase 3).
+- Scoped permissions beyond `all`, the page builder and the in-app agent (later).
+
+## Resume here
+
+- **Status:** not started; needs phase 0 done.
+- **Next task:** P1.01.
+- **Known issues:** none yet.
+- **How to start:** see [docs/plans/README.md](README.md). Every change goes through `fx start` → `fx dev` → `fx ship`.
+
+## Decisions for this phase
+
+These fill gaps until later phases replace them. Don't build further than this.
+
+- **Roles come from a `ConfigService` interface.** In phase 1 it's backed by a static object passed to `defineSystem`. Phase 2 replaces it with the git config loader, so the YAML-or-JSON question can wait.
+- **Approvals:** the approve stage exists in the pipeline but finds no rules, so it always passes. It has a test seam so phase 2 can plug rules in.
+- **Sign-in:** Better Auth with an email code or magic link, printed to the server console locally. SSO comes in phase 3.
+- **Agents and integrations** authenticate with API keys. An agent key belongs to an agent actor linked to a user. Its actions record the agent as `actor_id` and that user as `origin_user_id`, and it can never do more than the user.
+- **The first runnable system is `examples/crm`.** Core packages never import from `examples/`; their tests define small objects inline.
+- **`config_sha`** is `null` on every `action_log` row until phase 2.
+
+## Tasks
+
+### Objects (`@workspace/objects`; SYSTEM_DESIGN §4.1)
+
+- [ ] **P1.01 Field types**
+  - A field type library with `text`, `number`, `money`, `date`, `boolean` and `ref`.
+  - Each type gives its Drizzle column, a Zod rule for input, a Zod rule for output, a plain display value, and the filter operators it supports.
+  - **Done when:** every type has tests for column shape, valid and invalid input, and its filters.
+
+- [ ] **P1.02 `defineObject`**
+  - Returns a real Drizzle table with housekeeping columns (`id`, `created_at`, `updated_at`, `archived_at`, `custom_fields`). It also returns derived create, update and record schemas, and registers the object by name.
+  - Supports `list`, `label`, the `actions` options (`readOnly`, off) and a `drizzle` escape hatch for indexes.
+  - Refs point at other objects or at `actor`.
+  - **Needs:** P1.01.
+  - **Done when:** a test object generates a migration through drizzle-kit, and its derived schemas accept and reject the right input.
+
+- [ ] **P1.03 Schema check**
+  - Compares the database with the object definitions and core tables. It runs at start-up, failing with a clear message, and in CI. It also fails if a table isn't from `defineObject` or the core.
+  - **Needs:** P1.02.
+  - **Done when:** a missing column or a stray table fails the check with a message saying what to do.
+
+- [ ] **P1.04 Data access layer**
+  - The only read path: `get`, `list` with filter, sort and cursor pagination, plus following refs one level deep.
+  - Hides archived records unless asked, and applies a permission filter hook (`all` scope only for now).
+  - No raw SQL outside `packages/db`.
+  - **Needs:** P1.02, P0.06.
+  - **Done when:** tests cover every filter operator, sorting, paging, archived records and the permission hook.
+
+- [ ] **P1.05 Repositories and `audit_log`**
+  - The only write path: `create`, `update` (with an optional row lock) and `archive`.
+  - Each update reads the current row, works out which fields changed, and writes `audit_log` rows in the same transaction. Housekeeping columns are skipped, and custom fields are diffed per key.
+  - Repositories refuse to run outside an action's transaction.
+  - **Needs:** P1.04.
+  - **Done when:** an update changing two fields writes exactly two `audit_log` rows; a no-op update writes none; a call outside a transaction throws.
+
+### Actions (`@workspace/actions`; SYSTEM_DESIGN §4.2)
+
+- [ ] **P1.06 `defineAction`, `defineQuery` and the registry**
+  - Name, description, input and output schemas, `emits` with a schema per event, and the handler.
+  - The context `ctx` carries `repo`, `dal`, `config`, `clock`, `actor`, `emit` and the error helpers.
+  - Typed error results: validation, permission, approval required, conflict, not found.
+  - The registry lists every action and query with its schemas.
+  - **Needs:** P1.05.
+  - **Done when:** registering two actions with the same name fails, unknown events passed to `emit` fail type-checking, and handlers can't reach services except through `ctx`.
+
+- [ ] **P1.07 The action pipeline**
+  - Runs identify, validate, authorise, approve (no rules yet), run, record and commit, all in one transaction.
+  - Record writes the `action_log` row (`actor_id`, `origin_user_id`, input, result or error, status) and the `event_log` rows with `origin_user_id` and depth 0.
+  - Failures roll everything back but still leave a failed `action_log` row, written in its own transaction.
+  - **Needs:** P1.06.
+  - **Done when:**
+    - Each stage has a test.
+    - A handler error leaves no data change and one failed `action_log` row.
+    - A success leaves the data change, the `audit_log`, `action_log` and `event_log` rows, or none of them.
+
+- [ ] **P1.08 Retry keys and dry run**
+  - **Retry keys:** an action sent again with the same key returns the earlier result without running again.
+  - **Dry run:** the action runs through every stage, then rolls back, and returns what would have happened.
+  - **Needs:** P1.07.
+  - **Done when:** two concurrent calls with the same key run the handler once, and a dry run changes nothing except one `action_log` row marked `dry_run`.
+
+- [ ] **P1.09 Generated actions and queries**
+  - Each object gets `<object>.create`, `.update` and `.archive` actions and `<object>.get` and `.list` queries, built from its definition.
+  - They emit `<object>.created`, `.updated` and `.archived`.
+  - `readOnly` fields are removed from the update input. A hand-written action that owns a job (`actions: { create: 'booking.place' }`) switches the generated one off.
+  - **Needs:** P1.08.
+  - **Done when:** tests cover each generated action and query, `readOnly`, switching off, and the events.
+
+### Identity and permissions (`@workspace/auth`; SYSTEM_DESIGN §4.3)
+
+- [ ] **P1.10 Users, actors and sign-in**
+  - Better Auth with an email code or magic link (console delivery locally), sessions, and its tables in a migration.
+  - Signing in finds or creates the user's staff actor.
+  - The pipeline's identify stage resolves a session to an actor.
+  - **Needs:** P1.07.
+  - **Done when:** a test signs in with a code, gets a session, and an action run with that session records the right `actor_id` and `origin_user_id`.
+
+- [ ] **P1.11 Roles, permissions and authorise**
+  - Roles come through `ConfigService` (see "Decisions for this phase"). Each permission has an object or action, a verb and a scope (`all` only); `actor_roles` link actors to roles.
+  - The authorise stage and the data access layer filter both use them, and permission errors say which permission was missing.
+  - **Needs:** P1.10.
+  - **Done when:** an actor without the permission gets a permission error and no data change, and `list` returns nothing for an object the actor can't read.
+
+- [ ] **P1.12 API keys, integration actors and agent actors**
+  - Create, revoke and use API keys. Keys are stored hashed and `last_used_at` is recorded.
+  - Integration actors are scoped to the actions they're allowed.
+  - Agent actors are linked to a user and are never wider than that user.
+  - Creating and revoking keys are themselves actions.
+  - **Needs:** P1.11.
+  - **Done when:** a revoked key is refused, an agent key can't do what its user can't, and an agent's actions record the agent as actor and the user as origin.
+
+### Surfaces (`@workspace/server`; SYSTEM_DESIGN §4.9 and §7)
+
+- [ ] **P1.13 Transport prototype and decision**
+  - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as decision record 0012.
+  - **Needs:** P1.09.
+  - **Done when:** the decision record is merged and only one approach is left in the code.
+
+- [ ] **P1.14 HTTP API**
+  - Hono routes generated from the registry (`POST /actions/<name>`, `GET`/`POST /queries/<name>`), with an OpenAPI document at `/openapi.json`.
+  - Takes a session or an API key, and a retry key from the `Idempotency-Key` header.
+  - Typed errors map to status codes with a stable JSON error shape, and every request gets a request ID.
+  - **Needs:** P1.12, P1.13.
+  - **Done when:** every registered action and query is reachable, the OpenAPI document validates, and errors use the documented shape.
+
+- [ ] **P1.15 MCP server**
+  - One MCP tool per action and query, generated from the registry with the action descriptions and schemas. It runs over streamable HTTP with an API key as the bearer token.
+  - **Needs:** P1.14.
+  - **Done when:** Claude Code connects with an agent key, lists the tools, and creates a record, with the agent as actor and its user as origin.
+
+- [ ] **P1.16 Introspection**
+  - A `system.describe` query returns the objects, fields, field types, actions, queries, events and their schemas, filtered by what the caller may use.
+  - The web app and agents use it to build screens and understand the system.
+  - **Needs:** P1.14.
+  - **Done when:** the result for a restricted actor leaves out what it can't use, and a snapshot test catches unintended changes.
+
+- [ ] **P1.17 Contract tests across surfaces**
+  - Generated tests run every action through the HTTP API and through MCP with the same input, and check that both give the same result and the same log rows.
+  - **Needs:** P1.15, P1.16.
+  - **Done when:** the tests run in CI for every registered action, and a deliberate difference between surfaces fails them.
+
+### The first system (`examples/crm`; SYSTEM_DESIGN §2)
+
+- [ ] **P1.18 `defineSystem`, `createServer` and the CRM example**
+  - `defineSystem` collects objects, actions and roles; `createServer` runs it.
+  - `examples/crm` defines `organisation` and `contact`. It adds one hand-written action, `contact.moveToOrganisation`, which owns the contact's `organisation` field (so the generated update marks that field read-only) and emits `contact.moved`.
+  - It also has roles for admin and sales, seed data, and `pnpm dev` wired through `fx dev`.
+  - **Needs:** P1.17.
+  - **Done when:** `fx dev` in `examples/crm` serves the API and MCP against seeded data, and its tests pass in CI.
+
+### Web surface (`apps/web`; SYSTEM_DESIGN §4.9)
+
+- [ ] **P1.19 Sign-in, app shell and API client**
+  - A sign-in screen, an app shell with navigation built from `system.describe`, and a typed API client over the HTTP API.
+  - TanStack Query for data; no server functions or loaders that reach the database.
+  - **Needs:** P1.18.
+  - **Done when:** a seeded user signs in with a code and sees navigation for exactly the objects they can read.
+
+- [ ] **P1.20 Generated list screen**
+  - One list screen per object, built from `system.describe`, using the object's `list` columns.
+  - Filters, sorting and paging go through the `.list` query, and the URL keeps the filter state.
+  - **Needs:** P1.19.
+  - **Done when:** organisation and contact lists work with no screen code specific to either object.
+
+- [ ] **P1.21 Generated record screen and history**
+  - View, create, edit and archive records, with forms built from the action input schemas. Read-only fields aren't editable, and the hand-written action appears as a button.
+  - A history tab shows the record's `audit_log` and `action_log` entries, through a `record.history` query.
+  - **Needs:** P1.20.
+  - **Done when:** editing a contact shows the field changes in history with who made them, and moving it to another organisation is only possible through the button.
+
+### Exit
+
+- [ ] **P1.22 `fx describe`** _(stretch)_
+  - `fx describe [object|action]` prints the registry for the current repo, as text or `--json`. It lets agents building a system see what exists without reading every file.
+  - **Needs:** P1.16.
+  - **Done when:** it lists the CRM's objects, actions, events and schemas.
+
+- [ ] **P1.23 Phase exit demo**
+  - In `examples/crm`, create an organisation three ways: from the web app, from Claude Code over MCP with an agent key, and with `curl` and an integration key.
+  - Check that the `action_log` rows match in shape, that actors and origin users are right, that history shows every change, and that the events are in `event_log`.
+  - Record any surprises in the log.
+  - Then update `AGENTS.md` and the README status, set phase 1 to Done in `docs/plans/README.md`, and write `phase-2.md`. Plan the Effect trial from decision 0008 as part of that.
+  - **Needs:** all of the above except P1.22.
+  - **Done when:** the demo works end to end from a clean clone.
+
+## Log
+
+<!-- One line per finished task: YYYY-MM-DD · P1.xx · PR link · notes for the next person -->
+
+- 2026-11-06 · plan written.
