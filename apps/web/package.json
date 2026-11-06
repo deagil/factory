@@ -1,16 +1,16 @@
 {
   "name": "web",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint",
-    "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "lint": "ultracite check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4",
@@ -26,13 +26,12 @@
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.8.6",
-    "@tanstack/eslint-config": "^0.4.0",
     "@tanstack/router-cli": "^1.167.46",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
-    "eslint": "^10",
+    "@workspace/testing": "workspace:*",
     "typescript": "^6.0.2",
     "vite": "^8"
   }

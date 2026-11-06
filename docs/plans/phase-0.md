@@ -7,7 +7,7 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.03.
+- **Next task:** P0.04.
 - **Known issues:** none yet.
 - **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
@@ -27,9 +27,9 @@
   - **Needs:** P0.01.
   - **Done when:** `pnpm install --frozen-lockfile` works on a clean clone, no dependency says `latest`, and `pnpm typecheck` passes for every package.
 
-- [ ] **P0.03 Lint, format and test in every package**
+- [x] **P0.03 Lint, format and test in every package**
   - Every package and app has `typecheck`, `lint` and `test` scripts that Turborepo runs.
-  - Use the template's ESLint and Prettier. Add one shared ESLint config for the TypeScript packages; ask before adding a different linter.
+  - ~~Use the template's ESLint and Prettier.~~ Use Ultracite (Oxlint + Oxfmt) with one root config, at Dylan's request; see decision 0012.
   - Add a shared Vitest config to `packages/testing`, and give each placeholder package one test that passes.
   - **Needs:** P0.02.
   - **Done when:** `pnpm typecheck && pnpm lint && pnpm test` pass from the root, and a type or lint error in any package fails them.
@@ -128,3 +128,4 @@
 - 2026-11-06 · plan written.
 - 2026-11-06 · P0.01 · direct commit to `main` (no remote existed yet) · created private repo `deagil/factory` and pushed. Linting will use Ultracite instead of the template's ESLint (Dylan's request); see P0.03.
 - 2026-11-06 · P0.02 · [#1](https://github.com/deagil/factory/pull/1) · shared config is `tsconfig.base.json` (NodeNext, `erasableSyntaxOnly`, `allowImportingTsExtensions`) so Node 24 can run package sources directly; use `.ts` extensions on relative imports. Workspace scripts use the root `tsc`, so packages don't each need `typescript`.
+- 2026-11-06 · P0.03 · [#2](https://github.com/deagil/factory/pull/2) · Ultracite replaces ESLint and Prettier (decision 0012). Each package's `lint` is `ultracite check`; `pnpm format` fixes the whole repo. Shared Vitest config is `@workspace/testing/vitest`; packages devDepend on `@workspace/testing`, so `testing` must never depend on another workspace package or Turborepo sees a cycle.

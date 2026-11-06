@@ -2,23 +2,27 @@
   "name": "factory",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "lint": "turbo lint",
-    "format": "turbo format",
+    "lint": "turbo lint lint:root",
+    "format": "ultracite fix",
     "typecheck": "turbo typecheck",
-    "test": "turbo test"
+    "test": "turbo test",
+    "lint:root": "ultracite check docs examples templates .github *.md *.json *.yaml *.ts"
   },
   "devDependencies": {
     "@types/node": "^24",
-    "prettier": "^3.9.10",
-    "prettier-plugin-tailwindcss": "^0.8.1",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.91.0",
     "turbo": "^2.11.10",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "ultracite": "8.1.1",
+    "vitest": "^5.1.0"
   },
-  "packageManager": "pnpm@11.25.0",
   "engines": {
     "node": ">=24"
-  }
+  },
+  "packageManager": "pnpm@11.25.0"
 }

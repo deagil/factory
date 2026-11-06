@@ -67,7 +67,9 @@ factory/
 pnpm install       # Node 24 LTS, pnpm via corepack
 pnpm dev           # runs the web surface (and the server, once it exists)
 pnpm typecheck
-pnpm lint
+pnpm lint          # Ultracite: Oxlint and Oxfmt, per package
+pnpm test          # Vitest, per package
+pnpm format        # fix lint and formatting across the repo
 ```
 
 To add a shadcn component to the shared UI package, run this from the repo root:
@@ -95,16 +97,16 @@ Agents follow [AGENTS.md](AGENTS.md).
 
 ## Stack
 
-TypeScript throughout: Hono and DBOS on the server, Drizzle on Postgres, Zod 4, Better Auth, the official MCP SDK, TanStack and shadcn on the web, Vitest, pnpm and Turborepo. One instance per client on a simple PaaS. Effect was assessed and deferred; see [decision 0008](docs/decisions/0008-plain-typescript-effect-deferred.md).
+TypeScript throughout: Hono and DBOS on the server, Drizzle on Postgres, Zod 4, Better Auth, the official MCP SDK, TanStack and shadcn on the web, Vitest, Ultracite (Oxlint + Oxfmt), pnpm and Turborepo. One instance per client on a simple PaaS. Effect was assessed and deferred; see [decision 0008](docs/decisions/0008-plain-typescript-effect-deferred.md).
 
 ## Build plan
 
 Task lists for each phase, with progress, are in [docs/plans/](docs/plans/README.md).
 
-| Phase               | Goal                                                                              |
-| ------------------- | --------------------------------------------------------------------------------- |
-| 0. Foundations      | The factory can build itself: workspace, `fx start/dev/ship`, local databases, CI |
-| 1. Walking skeleton | One object on every surface: pipeline, history, generated screens and MCP tools   |
-| 2. Config over git  | Staff change behaviour: choice fields, drafts, workflows, comms                   |
-| 3. CRM, hosted      | A system I could hand to a client, with releases and the `production` branch      |
-| 4. Breadth          | Bookings, cases, reports, page builder, in-app agent                              |
+| Phase | Goal |
+| --- | --- |
+| 0. Foundations | The factory can build itself: workspace, `fx start/dev/ship`, local databases, CI |
+| 1. Walking skeleton | One object on every surface: pipeline, history, generated screens and MCP tools |
+| 2. Config over git | Staff change behaviour: choice fields, drafts, workflows, comms |
+| 3. CRM, hosted | A system I could hand to a client, with releases and the `production` branch |
+| 4. Breadth | Bookings, cases, reports, page builder, in-app agent |
