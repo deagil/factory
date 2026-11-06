@@ -15,6 +15,13 @@
       "when": 1794005978442,
       "tag": "0001_p1_05_repositories_and_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794006149799,
+      "tag": "0002_p1_05a_drop_audit_log_old_columns",
+      "breakpoints": true
     }
   ]
 }
