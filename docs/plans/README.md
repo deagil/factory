@@ -2,13 +2,13 @@
 
 One plan file per phase, with tasks to tick off. The phase goals are in the [README build plan](../../README.md#build-plan); how things work is in [SYSTEM_DESIGN.md](../SYSTEM_DESIGN.md).
 
-| Phase               | Plan                         | Status      |
-| ------------------- | ---------------------------- | ----------- |
-| 0. Foundations      | [phase-0.md](phase-0.md)     | Done        |
-| 1. Walking skeleton | [phase-1.md](phase-1.md)     | In progress |
-| 2. Config over git  | Written when phase 1 is done |             |
-| 3. CRM, hosted      |                              |             |
-| 4. Breadth          |                              |             |
+| Phase | Plan | Status |
+| --- | --- | --- |
+| 0. Foundations | [phase-0.md](phase-0.md) | Done |
+| 1. Walking skeleton | [phase-1.md](phase-1.md) ([handover](phase-1-handover.md)) | In progress |
+| 2. Config over git | Written when phase 1 is done |  |
+| 3. CRM, hosted |  |  |
+| 4. Breadth |  |  |
 
 ## How to use a plan
 
