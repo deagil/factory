@@ -15,4 +15,5 @@ Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), section 3. Startin
 ## Rules
 
 - Migrations are generated, never written by hand. Until `fx ship` exists, run `pnpm --filter @workspace/db db:generate --name <change>`; after that, `fx ship` generates them.
+- `pnpm db:lint-migrations` refuses destructive statements unless the migration's first line is `-- contract-step: <why>` (decision 0013). `pnpm db:check-migrations` applies every migration to an empty database, then fails if the schema has changes with no migration.
 - `audit_log` and `event_log` rows reference `action_log`, so the pipeline writes the `action_log` row first within its transaction.

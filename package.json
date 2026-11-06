@@ -13,7 +13,9 @@
     "lint:root": "ultracite check docs examples templates .github *.md *.json *.yaml *.yml *.ts",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
-    "db:migrate": "pnpm --filter @workspace/db db:migrate"
+    "db:migrate": "pnpm --filter @workspace/db db:migrate",
+    "db:lint-migrations": "pnpm --filter @workspace/db db:lint-migrations",
+    "db:check-migrations": "pnpm --filter @workspace/db db:check-migrations"
   },
   "devDependencies": {
     "@types/node": "^24",

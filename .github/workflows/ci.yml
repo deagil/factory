@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -29,7 +33,41 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
+
+      - id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      # Each check runs even if an earlier one failed, so one run shows every
+      # problem. The job still fails if any of them does.
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm typecheck
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint
+
+      - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test
+
+      - name: No test databases left behind
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          left=$(psql "$DATABASE_ADMIN_URL" -Atc "select string_agg(datname, ', ') from pg_database where datname like 'factory\_test\_%'")
+          if [ -n "$left" ]; then echo "Test databases left behind: $left"; exit 1; fi
+
+      - name: Migration lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm db:lint-migrations
+
+      - name: Migrations apply and match the schema
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm db:check-migrations

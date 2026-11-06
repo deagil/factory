@@ -11,7 +11,9 @@
     "lint": "ultracite check",
     "test": "vitest run",
     "db:migrate": "node src/bin/migrate.ts",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:lint-migrations": "node src/bin/lint-migrations.ts",
+    "db:check-migrations": "node src/bin/check-migrations.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

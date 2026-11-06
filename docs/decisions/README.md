@@ -16,6 +16,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0010 | [Workflows are the only listeners; every side effect is an action](0010-workflows-only-listeners.md) | Accepted |
 | 0011 | [Who actions run as](0011-who-actions-run-as.md) | Accepted |
 | 0012 | [Ultracite for linting and formatting](0012-ultracite-for-lint-and-format.md) | Accepted |
+| 0013 | [Marking a migration as the contract step](0013-contract-step-marker.md) | Accepted |
 
 ## Template
 
