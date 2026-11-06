@@ -139,16 +139,31 @@ export const actionLog = pgTable(
   ]
 );
 
-/** Every field change to every record, written by repositories. */
+/**
+ * Every change to every record, written by repositories: one row per record
+ * per action. `before` and `after` hold only the fields that changed, by
+ * key, with custom fields as `customFields.<key>`. A create has an empty
+ * `before`. See decision 0018.
+ */
 export const auditLog = pgTable(
   "audit_log",
   {
     id: id(),
     object: text("object").notNull(),
     recordId: uuid("record_id").notNull(),
-    field: text("field").notNull(),
+    // Replaced by before and after (decision 0018). Nothing writes them; the
+    // contract step in P1.05a drops them.
+    field: text("field"),
     oldValue: jsonb("old_value"),
     newValue: jsonb("new_value"),
+    before: jsonb("before")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    after: jsonb("after")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     actionId: uuid("action_id")
       .notNull()
       .references(() => actionLog.id),
@@ -160,6 +175,8 @@ export const auditLog = pgTable(
   (t) => [
     index("audit_log_record_idx").on(t.object, t.recordId, t.at),
     index("audit_log_action_id_idx").on(t.actionId),
+    // Finds every change to one field across records: `after ? 'stage'`.
+    index("audit_log_after_idx").using("gin", t.after),
   ]
 );
 

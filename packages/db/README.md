@@ -18,3 +18,4 @@ Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), section 3. Startin
 - Migrations are generated, never written by hand. `fx ship` writes each change's one migration.
 - `pnpm db:lint-migrations` refuses destructive statements unless the migration's first line is `-- contract-step: <why>` (decision 0013). `pnpm db:check-migrations` applies every migration to an empty database, runs the schema check on it, then fails if the schema has changes with no migration.
 - `audit_log` and `event_log` rows reference `action_log`, so the pipeline writes the `action_log` row first within its transaction.
+- `audit_log` has one row per record change, with the changed fields in `before` and `after` (decision 0018). Its `field`, `old_value` and `new_value` columns are unused and go in P1.05a's contract step.

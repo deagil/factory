@@ -2,7 +2,7 @@
 
 defineObject, the field types library, the data access layer (the only way to read records) and repositories (the only way to write them), including field history in audit_log.
 
-**Status:** the field types (P1.01; decision [0014](../../docs/decisions/0014-field-types.md)) and `defineObject` (P1.02; decision [0015](../../docs/decisions/0015-define-object-tables-and-records.md)) are built. The data access layer (P1.04; decision [0017](../../docs/decisions/0017-data-access-layer.md)) is built too; repositories come next.
+**Status:** the field types (P1.01; decision [0014](../../docs/decisions/0014-field-types.md)) and `defineObject` (P1.02; decision [0015](../../docs/decisions/0015-define-object-tables-and-records.md)) are built. So are the data access layer (P1.04; decision [0017](../../docs/decisions/0017-data-access-layer.md)) and repositories (P1.05; decision [0018](../../docs/decisions/0018-audit-log-row-per-change.md)).
 
 ```ts
 import { f } from "@workspace/objects";
@@ -52,6 +52,26 @@ page.records; // contacts
 page.related.organisation; // { [id]: organisation }
 page.nextCursor; // pass as `cursor` for the next page
 await dal.get(contact, id); // { record, related } or null
+```
+
+Writes go through a repository, which runs only inside an action's transaction. Actions get it as `ctx.repo` (P1.06); until then, tests make one by hand:
+
+```ts
+const repo = createRepository({ executor: tx, actionId, actorId, now });
+const org = await repo.create(organisation, { name: "Acme" });
+const result = await repo.update(
+  organisation,
+  org.id,
+  {
+    name: "Acme Ltd",
+    customFields: { tier: "gold" },
+  },
+  { lock: true, expectedVersion: 1 }
+);
+// status: "updated" | "unchanged" | "not_found" | "archived" | "conflict"
+// one audit_log row: before { name: "Acme", "customFields.tier": null },
+//                    after  { name: "Acme Ltd", "customFields.tier": "gold" }
+await repo.archive(organisation, org.id); // no audit_log row
 ```
 
 Schema files that drizzle-kit loads run as CommonJS, so they can't use `import.meta`. Import the core tables from `@workspace/db/schema`.

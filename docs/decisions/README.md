@@ -21,6 +21,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0015 | [defineObject's tables, records and registry](0015-define-object-tables-and-records.md) | Accepted |
 | 0016 | [What the schema check compares](0016-schema-check.md) | Accepted |
 | 0017 | [How the data access layer lists, pages and follows refs](0017-data-access-layer.md) | Accepted |
+| 0018 | [One `audit_log` row per record change](0018-audit-log-row-per-change.md) | Accepted |
 
 ## Template
 
