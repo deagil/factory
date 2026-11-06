@@ -10,7 +10,9 @@
     "format": "ultracite fix",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "lint:root": "ultracite check docs examples templates .github *.md *.json *.yaml *.ts"
+    "lint:root": "ultracite check docs examples templates .github *.md *.json *.yaml *.yml *.ts",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down"
   },
   "devDependencies": {
     "@types/node": "^24",
