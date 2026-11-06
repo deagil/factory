@@ -23,10 +23,14 @@ const otherTestDatabase = (own: string) =>
     return names.find((name) => name !== own);
   });
 
+// On a cold run both files build the template at the same time, so the
+// sibling can take several seconds to appear.
+const siblingTimeoutMs = 15_000;
+
 /** Waits until the sibling file's database exists, proving both files run at once. */
 const waitForSibling = async (
   own: string,
-  deadline = Date.now() + 5000
+  deadline = Date.now() + siblingTimeoutMs
 ): Promise<string> => {
   const other = await otherTestDatabase(own);
   if (other) {
@@ -55,19 +59,23 @@ export const defineIsolationSuite = (label: string) => {
       await database.drop();
     });
 
-    it("runs alongside the other file and sees only its own rows", async () => {
-      await client.query("insert into users (name, email) values ($1, $2)", [
-        label,
-        `${label}@example.com`,
-      ]);
+    it(
+      "runs alongside the other file and sees only its own rows",
+      async () => {
+        await client.query("insert into users (name, email) values ($1, $2)", [
+          label,
+          `${label}@example.com`,
+        ]);
 
-      const sibling = await waitForSibling(database.name);
-      expect(sibling).not.toBe(database.name);
-      // Keep this database alive long enough for the sibling to see it too.
-      await sleep(1000);
+        const sibling = await waitForSibling(database.name);
+        expect(sibling).not.toBe(database.name);
+        // Keep this database alive long enough for the sibling to see it too.
+        await sleep(1000);
 
-      const { rows } = await client.query("select email from users");
-      expect(rows).toStrictEqual([{ email: `${label}@example.com` }]);
-    });
+        const { rows } = await client.query("select email from users");
+        expect(rows).toStrictEqual([{ email: `${label}@example.com` }]);
+      },
+      siblingTimeoutMs + 5000
+    );
   });
 };
