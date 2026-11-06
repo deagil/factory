@@ -12,7 +12,8 @@
 ## Resume here
 
 - **Status:** in progress. P1.01 to P1.05a are done.
-- **Next task:** P1.06. Actions get `ctx.repo` from `createRepository({ executor: tx, actionId, actorId, now })` and `ctx.dal` from `createDataAccess`, both on the action's transaction. The pipeline must write the `action_log` row before the handler runs, since `audit_log.action_id` references it. Update results carry `before` and `after`, ready for events. `repository.test.ts` shows an action's shape: a transaction, an `action_log` row, then the repository.
+- **Next task:** P1.06, the first code in `packages/actions` (still a placeholder; it needs `@workspace/objects` and `@workspace/db` as workspace dependencies). `ctx.repo` comes from `createRepository({ executor: tx, actionId, actorId, now })` and `ctx.dal` from `createDataAccess({ executor: tx, canRead })`, so `ctx` is built per run, inside the transaction, once the `action_log` row exists. Update results carry `before` and `after`, ready for events. `packages/objects/src/repository.test.ts` shows an action's shape: a transaction, an `action_log` row, then the repository.
+- **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.06.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
@@ -84,6 +85,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - Runs identify, validate, authorise, approve (no rules yet), run, record and commit, all in one transaction.
   - Record writes the `action_log` row (`actor_id`, `origin_user_id`, input, result or error, status) and the `event_log` rows with `origin_user_id` and depth 0.
   - Failures roll everything back but still leave a failed `action_log` row, written in its own transaction.
+  - `audit_log.action_id` references `action_log`, so the `action_log` row is inserted at the start of the transaction, before the handler runs, and filled in at record. `actionStatuses` has no in-flight value (`pending_approval`, `succeeded`, `failed`, `rejected`); decide whether to add one or insert with the final status, and say which in a decision record.
   - **Needs:** P1.06.
   - **Done when:**
     - Each stage has a test.
@@ -130,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as decision record 0012.
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0019 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -183,7 +185,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.21 Generated record screen and history**
   - View, create, edit and archive records, with forms built from the action input schemas. Read-only fields aren't editable, and the hand-written action appears as a button.
-  - A history tab shows the record's `audit_log` and `action_log` entries, through a `record.history` query.
+  - A history tab shows the record's `audit_log` and `action_log` entries, through a `record.history` query. Each `audit_log` row is one change with its fields `before` and `after` (decision 0018), so one row is one timeline entry.
   - **Needs:** P1.20.
   - **Done when:** editing a contact shows the field changes in history with who made them, and moving it to another organisation is only possible through the button.
 
@@ -213,3 +215,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-06 · P1.04 · [#23](https://github.com/deagil/factory/pull/23) · `createDataAccess({ executor, canRead })` in `packages/objects/src/dal/`, with decision 0017. `list` takes `filter`, one `sort` (`-createdAt` by default, empty values last), a keyset `cursor`, `limit` (50, at most 200), `archived` and `expand`; `listInputSchema(object)` validates it, ready for P1.09's `.list`. Followed refs come back in `related[field][id]`, never inside records. `canRead` answers `"all"` or `"none"` per object. With `"none"` a list is empty and `get` is null, and related records are left out. `NULLS LAST` ordering comes from `@workspace/db` (`ascNullsLast`, `descNullsLast`), keeping raw SQL there. Tests run every filter operator of every type, sorting, paging through empty values and ties, archived modes, refs and the hook against Postgres. The fixture CRM's database setup moved to `src/test-fixtures/crm-database.ts`. `AnyObjectDefinition` is now a wide interface, like `AnyField`, because concrete tables didn't fit `ObjectDefinition<string, any, …>`.
 - 2026-11-06 · P1.05 · [#24](https://github.com/deagil/factory/pull/24) · `createRepository({ executor, actionId, actorId, now })` in `packages/objects/src/repository.ts`, with decision 0018. `audit_log` is now one row per record change with `before` and `after` JSONB, holding only changed fields (custom fields as `customFields.<key>`), plus a GIN index on `after`; the plan had a row per field, changed at the user's request. The migration only expands: `field` becomes nullable and the old columns stay until P1.05a drops them. `update` returns `updated`, `unchanged`, `not_found`, `archived` or `conflict`; with `lock` it reads `FOR UPDATE`, and it always writes `WHERE version = …`, so an unlocked race gives `conflict` rather than a lost update. Archiving writes no `audit_log` row. Values are compared with `isDeepStrictEqual`, so money and dates compare by value. The repository checks values with each field's input schema; read-only fields are the generated update action's job (P1.09), not the repository's.
 - 2026-11-06 · P1.05a · [#25](https://github.com/deagil/factory/pull/25) · Contract step for decision 0018: drops `audit_log`'s `field`, `old_value` and `new_value`, shipped with `fx ship --contract-step`. `audit_log` is now `id, object, record_id, before, after, action_id, actor_id, at`, as SYSTEM_DESIGN section 3 says.
+- 2026-11-06 · handover · [phase-1-handover.md](phase-1-handover.md) written after P1.05a. P1.07 now notes the `action_log` ordering and status question; P1.13's decision number fixed (0012 was taken); P1.21 notes the one-row-per-change history.
