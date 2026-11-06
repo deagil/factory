@@ -5,6 +5,7 @@
 | [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | How the factory works: repos, database schema, components, how they fit together, delivery, agents, stack and glossary |
 | [decisions/](decisions/) | One record per settled decision, with context and consequences |
 | [plans/](plans/README.md) | One task list per build phase, with a resume section for whoever picks it up next |
+| [branch-protection.md](branch-protection.md) | Setting up `main`'s protection on GitHub and other git hosts, and checking it works |
 
 The planning brief, with the reasoning behind these decisions and the open questions, is the "Software Factory Core — Design Brief" doc in Claude.
 
