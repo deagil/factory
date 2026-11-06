@@ -53,7 +53,7 @@ export type TextField<TRequired extends boolean = boolean> = Field<
  */
 export const text = <TRequired extends boolean = false>(
   options?: TextOptions<TRequired>
-): TextField<TRequired> => {
+): TextField<NoInfer<TRequired>> => {
   const base = baseOptions(options);
   let value = z.string().trim();
   if (base.required) {

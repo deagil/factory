@@ -8,7 +8,7 @@ Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), section 3. Startin
 
 - `createDb(url)` returns a typed Drizzle database on its own `pg` pool; `closeDb(db)` closes it. There is no global `db`: services reach actions through `ctx` (AGENTS.md rule 7).
 - `withTransaction(db, work)` runs `work` in one transaction, or a savepoint when called on a transaction. `Executor` is either.
-- Core tables in `src/schema/core.ts`: `users`, `actors`, `actor_roles`, `api_keys`, `action_log`, `audit_log`, `event_log`. IDs default to Postgres 18's `uuidv7()`.
+- Core tables in `src/schema/core.ts`: `users`, `actors`, `actor_roles`, `api_keys`, `action_log`, `audit_log`, `event_log`. IDs default to Postgres 18's `uuidv7()`. `@workspace/db/schema` exports only these tables, for schema files that drizzle-kit loads as CommonJS, where the rest of the package (which uses `import.meta`) fails.
 - `runMigrations(url)` applies `migrations/` with Drizzle's migrator. `pnpm db:migrate` (from the root) runs it against `DATABASE_URL`.
 - `loadEnv()` loads the root `.env` without overriding the environment; `requireEnv(name)` fails with a fix-it message.
 

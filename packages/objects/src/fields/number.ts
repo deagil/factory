@@ -69,7 +69,7 @@ export const number = <
   TInteger extends boolean = false,
 >(
   options?: NumberOptions<TRequired, TInteger>
-): NumberField<TRequired, TInteger> => {
+): NumberField<NoInfer<TRequired>, NoInfer<TInteger>> => {
   const base = baseOptions(options);
   const isInteger = options?.integer ?? false;
   let value = isInteger ? z.int().min(int32.min).max(int32.max) : z.number();

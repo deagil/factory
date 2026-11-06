@@ -139,7 +139,7 @@ export type MoneyField<TRequired extends boolean = boolean> = Field<
  */
 export const money = <TRequired extends boolean = false>(
   options?: MoneyOptions<TRequired>
-): MoneyField<TRequired> => {
+): MoneyField<NoInfer<TRequired>> => {
   const base = baseOptions(options);
   const only = options?.currency;
   if (only !== undefined && !currencyCode.safeParse(only).success) {

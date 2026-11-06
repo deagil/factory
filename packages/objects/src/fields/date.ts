@@ -43,7 +43,7 @@ export type DateField<TRequired extends boolean = boolean> = Field<
  */
 export const date = <TRequired extends boolean = false>(
   options?: FieldOptions<TRequired>
-): DateField<TRequired> => {
+): DateField<NoInfer<TRequired>> => {
   const base = baseOptions(options);
   return {
     kind: "date",
