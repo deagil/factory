@@ -7,7 +7,7 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P0.04.
+- **Next task:** P0.05.
 - **Known issues:** none yet.
 - **Until P0.10 is done,** work on plain short-lived branches off `main` with PRs. After that, use `fx` for every change.
 - **How to start:** see [docs/plans/README.md](README.md). Run `pnpm install && pnpm typecheck && pnpm lint && pnpm test` before you begin; if any of them fail on `main`, fixing that is the first job.
@@ -36,7 +36,7 @@
 
 ### Database
 
-- [ ] **P0.04 Local Postgres**
+- [x] **P0.04 Local Postgres**
   - Add a `docker-compose.yml` with Postgres 18 and a named volume, plus `pnpm db:up` and `pnpm db:down` scripts.
   - Add `DATABASE_URL` and `DATABASE_ADMIN_URL` to `.env.example`. The admin URL can create databases, which `fx` and the tests need.
   - Document the setup in the README quick start.
@@ -129,3 +129,4 @@
 - 2026-11-06 · P0.01 · direct commit to `main` (no remote existed yet) · created private repo `deagil/factory` and pushed. Linting will use Ultracite instead of the template's ESLint (Dylan's request); see P0.03.
 - 2026-11-06 · P0.02 · [#1](https://github.com/deagil/factory/pull/1) · shared config is `tsconfig.base.json` (NodeNext, `erasableSyntaxOnly`, `allowImportingTsExtensions`) so Node 24 can run package sources directly; use `.ts` extensions on relative imports. Workspace scripts use the root `tsc`, so packages don't each need `typescript`.
 - 2026-11-06 · P0.03 · [#2](https://github.com/deagil/factory/pull/2) · Ultracite replaces ESLint and Prettier (decision 0012). Each package's `lint` is `ultracite check`; `pnpm format` fixes the whole repo. Shared Vitest config is `@workspace/testing/vitest`; packages devDepend on `@workspace/testing`, so `testing` must never depend on another workspace package or Turborepo sees a cycle.
+- 2026-11-06 · P0.04 · [#3](https://github.com/deagil/factory/pull/3) · `postgres:18-alpine` with `max_connections=300` for per-file test databases; the named volume mounts at `/var/lib/postgresql` (Postgres 18 layout). `pnpm db:up` waits for the health check. `DATABASE_ADMIN_URL` points at the `postgres` maintenance database. `.env` (not `.env.local`) is the local env file.

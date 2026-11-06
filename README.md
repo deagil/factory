@@ -63,14 +63,26 @@ factory/
 
 ## Getting started
 
+You need Node 24 (see `.nvmrc`), Docker, and pnpm through corepack.
+
 ```bash
-pnpm install       # Node 24 LTS, pnpm via corepack
-pnpm dev           # runs the web surface (and the server, once it exists)
-pnpm typecheck
-pnpm lint          # Ultracite: Oxlint and Oxfmt, per package
-pnpm test          # Vitest, per package
-pnpm format        # fix lint and formatting across the repo
+corepack enable           # pnpm at the version in package.json
+pnpm install
+cp .env.example .env      # local defaults work as they are
+pnpm db:up                # Postgres 18 in Docker; waits until it is healthy
+pnpm dev                  # runs the web surface (and the server, once it exists)
 ```
+
+Checks, which CI also runs:
+
+```bash
+pnpm typecheck
+pnpm lint                 # Ultracite: Oxlint and Oxfmt, per package
+pnpm test                 # Vitest, per package
+pnpm format               # fix lint and formatting across the repo
+```
+
+`pnpm db:down` stops Postgres and keeps its data. To start again from an empty database, run `docker compose down -v`. If port 5432 is taken, set `POSTGRES_PORT` and change the port in `.env` to match.
 
 To add a shadcn component to the shared UI package, run this from the repo root:
 
