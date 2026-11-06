@@ -114,7 +114,7 @@ users              id, name, email, status, created_at        -- people who sign
 actors             id, kind (staff | agent | integration | automation), name,
                    user_id, status, created_at
 actor_roles        actor_id, role_key                   -- roles are defined in config
-api_keys           id, actor_id, key_hash, label, last_used_at, revoked_at
+api_keys           id, actor_id, key_hash, label, last_used_at, expires_at, revoked_at
 
 -- What happened
 action_log         id, name, actor_id, origin_user_id, run_id, input jsonb, result jsonb,

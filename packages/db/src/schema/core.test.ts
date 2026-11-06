@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { closeDb, createDb } from "../client.ts";
 import type { Db } from "../client.ts";
-import { actionLog, actors, users } from "./core.ts";
+import { actionLog, actors, apiKeys, users } from "./core.ts";
 
 describe("core tables", () => {
   let database: TestDatabase;
@@ -63,6 +63,23 @@ describe("core tables", () => {
     });
     // uuidv7: the version nibble is 7.
     expect(rows[0]?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/u);
+  });
+
+  it("stores an api key with no expiry by default", async () => {
+    const [actor] = await db
+      .insert(actors)
+      .values({ kind: "integration", name: "Billing sync" })
+      .returning();
+    if (!actor) {
+      throw new Error("insert returned no rows");
+    }
+
+    const [key] = await db
+      .insert(apiKeys)
+      .values({ actorId: actor.id, keyHash: "hash-1", label: "billing" })
+      .returning();
+
+    expect(key?.expiresAt).toBeNull();
   });
 
   it("refuses a staff actor without a user", async () => {

@@ -96,6 +96,8 @@ export const apiKeys = pgTable(
     keyHash: text("key_hash").notNull().unique(),
     label: text("label").notNull(),
     lastUsedAt: timestamptz("last_used_at"),
+    /** When the key stops working. Null means it never expires. */
+    expiresAt: timestamptz("expires_at"),
     revokedAt: timestamptz("revoked_at"),
     createdAt: createdAt(),
   },
