@@ -19,6 +19,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0013 | [Marking a migration as the contract step](0013-contract-step-marker.md) | Accepted |
 | 0014 | [How field types store and filter values](0014-field-types.md) | Accepted |
 | 0015 | [defineObject's tables, records and registry](0015-define-object-tables-and-records.md) | Accepted |
+| 0016 | [What the schema check compares](0016-schema-check.md) | Accepted |
 
 ## Template
 

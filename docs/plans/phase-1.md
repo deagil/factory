@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 and P1.02 are done.
-- **Next task:** P1.03. `listObjects()` gives every defined object and `coreTableNames` the core's tables. Object schema files load under drizzle-kit only if they avoid `import.meta`, so import the core tables from `@workspace/db/schema` (decision 0015).
+- **Status:** in progress. P1.01 to P1.03 are done.
+- **Next task:** P1.04. An object gives its table, `columnsOf(key)` for a field's columns, and `fromRow` for records; fields give `filterSchema` and `filterWhere` (decisions 0014 and 0015).
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
@@ -45,7 +45,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - **Needs:** P1.01.
   - **Done when:** a test object generates a migration through drizzle-kit, and its derived schemas accept and reject the right input.
 
-- [ ] **P1.03 Schema check**
+- [x] **P1.03 Schema check**
   - Compares the database with the object definitions and core tables. It runs at start-up, failing with a clear message, and in CI. It also fails if a table isn't from `defineObject` or the core.
   - **Needs:** P1.02.
   - **Done when:** a missing column or a stray table fails the check with a message saying what to do.
@@ -155,6 +155,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.18 `defineSystem`, `createServer` and the CRM example**
   - `defineSystem` collects objects, actions and roles; `createServer` runs it.
+  - `createServer` runs `assertSchema(db, [...coreTables, ...objectTables])` before it serves, and the CRM's CI runs `checkSchema` on its migrated database (decision 0016).
   - `examples/crm` defines `organisation` and `contact`. It adds one hand-written action, `contact.moveToOrganisation`, which owns the contact's `organisation` field (so the generated update marks that field read-only) and emits `contact.moved`.
   - It also has roles for admin and sales, seed data, and `pnpm dev` wired through `fx dev`.
   - **Needs:** P1.17.
@@ -202,3 +203,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-06 · plan written.
 - 2026-11-06 · P1.01 · [#20](https://github.com/deagil/factory/pull/20) · `f.text`, `f.number`, `f.money`, `f.date`, `f.boolean` and `f.ref` in `packages/objects/src/fields`, with decision 0014 for what the design left open. Money is a `bigint` of minor units plus a `<field>_currency` column, and its value is `{ amount, currency }`. Dates are `YYYY-MM-DD` strings. Refs are `<field>_id` uuid columns. Input schemas hold the rules; output schemas only check the shape. Filters are objects of operators (`{ gte: 10, lt: 20 }`); `filterSchema(field)` validates one and `filterWhere(field, columns, filter)` builds its condition, for P1.04. Tests render the conditions with Drizzle's `PgDialect`; P1.04 runs them against Postgres. Ultracite turns `type X = { ... }` into an interface, and an interface doesn't fit `Record<string, …>`, so column maps are written as `MainColumn<…>` (a `Record`). Its Vitest rules want `toStrictEqual`, `toBeFalsy` and at most five `expect`s per test.
 - 2026-11-06 · P1.02 · [#21](https://github.com/deagil/factory/pull/21) · `defineObject` in `packages/objects/src/define-object.ts`, with decision 0015. Besides the plan's housekeeping columns it adds `created_by`, `updated_by` and `version` from SYSTEM_DESIGN section 3, and `custom_fields` only with `customFields: true`. Records are JSON-safe, with ISO timestamps; `fromRow` and `toRow` map between records and rows, and `columnsOf(key)` gives a field's columns for P1.04's filters. The `update` schema already leaves out `readOnly` fields, so P1.09 can use it as it is. Refs get a foreign key and an index; refs to objects not yet defined resolve lazily. The Done-when test runs `drizzle-kit generate` on a fixture CRM against a copy of the core migrations, applies the result to a test database, and round-trips a record. Found on the way: drizzle-kit loads schema files as CommonJS, so `import.meta` fails there, hence the new `@workspace/db/schema` entry point; repeated `--schema` flags don't add up, so the test writes a temporary config; and `--out` must be a relative path. Field factories now return `NoInfer<…>` types, or `required: true` inside a `fields` literal widens to `boolean`.
+- 2026-11-06 · P1.03 · [#22](https://github.com/deagil/factory/pull/22) · `checkSchema(db, tables)` and `assertSchema` in `packages/db/src/schema-check.ts`, with decision 0016. It compares `public` only. It fails on a missing table or column, a different type or nullability, and a table the code doesn't define. It allows, and lists, columns the code no longer uses, since a contract step drops them later. Types are compared as `format_type` prints them; `normaliseType` maps Drizzle's names. `db:check-migrations` now runs it on its freshly migrated database, so CI and `fx ship` both do. There was no server to run it at start-up yet, so P1.18 now says `createServer` calls `assertSchema`. The objects migration test runs it on the fixture CRM's tables, which covers every field type's column. Found on the way: a `.cursor/hooks/state/` folder from Cursor made the main checkout dirty, so `fx start` refused. I excluded it in `.git/info/exclude` on this machine; consider gitignoring it.
