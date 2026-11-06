@@ -39,6 +39,7 @@ export const users = pgTable(
     id: id(),
     name: text("name").notNull(),
     email: text("email").notNull(),
+    nickname: text("nickname"),
     status: text("status", { enum: userStatuses }).notNull().default("active"),
     createdAt: createdAt(),
   },
