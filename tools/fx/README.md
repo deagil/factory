@@ -53,6 +53,8 @@ pnpm fx --help
   4. runs the checks CI runs, stopping at the first that fails: the migration lint, typecheck, lint, tests, and the migrations on a fresh database (`pnpm db:check-migrations`). The result goes in the change's `lastCheck`;
   5. pushes with `--force-with-lease`, then opens a PR with `gh pr create --fill-first`, or finds the open one. Without `gh`, it prints the compare URL.
 
+  Turbo's cache is shared between worktrees. A check whose inputs haven't changed replays its earlier output, including paths in the worktree that first ran it, even if that worktree is gone.
+
   `--contract-step "<why>"` makes the migration a contract step: it becomes the first line, `-- contract-step: <why>`, which the migration lint needs before it allows a destructive statement. Later ships keep it. If drizzle-kit would have to ask whether something was renamed, fx ship stops: renames aren't expand-safe, so add the new column in this change and drop the old one in a later contract step.
 
 - `fx switch <name>` finds another change's worktree. A command can't change its shell's directory, so it prints the `cd`; `--path` prints only the path.

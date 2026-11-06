@@ -17,7 +17,7 @@ import { FxError } from "../errors.ts";
 import { findRepo, git, hasOrigin } from "../git.ts";
 import type { Repo } from "../git.ts";
 import { branchName, databaseName, slugify } from "../names.ts";
-import { runToStderr } from "../process.ts";
+import { capture, errorLine, plainText } from "../process.ts";
 import { findChange, saveChange } from "../state.ts";
 import type { Change } from "../state.ts";
 
@@ -88,15 +88,16 @@ const assertNew = async (
   }
 };
 
-/** Runs `pnpm install` in the worktree, with its output on stderr. */
+/** Runs `pnpm install` in the worktree. Its output is shown only if it fails. */
 const install = async (cwd: string): Promise<void> => {
-  const code = await runToStderr("pnpm", ["install", "--frozen-lockfile"], {
+  const result = await capture("pnpm", ["install", "--frozen-lockfile"], {
     cwd,
   });
-  if (code !== 0) {
+  if (result.code !== 0) {
+    const output = plainText(`${result.stdout}\n${result.stderr}`);
     throw new FxError(
       "command_failed",
-      `pnpm install failed in ${cwd} (exit ${code}).`,
+      `pnpm install failed in ${cwd} (exit ${result.code}): ${errorLine(output)}`,
       "Fix the install, then run `pnpm install` in the worktree."
     );
   }

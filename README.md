@@ -6,7 +6,7 @@ A personal software factory: a core I own that lets me, working mostly through A
 
 Each client gets their own system: a thin repo that pins a version of the core packages, adds the client's own objects and logic, and keeps all of its configuration as files. It deploys as one API service, one static web front end and one Postgres database.
 
-**Status: phase 0.** The design is settled; the packages below are placeholders. Start with [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
+**Status: phase 1.** The foundations work: the workspace, local Postgres with the core tables, CI and `fx`. Most packages below are still placeholders. Start with [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
 
 ## What it is, and what it isn't
 
@@ -63,12 +63,12 @@ factory/
 
 ## Getting started
 
-You need Node 24 (see `.nvmrc`), Docker, and pnpm through corepack.
+You need Node 24 or later (CI uses the version in `.nvmrc`), Docker, and pnpm through corepack.
 
 ```bash
 corepack enable           # pnpm at the version in package.json
 pnpm install
-cp .env.example .env      # local defaults work as they are
+[ -f .env ] || cp .env.example .env   # local defaults work as they are
 pnpm db:up                # Postgres 18 in Docker; waits until it is healthy
 pnpm dev                  # runs the web surface (and the server, once it exists)
 ```
@@ -94,16 +94,18 @@ Components land in `packages/ui/src/components` and are imported as `@workspace/
 
 ## Working on the factory
 
-Everything will go through `fx`. Phase 0 builds the first three commands; until then, use short-lived branches and PRs into `main`.
+Every change goes through `fx`, run as `pnpm fx`. [tools/fx/README.md](tools/fx/README.md) has the details.
 
 ```bash
-fx start "deal pipeline"   # new change: branch, worktree, database from seed
-fx dev                     # run on this change's database
-fx switch refunds          # move to another open change
-fx ship                    # rebase, generate the migration, run checks, open the PR
-fx status                  # open changes, previews, checks and age
-fx release                 # client repos only: promote main to production on approval
+pnpm fx start "deal pipeline"   # new change: branch, worktree and its own database
+pnpm fx dev                     # in the worktree: dev servers on the change's database
+pnpm fx ship                    # rebase, write the migration, run every check, open the PR
+pnpm fx done                    # after the merge: remove the worktree, branches and database
+pnpm fx switch refunds          # where another open change's worktree is
+pnpm fx status                  # the current change and its last checks
 ```
+
+`main` takes only squash-merged PRs with green CI; see [docs/branch-protection.md](docs/branch-protection.md). Phase 3 adds `fx release`, which promotes a client repo's `main` to `production` on approval.
 
 Agents follow [AGENTS.md](AGENTS.md).
 
