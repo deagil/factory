@@ -11,9 +11,9 @@ import {
 
 import { requireAdminUrl } from "../admin.ts";
 import { FxError } from "../errors.ts";
-import { findRepo, git, hasOrigin } from "../git.ts";
+import { currentBranch, findRepo, git, hasOrigin } from "../git.ts";
 import type { Repo } from "../git.ts";
-import { capture } from "../process.ts";
+import { capture, errorLine } from "../process.ts";
 import { changeForPath, listChanges, removeChange } from "../state.ts";
 import type { Change } from "../state.ts";
 import { requireChange } from "./switch.ts";
@@ -124,6 +124,15 @@ export interface DoneOptions {
   readonly pruneTemplates?: boolean;
   /** Where progress goes; stderr by default, so stdout stays clean for --json. */
   readonly log?: (line: string) => void;
+  /** Installs dependencies in the main checkout. Tests replace it. */
+  readonly install?: (cwd: string) => Promise<void>;
+}
+
+export interface MainUpdate {
+  readonly fastForwarded: boolean;
+  readonly installed: boolean;
+  /** Why the main checkout was left as it is, when it was. */
+  readonly note: string | null;
 }
 
 export interface DoneResult {
@@ -134,6 +143,8 @@ export interface DoneResult {
   readonly prunedTemplates: readonly string[];
   /** Where to cd, when fx done ran inside the worktree it removed. */
   readonly cd: string | null;
+  /** What happened to the main checkout. Null when there was no origin, or the change was not merged. */
+  readonly main: MainUpdate | null;
 }
 
 const findDoneChange = async (
@@ -229,9 +240,83 @@ const removeBranch = async (
   return true;
 };
 
+const installDependencies = async (cwd: string): Promise<void> => {
+  if (!existsSync(path.join(cwd, "package.json"))) {
+    return;
+  }
+  const result = await capture("pnpm", ["install"], { cwd });
+  if (result.code !== 0) {
+    throw new FxError(
+      "command_failed",
+      `pnpm install failed in ${cwd} (exit ${result.code ?? "signal"}): ${errorLine(`${result.stderr}${result.stdout}`)}`,
+      "The change is already removed. Run `pnpm install` in the main checkout."
+    );
+  }
+};
+
+/**
+ * Fast-forwards a clean main checkout onto origin/main, and installs when
+ * the lockfile changed. A dirty checkout, or one not on main, is left as it is.
+ */
+const syncMain = async (
+  repo: Repo,
+  install: (cwd: string) => Promise<void>,
+  log: (line: string) => void
+): Promise<MainUpdate> => {
+  const branch = await currentBranch(repo.mainRoot);
+  if (branch !== "main") {
+    return {
+      fastForwarded: false,
+      installed: false,
+      note: `Main checkout is on ${branch ?? "a detached HEAD"}, so it was left as it is.`,
+    };
+  }
+  const dirty = await git(repo.mainRoot, "status", "--porcelain");
+  if (dirty !== "") {
+    const files = dirty.split("\n").slice(0, 5).join("\n  ");
+    return {
+      fastForwarded: false,
+      installed: false,
+      note: `Main checkout has uncommitted changes:\n  ${files}\nStash them, then \`git merge --ff-only origin/main\` in ${repo.mainRoot}.`,
+    };
+  }
+  const before = await git(repo.mainRoot, "rev-parse", "HEAD");
+  try {
+    await git(repo.mainRoot, "merge", "--ff-only", "origin/main");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      fastForwarded: false,
+      installed: false,
+      note: `Main checkout could not fast-forward to origin/main. ${message}`,
+    };
+  }
+  const after = await git(repo.mainRoot, "rev-parse", "HEAD");
+  if (before === after) {
+    return { fastForwarded: false, installed: false, note: null };
+  }
+  log("Fast-forwarded the main checkout to origin/main…");
+  const lockfile = await git(
+    repo.mainRoot,
+    "diff",
+    "--name-only",
+    before,
+    after,
+    "--",
+    "pnpm-lock.yaml"
+  );
+  if (lockfile === "") {
+    return { fastForwarded: true, installed: false, note: null };
+  }
+  log("Installing dependencies in the main checkout…");
+  await install(repo.mainRoot);
+  return { fastForwarded: true, installed: true, note: null };
+};
+
 /**
  * `fx done [<name>]`: once a change is merged, removes its worktree, branch,
  * database and state entry, then drops template databases nothing uses.
+ * A clean main checkout is fast-forwarded to origin/main.
  * Refuses unmerged or uncommitted work unless forced.
  */
 export const done = async (
@@ -275,12 +360,17 @@ export const done = async (
   const fromWorktree = path.relative(change.worktree, cwd);
   const inside =
     !fromWorktree.startsWith("..") && !path.isAbsolute(fromWorktree);
+  const main =
+    merged && origin
+      ? await syncMain(repo, options.install ?? installDependencies, log)
+      : null;
   return {
     change,
     merged,
     deletedRemoteBranch,
     prunedTemplates,
     cd: inside ? repo.mainRoot : null,
+    main,
   };
 };
 
@@ -292,6 +382,15 @@ export const formatDone = (result: DoneResult): string => {
   ];
   if (result.prunedTemplates.length > 0) {
     lines.push(`  pruned    ${result.prunedTemplates.join(", ")}`);
+  }
+  if (result.main?.fastForwarded) {
+    lines.push(
+      result.main.installed
+        ? "  main      fast-forwarded to origin/main and dependencies installed"
+        : "  main      fast-forwarded to origin/main"
+    );
+  } else if (result.main?.note) {
+    lines.push(`  main      ${result.main.note}`);
   }
   if (result.cd) {
     lines.push("", `Its worktree is gone; cd ${result.cd}`);

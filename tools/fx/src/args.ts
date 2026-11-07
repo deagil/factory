@@ -20,7 +20,7 @@ const globalOptions = {
 export const commands = {
   status: {
     summary:
-      "Show the current change, its branch and database, and its last checks",
+      "Show the current change, its branch and database, its last local checks, and GitHub's check",
     usage: "fx status [--json]",
     options: {},
     positionals: { min: 0, max: 0 },
@@ -41,7 +41,7 @@ export const commands = {
   },
   ship: {
     summary:
-      "Rebase on main, write the change's one migration, run every check, then push and open a PR",
+      "Rebase on main, write the one migration, run every check, push, refresh the PR, and wait for GitHub's check",
     usage: 'fx ship [--contract-step "<why it is safe now>"] [--json]',
     options: { "contract-step": { type: "string" } },
     positionals: { min: 0, max: 0 },
@@ -62,7 +62,7 @@ export const commands = {
   },
   done: {
     summary:
-      "Remove a merged change's worktree, branch and database, and its .fx entry",
+      "Remove a merged change, then fast-forward a clean main checkout and install when the lockfile changed",
     usage: "fx done [<name>] [--force] [--json]",
     options: { force: { type: "boolean", default: false } },
     positionals: { min: 0, max: 1 },

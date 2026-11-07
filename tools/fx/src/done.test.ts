@@ -82,6 +82,7 @@ describe("fx done", () => {
         deletedRemoteBranch: false,
       });
       expect(existsSync(change.worktree)).toBeFalsy();
+      expect(result.main).toBeNull();
       // origin keeps an unmerged branch: fx done only deletes merged ones.
       expect(
         gitAs(repo, "ls-remote", "--heads", "origin", change.branch)
@@ -100,6 +101,78 @@ describe("fx done", () => {
       done(temp.repo, "try it", keepTemplates)
     ).rejects.toMatchObject({ code: "dirty_worktree" });
   });
+
+  it(
+    "fast-forwards a clean main checkout that is behind origin/main",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, change } = await shippedChange();
+      squashMerge(repo, change.branch);
+      gitAs(repo, "reset", "--hard", "HEAD~1");
+      const before = gitAs(repo, "rev-parse", "HEAD");
+
+      const result = await done(change.worktree, undefined, keepTemplates);
+
+      expect(result.main).toStrictEqual({
+        fastForwarded: true,
+        installed: false,
+        note: null,
+      });
+      expect(gitAs(repo, "rev-parse", "HEAD")).not.toBe(before);
+      expect(gitAs(repo, "rev-parse", "HEAD")).toBe(
+        gitAs(repo, "rev-parse", "origin/main")
+      );
+    }
+  );
+
+  it(
+    "installs in the main checkout when the lockfile changed",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, change } = await shippedChange();
+      writeFileSync(path.join(change.worktree, "pnpm-lock.yaml"), "lock: 1\n");
+      gitAs(change.worktree, "add", "pnpm-lock.yaml");
+      gitAs(change.worktree, "commit", "-q", "-m", "chore: lockfile");
+      gitAs(change.worktree, "push", "-q", "origin", change.branch);
+      squashMerge(repo, change.branch);
+      gitAs(repo, "reset", "--hard", "HEAD~1");
+      const installed: string[] = [];
+
+      const result = await done(change.worktree, undefined, {
+        ...keepTemplates,
+        install: (cwd) => {
+          installed.push(cwd);
+          return Promise.resolve();
+        },
+      });
+
+      expect(result.main).toStrictEqual({
+        fastForwarded: true,
+        installed: true,
+        note: null,
+      });
+      expect(installed).toStrictEqual([repo]);
+    }
+  );
+
+  it(
+    "leaves a dirty main checkout where it is",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, change } = await shippedChange();
+      squashMerge(repo, change.branch);
+      gitAs(repo, "reset", "--hard", "HEAD~1");
+      writeFileSync(path.join(repo, "wip.txt"), "x\n");
+      const head = gitAs(repo, "rev-parse", "HEAD");
+
+      const result = await done(change.worktree, undefined, keepTemplates);
+
+      expect(gitAs(repo, "rev-parse", "HEAD")).toBe(head);
+      expect(result.main?.fastForwarded).toBeFalsy();
+      expect(result.main?.note).toContain("wip.txt");
+      expect(existsSync(change.worktree)).toBeFalsy();
+    }
+  );
 });
 
 describe("fx switch", () => {

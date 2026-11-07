@@ -92,7 +92,8 @@ describe("fx start", () => {
       start(repo, "try it", { ...quiet, skipInstall: true })
     ).rejects.toMatchObject({
       code: "dirty_worktree",
-      hint: expect.stringContaining("git stash -u"),
+      message: expect.stringContaining("notes.txt"),
+      hint: expect.stringContaining("pop the stash here"),
     });
   });
 

@@ -1,4 +1,6 @@
 import { currentBranch, findRepo } from "../git.ts";
+import { readRemoteCheck } from "../github.ts";
+import type { RemoteCheck } from "../github.ts";
 import { changeForPath, listChanges } from "../state.ts";
 import type { Change } from "../state.ts";
 
@@ -7,6 +9,8 @@ export interface StatusReport {
   readonly worktree: string;
   readonly branch: string | null;
   readonly current: Change | null;
+  /** GitHub's `check` on the current change, when there is a pull request. */
+  readonly remoteCheck: RemoteCheck | null;
   readonly changes: readonly Change[];
 }
 
@@ -14,11 +18,15 @@ export interface StatusReport {
 export const status = async (cwd: string): Promise<StatusReport> => {
   const repo = await findRepo(cwd);
   const changes = await listChanges(repo.stateDir);
+  const current = changeForPath(changes, repo.worktreeRoot) ?? null;
   return {
     repo: repo.name,
     worktree: repo.worktreeRoot,
     branch: (await currentBranch(repo.worktreeRoot)) ?? null,
-    current: changeForPath(changes, repo.worktreeRoot) ?? null,
+    current,
+    remoteCheck: current
+      ? await readRemoteCheck(repo.worktreeRoot, current.branch)
+      : null,
     changes,
   };
 };
@@ -58,6 +66,10 @@ export const formatStatus = (
       `  worktree  ${current.worktree}`,
       `  checks    ${checks(current)}`
     );
+    if (report.remoteCheck) {
+      const url = report.remoteCheck.url ? `  ${report.remoteCheck.url}` : "";
+      lines.push(`  ci        ${report.remoteCheck.state}${url}`);
+    }
   } else {
     lines.push(
       `No current change: ${report.worktree} is on ${report.branch ?? "a detached HEAD"}.`
