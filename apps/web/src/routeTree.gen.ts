@@ -19,6 +19,8 @@ import { Route as AppAccessUsersRouteImport } from './routes/_app/access.users'
 import { Route as AppAccountAgentsRouteImport } from './routes/_app/account.agents'
 import { Route as AppActivityChangesRouteImport } from './routes/_app/activity.changes'
 import { Route as AppActivityEventsRouteImport } from './routes/_app/activity.events'
+import { Route as AppSettingsApiRouteImport } from './routes/_app/settings.api'
+import { Route as AppSettingsReferenceRouteImport } from './routes/_app/settings.reference'
 import { Route as AppAccessActorsIdRouteImport } from './routes/_app/access.actors.$id'
 import { Route as AppActivityActionsIndexRouteImport } from './routes/_app/activity.actions.index'
 import { Route as AppActivityActionsIdRouteImport } from './routes/_app/activity.actions.$id'
@@ -75,6 +77,16 @@ const AppActivityEventsRoute = AppActivityEventsRouteImport.update({
   path: '/activity/events',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsApiRoute = AppSettingsApiRouteImport.update({
+  id: '/settings/api',
+  path: '/settings/api',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsReferenceRoute = AppSettingsReferenceRouteImport.update({
+  id: '/settings/reference',
+  path: '/settings/reference',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAccessActorsIdRoute = AppAccessActorsIdRouteImport.update({
   id: '/access/actors/$id',
   path: '/access/actors/$id',
@@ -116,6 +128,8 @@ export interface FileRoutesByFullPath {
   '/account/agents': typeof AppAccountAgentsRoute
   '/activity/changes': typeof AppActivityChangesRoute
   '/activity/events': typeof AppActivityEventsRoute
+  '/settings/api': typeof AppSettingsApiRoute
+  '/settings/reference': typeof AppSettingsReferenceRoute
   '/access/actors/$id': typeof AppAccessActorsIdRoute
   '/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
@@ -133,6 +147,8 @@ export interface FileRoutesByTo {
   '/account/agents': typeof AppAccountAgentsRoute
   '/activity/changes': typeof AppActivityChangesRoute
   '/activity/events': typeof AppActivityEventsRoute
+  '/settings/api': typeof AppSettingsApiRoute
+  '/settings/reference': typeof AppSettingsReferenceRoute
   '/access/actors/$id': typeof AppAccessActorsIdRoute
   '/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
@@ -152,6 +168,8 @@ export interface FileRoutesById {
   '/_app/account/agents': typeof AppAccountAgentsRoute
   '/_app/activity/changes': typeof AppActivityChangesRoute
   '/_app/activity/events': typeof AppActivityEventsRoute
+  '/_app/settings/api': typeof AppSettingsApiRoute
+  '/_app/settings/reference': typeof AppSettingsReferenceRoute
   '/_app/access/actors/$id': typeof AppAccessActorsIdRoute
   '/_app/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/_app/o/$object/$id': typeof AppOObjectIdRoute
@@ -171,6 +189,8 @@ export interface FileRouteTypes {
     | '/account/agents'
     | '/activity/changes'
     | '/activity/events'
+    | '/settings/api'
+    | '/settings/reference'
     | '/access/actors/$id'
     | '/activity/actions/$id'
     | '/o/$object/$id'
@@ -188,6 +208,8 @@ export interface FileRouteTypes {
     | '/account/agents'
     | '/activity/changes'
     | '/activity/events'
+    | '/settings/api'
+    | '/settings/reference'
     | '/access/actors/$id'
     | '/activity/actions/$id'
     | '/o/$object/$id'
@@ -206,6 +228,8 @@ export interface FileRouteTypes {
     | '/_app/account/agents'
     | '/_app/activity/changes'
     | '/_app/activity/events'
+    | '/_app/settings/api'
+    | '/_app/settings/reference'
     | '/_app/access/actors/$id'
     | '/_app/activity/actions/$id'
     | '/_app/o/$object/$id'
@@ -291,6 +315,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppActivityEventsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/api': {
+      id: '/_app/settings/api'
+      path: '/settings/api'
+      fullPath: '/settings/api'
+      preLoaderRoute: typeof AppSettingsApiRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/reference': {
+      id: '/_app/settings/reference'
+      path: '/settings/reference'
+      fullPath: '/settings/reference'
+      preLoaderRoute: typeof AppSettingsReferenceRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/access/actors/$id': {
       id: '/_app/access/actors/$id'
       path: '/access/actors/$id'
@@ -345,6 +383,8 @@ interface AppRouteChildren {
   AppAccountAgentsRoute: typeof AppAccountAgentsRoute
   AppActivityChangesRoute: typeof AppActivityChangesRoute
   AppActivityEventsRoute: typeof AppActivityEventsRoute
+  AppSettingsApiRoute: typeof AppSettingsApiRoute
+  AppSettingsReferenceRoute: typeof AppSettingsReferenceRoute
   AppAccessActorsIdRoute: typeof AppAccessActorsIdRoute
   AppActivityActionsIdRoute: typeof AppActivityActionsIdRoute
   AppOObjectIdRoute: typeof AppOObjectIdRoute
@@ -362,6 +402,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountAgentsRoute: AppAccountAgentsRoute,
   AppActivityChangesRoute: AppActivityChangesRoute,
   AppActivityEventsRoute: AppActivityEventsRoute,
+  AppSettingsApiRoute: AppSettingsApiRoute,
+  AppSettingsReferenceRoute: AppSettingsReferenceRoute,
   AppAccessActorsIdRoute: AppAccessActorsIdRoute,
   AppActivityActionsIdRoute: AppActivityActionsIdRoute,
   AppOObjectIdRoute: AppOObjectIdRoute,
