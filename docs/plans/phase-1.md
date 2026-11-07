@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 to P1.06 are done.
-- **Next task:** P1.07, the pipeline, in `packages/actions`. Inside one transaction: insert the `action_log` row, build `createRepository({ executor: tx, actionId, actorId, now: clock.now })` and `createDataAccess({ executor: tx, canRead })`, pass them to `createActionContext(action, services)`, run the handler, then check `isActionFailure` on what it returned or threw. `events()` gives the emitted events for `event_log`. Decision 0019 has the shapes; `src/test-helpers.ts` has stand-in services for tests without a database.
+- **Status:** in progress. P1.01 to P1.07 are done.
+- **Next task:** P1.08, retry keys and dry runs, in `packages/actions/src/pipeline.ts`. The retry check goes between validate and authorise; a dry run rolls the transaction back after record and keeps one `action_log` row marked `dry_run` (decision 0020 says how failed rows are written outside the rolled-back transaction).
 - **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.07.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
@@ -81,7 +81,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - **Needs:** P1.05.
   - **Done when:** registering two actions with the same name fails, unknown events passed to `emit` fail type-checking, and handlers can't reach services except through `ctx`.
 
-- [ ] **P1.07 The action pipeline**
+- [x] **P1.07 The action pipeline**
   - Runs identify, validate, authorise, approve (no rules yet), run, record and commit, all in one transaction.
   - Record writes the `action_log` row (`actor_id`, `origin_user_id`, input, result or error, status) and the `event_log` rows with `origin_user_id` and depth 0.
   - Failures roll everything back but still leave a failed `action_log` row, written in its own transaction.
@@ -132,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0020 at the time of writing; 0012 is taken).
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0021 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -217,3 +217,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-06 · P1.05a · [#25](https://github.com/deagil/factory/pull/25) · Contract step for decision 0018: drops `audit_log`'s `field`, `old_value` and `new_value`, shipped with `fx ship --contract-step`. `audit_log` is now `id, object, record_id, before, after, action_id, actor_id, at`, as SYSTEM_DESIGN section 3 says.
 - 2026-11-06 · handover · [phase-1-handover.md](phase-1-handover.md) written after P1.05a. P1.07 now notes the `action_log` ordering and status question; P1.13's decision number fixed (0012 was taken); P1.21 notes the one-row-per-change history.
 - 2026-11-07 · P1.06 · [#27](https://github.com/deagil/factory/pull/27) · `defineAction`, `defineQuery`, `createRegistry`, `createActionContext`/`createQueryContext` and typed errors in `packages/actions/src`, with decision 0019. Handlers return typed errors (`return ctx.notFound(…)`) as branded `ActionFailure`s; `isActionFailure` finds them, and the pipeline should treat a thrown one the same. `ctx.emit` is typed from `emits`; `@ts-expect-error` tests under `pnpm typecheck` prove undeclared events and wrong payloads fail. Queries get no `repo` or `emit`. `ConfigService` lives in `actions` (config depends on actions) and holds only `sha` until P1.11. Actions and queries share one namespace in the registry. "Only through ctx" is enforced by `checkHandlerBoundary` (`@workspace/actions/boundary`): files that call `defineAction`/`defineQuery` may not import db, config, auth, server, drizzle-orm or pg, build repositories, or read the system clock; a test runs it over the repo. Handlers may return a value or a promise, which keeps Oxlint's `require-await` quiet for trivial ones. SYSTEM_DESIGN's `deal.moveStage` example now uses the real API. P1.13's decision record is now 0020.
+- 2026-11-07 · P1.07 · [#28](https://github.com/deagil/factory/pull/28) · `createPipeline({ db, config, clock, permissions?, approvals? })` in `packages/actions/src/pipeline.ts`, with decision 0020. `run` and `query` return `{ ok, … }` and never throw for a failed action. No in-flight status: the `action_log` row goes in as `succeeded` inside the transaction and is only seen after commit; failures write a separate `failed` row after the rollback, and an approval match writes `pending_approval`. Unknown actors write nothing. Unexpected errors return `internal` with a generic message; the row has the real one. `permissions` and `approvals` are the seams for P1.11 and phase 2; they return a failure or rule key, or null (Oxlint's `no-useless-undefined` rewrites `() => undefined` into an empty function, which `no-empty-function` then refuses). The CRM fixture is now exported from `@workspace/objects/testing` for other packages' tests.

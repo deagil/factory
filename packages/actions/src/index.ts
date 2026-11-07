@@ -43,3 +43,15 @@ export type {
 } from "./errors.ts";
 export { createRegistry } from "./registry.ts";
 export type { RegisteredEvent, Registry } from "./registry.ts";
+export { allowAll, createPipeline } from "./pipeline.ts";
+export type {
+  ActionResult,
+  ApprovalRules,
+  Caller,
+  InternalError,
+  Permissions,
+  Pipeline,
+  PipelineOptions,
+  QueryResult,
+  RunError,
+} from "./pipeline.ts";
