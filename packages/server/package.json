@@ -11,6 +11,16 @@
     "lint": "ultracite check",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@workspace/actions": "workspace:*",
+    "@workspace/auth": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/objects": "workspace:*",
+    "hono": "^4.13.16",
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
     "@workspace/testing": "workspace:*"
   }

@@ -583,7 +583,7 @@ Plain TypeScript on boring, popular tools. Decision record: [0008](decisions/000
 | Language and runtime | TypeScript on Node 24 LTS | Strict mode everywhere |
 | HTTP | Hono | Routes are generated from the action registry |
 | Validation and contracts | Zod 4 | One schema per action drives validation, OpenAPI, MCP tools and forms |
-| API transport | Our own generator on Hono, or oRPC | Prototype both in phase 1 and keep whichever is less code |
+| API transport | Our own generator on Hono | Routes, OpenAPI and MCP tools from the registry; decision [0026](decisions/0026-api-transport-own-generator-on-hono.md) |
 | Durable workflows | DBOS Transact | Needs only the program and Postgres |
 | Database | Postgres and Drizzle | Start on current stable; move to v1 when it is stable |
 | Auth | Better Auth | Client SSO plus magic link |
