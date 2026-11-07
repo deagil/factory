@@ -5,6 +5,7 @@ import type { IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";
 
 import type { ActionServices } from "./context.ts";
+import type { Granted } from "./permissions.ts";
 
 const unused = (name: string) =>
   new Proxy(
@@ -24,6 +25,7 @@ export const services = (
 ): ActionServices => ({
   repo: unused("repo") as Repository,
   dal: unused("dal") as DataAccess,
+  granted: unused("granted") as Granted,
   identity: unused("identity") as IdentityStore,
   config: { sha: null, roles: [] },
   clock: { now: () => new Date("2026-11-07T09:00:00Z") },

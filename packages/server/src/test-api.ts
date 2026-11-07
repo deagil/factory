@@ -3,6 +3,7 @@
 import {
   createPipeline,
   createRegistry,
+  describeQuery,
   generateDefinitions,
   rolePermissions,
 } from "@workspace/actions";
@@ -49,10 +50,15 @@ export const roles: Role[] = [
   },
 ];
 
-export const registry = createRegistry([
+const definitions = [
   ...identityActions,
   ...generateDefinitions(organisation),
   ...generateDefinitions(contact),
+];
+
+export const registry = createRegistry([
+  ...definitions,
+  describeQuery({ objects: [organisation, contact], definitions }),
 ]);
 
 /** Runs an identity action that must succeed; returns its output. */

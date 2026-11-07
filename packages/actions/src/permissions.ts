@@ -92,6 +92,9 @@ export const grantedBy = (roles: readonly Role[]): Granted => {
     );
   return {
     authorise: (definition) => {
+      if (definition.kind === "query" && definition.everyone) {
+        return null;
+      }
       const needed = definition.objectPermission;
       const allowed = needed
         ? canDo(needed.object, needed.can)

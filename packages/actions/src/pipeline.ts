@@ -334,6 +334,7 @@ export const createPipeline = ({
         }),
         identity: createIdentityStore(tx),
         dal: dalFor(tx, state.granted),
+        granted: state.granted,
         config,
         clock,
         actor,
@@ -487,6 +488,7 @@ export const createPipeline = ({
     try {
       const ctx = createQueryContext({
         dal: dalFor(db, granted),
+        granted,
         config,
         clock,
         actor,

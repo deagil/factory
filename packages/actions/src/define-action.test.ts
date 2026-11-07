@@ -230,6 +230,7 @@ describe("types", () => {
       | "repo"
       | "identity"
       | "dal"
+      | "granted"
       | "config"
       | "clock"
       | "actor"
