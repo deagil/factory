@@ -9,6 +9,7 @@ import {
   actionLog,
   actors,
   auditLog,
+  createIdentityStore,
   eventLog,
   withTransaction,
 } from "@workspace/db";
@@ -140,6 +141,20 @@ const isRetryKeyClash = (thrown: unknown): boolean => {
     current = current.cause;
   }
   return false;
+};
+
+/** `output` with the action's secret keys replaced, for action_log. */
+const redacted = (action: AnyActionDefinition, output: unknown) => {
+  if (action.redact.length === 0 || typeof output !== "object" || !output) {
+    return output;
+  }
+  const copy: Record<string, unknown> = { ...output };
+  for (const key of action.redact) {
+    if (key in copy) {
+      copy[key] = "[redacted]";
+    }
+  }
+  return copy;
 };
 
 /** A value as it comes back from a jsonb column. */
@@ -317,6 +332,7 @@ export const createPipeline = ({
           actorId: actor.id,
           now: clock.now,
         }),
+        identity: createIdentityStore(tx),
         dal: dalFor(tx, state.granted),
         config,
         clock,
@@ -351,7 +367,10 @@ export const createPipeline = ({
       }
       await tx
         .update(actionLog)
-        .set({ result: output.data, completedAt: clock.now() })
+        .set({
+          result: redacted(action, output.data),
+          completedAt: clock.now(),
+        })
         .where(eq(actionLog.id, actionId));
       const result: Success = {
         ok: true,
@@ -384,7 +403,7 @@ export const createPipeline = ({
     if (thrown instanceof RollbackError && thrown.dryRun) {
       const actionId = await writeRow(state, {
         status: "succeeded",
-        result: thrown.dryRun.output,
+        result: redacted(state.action, thrown.dryRun.output),
       });
       return { ...thrown.dryRun, actionId: actionId ?? "" };
     }

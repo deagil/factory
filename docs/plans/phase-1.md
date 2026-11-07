@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 to P1.11 are done.
-- **Next task:** P1.12, API keys, integration and agent actors, in `packages/auth` (keys) and `packages/actions/src/permissions.ts` (an agent's `Granted` is its own roles intersected with its user's staff actor's; an integration's is limited to its allowed actions).
+- **Status:** in progress. P1.01 to P1.12 are done.
+- **Next task:** P1.13, the transport prototype in `packages/server`: one action over HTTP with OpenAPI and as an MCP tool, with our own generator on Hono and with oRPC; keep one and record decision 0026. Callers come from `createAuth(...).callerFrom(request.headers)`; actions run through `createPipeline(...).run`.
 - **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.07.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
@@ -120,7 +120,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - **Needs:** P1.10.
   - **Done when:** an actor without the permission gets a permission error and no data change, and `list` returns nothing for an object the actor can't read.
 
-- [ ] **P1.12 API keys, integration actors and agent actors**
+- [x] **P1.12 API keys, integration actors and agent actors**
   - Create, revoke and use API keys. Keys are stored hashed and `last_used_at` is recorded.
   - Integration actors are scoped to the actions they're allowed.
   - Agent actors are linked to a user and are never wider than that user.
@@ -132,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0025 at the time of writing; 0012 is taken).
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0026 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -222,3 +222,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-07 · P1.09 · [#30](https://github.com/deagil/factory/pull/30) · `generateDefinitions(object)` in `packages/actions/src/generated.ts`, with decision 0022. Inputs are flat (`update` is `{ id, version?, ...fields }`), outputs are `{ record }`, `get` gives `{ record, related }` and `list` the data access layer's page. `.updated` events carry `before` and `after`; a no-op update or a second archive succeeds with no event. Repository `not_found` maps to `not_found`; `conflict` and `archived` map to `conflict`. The generated file is held to the handler boundary like any action file.
 - 2026-11-07 · P1.10 · [#31](https://github.com/deagil/factory/pull/31) · `createAuth({ db, secret, baseURL, sendCode })` in `packages/auth`, with decision 0023 and Better Auth 1.7 (the email OTP and bearer plugins). Better Auth's user is our `users` table (three new columns); its sessions, accounts and verifications are in an `auth` Postgres schema, so drizzle-kit's `schemaFilter` is now `public` and `auth` (the objects fixture generator too). Sign-up is off; disabled users are refused. Signing in finds or creates the staff actor (`staffActorFor` in `@workspace/db`, with a partial unique index on staff actors per user). `callerFrom(headers)` gives the pipeline's caller. Traps: Better Auth's verification ids aren't uuids, so that `id` is text; and Better Auth's `kysely` dependency gives the auth package a second drizzle-orm copy whose types clash, so auth imports no drizzle and its queries live in `@workspace/db`.
 - 2026-11-07 · P1.11 · [#32](https://github.com/deagil/factory/pull/32) · `roleSchema`, `rolePermissions({ db, config })` and `grantedBy(roles)` in `packages/actions/src/permissions.ts`, with decision 0024. `ConfigService` gained `roles`. Generated definitions carry `objectPermission` (`view` for `.get`/`.list`); hand-written ones need `{ action: <name> }`. `*` works for objects and actions. The pipeline's `permissions` option is now `{ load(actor) }`, called once per run; its `Granted` answers both authorise and the data access layer's `canRead`. Unknown role keys in `actor_roles` grant nothing.
+- 2026-11-07 · P1.12 · [#33](https://github.com/deagil/factory/pull/33) · Identity actions in `packages/auth/src/actions.ts` (`actor.createAgent`, `actor.createIntegration`, `apiKey.create`, `apiKey.revoke`), with decision 0025. Actions get `ctx.identity`, a narrow store over the identity tables bound to the run's transaction (from `@workspace/db`). Keys are `fx_…`, stored as SHA-256; `callerFrom` accepts them as bearer tokens and records `last_used_at`. Definitions can `redact` output keys from `action_log`. Agents get their user's permissions, narrowed by their own roles if they have any; only the agent's user can make its keys. Integrations get the roles they're created with.

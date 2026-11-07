@@ -4,10 +4,10 @@
 // and the data access layer both ask the same granted set. See
 // docs/SYSTEM_DESIGN.md section 4.3 and decision 0024.
 
-import { actorRoles } from "@workspace/db";
+import { actorRoles, actors, isActiveUser } from "@workspace/db";
 import type { Db } from "@workspace/db";
 import type { AnyObjectDefinition, ReadAccess } from "@workspace/objects";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import type {
@@ -102,6 +102,15 @@ export const grantedBy = (roles: readonly Role[]): Granted => {
   };
 };
 
+/** What both `a` and `b` allow: the narrower of the two. */
+export const intersect = (a: Granted, b: Granted): Granted => ({
+  authorise: (definition) => a.authorise(definition) ?? b.authorise(definition),
+  canRead: (object) =>
+    a.canRead(object) === "all" && b.canRead(object) === "all" ? "all" : "none",
+});
+
+const nothing = grantedBy([]);
+
 /** Everything, for tests and tools that run as the system itself. */
 export const allowAll: Permissions = {
   load: () =>
@@ -122,6 +131,10 @@ export const allowAll: Permissions = {
 /**
  * Permissions from roles: an actor holds the roles actor_roles gives it, as
  * `config.roles` defines them. Role keys config doesn't define grant nothing.
+ *
+ * An agent acts for its user, so it gets the user's staff actor's
+ * permissions, narrowed by any roles of its own; never more than the user.
+ * A disabled user's agents get nothing.
  */
 export const rolePermissions = ({
   db,
@@ -129,13 +142,43 @@ export const rolePermissions = ({
 }: {
   db: Db;
   config: ConfigService;
-}): Permissions => ({
-  load: async (actor) => {
+}): Permissions => {
+  const rolesOf = async (actorId: string) => {
     const rows = await db
       .select({ roleKey: actorRoles.roleKey })
       .from(actorRoles)
-      .where(eq(actorRoles.actorId, actor.id));
-    const keys = new Set(rows.map((row) => row.roleKey));
-    return grantedBy(config.roles.filter((role) => keys.has(role.key)));
-  },
-});
+      .where(eq(actorRoles.actorId, actorId));
+    return new Set(rows.map((row) => row.roleKey));
+  };
+  const grantedFor = async (actorId: string) => {
+    const keys = await rolesOf(actorId);
+    return {
+      granted: grantedBy(config.roles.filter((role) => keys.has(role.key))),
+      hasRoles: keys.size > 0,
+    };
+  };
+  const forAgent = async (actor: Actor) => {
+    if (!actor.userId || !(await isActiveUser(db, actor.userId))) {
+      return nothing;
+    }
+    const [staff] = await db
+      .select({ id: actors.id, status: actors.status })
+      .from(actors)
+      .where(and(eq(actors.userId, actor.userId), eq(actors.kind, "staff")));
+    if (!staff || staff.status !== "active") {
+      return nothing;
+    }
+    const user = await grantedFor(staff.id);
+    const own = await grantedFor(actor.id);
+    return own.hasRoles ? intersect(user.granted, own.granted) : user.granted;
+  };
+  return {
+    load: async (actor) => {
+      if (actor.kind === "agent") {
+        return forAgent(actor);
+      }
+      const { granted } = await grantedFor(actor.id);
+      return granted;
+    },
+  };
+};
