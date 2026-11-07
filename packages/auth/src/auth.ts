@@ -110,6 +110,10 @@ export const createAuth = ({
       return null;
     }
     const actor = await staffActorFor(db, session.user.id);
+    // A disabled staff actor can't act, even with a session.
+    if (actor.status !== "active") {
+      return null;
+    }
     return { actorId: actor.id, originUserId: session.user.id };
   };
 

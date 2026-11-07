@@ -2,6 +2,8 @@
 // API and through MCP with the same input, and both must give the same
 // result and write the same log rows. A system's tests call `runContract`
 // with its registry; any difference is reported.
+import { randomUUID } from "node:crypto";
+
 import type {
   AnyActionDefinition,
   Caller,
@@ -348,7 +350,25 @@ export const identitySamples = (
     const { actorId } = await setUp("actor.createAgent", { name: "Helper" });
     return { actorId, label: "contract" };
   };
+  const agent = async () => {
+    const { actorId } = await setUp("actor.createAgent", { name: "Helper" });
+    return actorId;
+  };
   return {
+    // A uuid in the email keeps each one new, and normalises away.
+    "user.invite": () =>
+      Promise.resolve({
+        name: "Invited",
+        email: `${randomUUID()}@example.com`,
+        roles: [],
+      }),
+    "actor.setRoles": async () => ({ id: await agent(), roles: [] }),
+    "actor.disable": async () => ({ id: await agent() }),
+    "actor.enable": async () => {
+      const id = await agent();
+      await setUp("actor.disable", { id });
+      return { id };
+    },
     "actor.createAgent": () => Promise.resolve({ name: "Agent" }),
     "actor.createIntegration": () =>
       Promise.resolve({ name: "Integration", roles: [] }),
