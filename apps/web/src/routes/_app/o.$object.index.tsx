@@ -6,6 +6,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 
 import { FilterBar } from "../../components/filter-bar.tsx";
+import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, runQuery } from "../../lib/api.ts";
 import {
   columnsOf,
@@ -64,29 +65,42 @@ const ListScreen = () => {
     });
 
   if (described.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return (
+      <>
+        <PageHeader title="Loading…" />
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </>
+    );
   }
   if (!object) {
-    return <p role="alert">There is nothing called {name} here.</p>;
+    return (
+      <>
+        <PageHeader title={name} />
+        <p role="alert">There is nothing called {name} here.</p>
+      </>
+    );
   }
 
   const back = search.back ?? [];
+  const canCreate = described.data?.actions.some(
+    (action) => action.name === `${name}.create`
+  );
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-medium">{object.label}s</h1>
-        {described.data?.actions.some(
-          (action) => action.name === `${name}.create`
-        ) && (
-          <Link
-            to="/o/$object/new"
-            params={{ object: name }}
-            className={buttonVariants()}
-          >
-            New {object.label.toLowerCase()}
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title={`${object.label}s`}
+        actions={
+          canCreate ? (
+            <Link
+              to="/o/$object/new"
+              params={{ object: name }}
+              className={buttonVariants()}
+            >
+              New {object.label.toLowerCase()}
+            </Link>
+          ) : null
+        }
+      />
       <FilterBar
         fields={object.fields}
         filter={search.filter ?? {}}

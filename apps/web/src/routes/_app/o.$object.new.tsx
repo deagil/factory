@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
+import { PageHeader } from "../../components/page-header.tsx";
 import { RecordForm } from "../../components/record-form.tsx";
 import { describeSystem, runAction } from "../../lib/api.ts";
 import {
@@ -41,21 +42,35 @@ const CreateScreen = () => {
   });
 
   if (described.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return (
+      <>
+        <PageHeader title="Loading…" />
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </>
+    );
   }
   if (!(object && action)) {
-    return <p role="alert">There is no way to create {name} records here.</p>;
+    return (
+      <>
+        <PageHeader title={name} />
+        <p role="alert">There is no way to create {name} records here.</p>
+      </>
+    );
   }
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        to="/o/$object"
-        params={{ object: name }}
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← {object.label}s
-      </Link>
-      <h1 className="text-xl font-medium">New {object.label.toLowerCase()}</h1>
+      <PageHeader
+        title={`New ${object.label.toLowerCase()}`}
+        leading={
+          <Link
+            to="/o/$object"
+            params={{ object: name }}
+            className="shrink-0 text-sm text-muted-foreground hover:underline"
+          >
+            {`← ${object.label}s`}
+          </Link>
+        }
+      />
       <RecordForm
         fields={fields}
         initial={toFormValues(fields)}

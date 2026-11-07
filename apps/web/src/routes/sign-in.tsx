@@ -44,7 +44,7 @@ const SignIn = () => {
   };
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-4">
+    <main className="flex min-h-0 flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>

@@ -5,8 +5,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
 import { useState } from "react";
 
+import { PageHeader, PageSupplement } from "../../components/page-header.tsx";
 import { ErrorMessage, RecordForm } from "../../components/record-form.tsx";
 import { RecordHistory } from "../../components/record-history.tsx";
 import { describeSystem, runAction, runQuery } from "../../lib/api.ts";
@@ -77,31 +79,38 @@ const ActionButton = ({
     },
   });
   const label = humanise(action.name.split(".")[1] ?? action.name);
-  if (!open) {
-    return (
+  return (
+    <>
       <Button
         variant="outline"
-        onClick={() => (fields.length > 0 ? setOpen(true) : run.mutate({}))}
+        aria-expanded={fields.length > 0 ? open : undefined}
+        onClick={() =>
+          fields.length > 0 ? setOpen((value) => !value) : run.mutate({})
+        }
       >
         {label}
       </Button>
-    );
-  }
-  return (
-    <div className="w-full rounded-2xl border p-4">
-      <h2 className="mb-1 font-medium">{label}</h2>
-      <p className="mb-4 text-sm text-muted-foreground">{action.description}</p>
-      <RecordForm
-        fields={fields}
-        initial={toFormValues(fields, loaded.record)}
-        description={description}
-        submitLabel={label}
-        pending={run.isPending}
-        error={run.error}
-        onSubmit={(values) => run.mutate(values)}
-        onCancel={() => setOpen(false)}
-      />
-    </div>
+      {open && (
+        <PageSupplement>
+          <div className="w-full rounded-2xl border p-4">
+            <h2 className="mb-1 font-medium">{label}</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {action.description}
+            </p>
+            <RecordForm
+              fields={fields}
+              initial={toFormValues(fields, loaded.record)}
+              description={description}
+              submitLabel={label}
+              pending={run.isPending}
+              error={run.error}
+              onSubmit={(values) => run.mutate(values)}
+              onCancel={() => setOpen(false)}
+            />
+          </div>
+        </PageSupplement>
+      )}
+    </>
   );
 };
 
@@ -194,86 +203,105 @@ const RecordScreen = () => {
     onSuccess: () => navigate({ to: "/o/$object", params: { object: name } }),
   });
 
-  if (described.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (described.isPending || (object && loaded.isPending)) {
+    return (
+      <>
+        <PageHeader title="Loading…" />
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </>
+    );
   }
   if (!object) {
-    return <p role="alert">There is nothing called {name} here.</p>;
+    return (
+      <>
+        <PageHeader title={name} />
+        <p role="alert">There is nothing called {name} here.</p>
+      </>
+    );
   }
   if (loaded.isError) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {loaded.error.message}
-      </p>
+      <>
+        <PageHeader title={object.label} />
+        <p role="alert" className="text-sm text-destructive">
+          {loaded.error.message}
+        </p>
+      </>
     );
   }
-  if (loaded.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (!loaded.data) {
+    return (
+      <>
+        <PageHeader title={object.label} />
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </>
+    );
   }
 
+  const record = loaded.data;
   const canArchive = findAction(described.data, `${name}.archive`);
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        to="/o/$object"
-        params={{ object: name }}
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← {object.label}s
-      </Link>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-medium">
-          {titleOf(loaded.data.record, object)}
-        </h1>
-        <div className="flex flex-wrap gap-2">
-          {customActions(described.data, name).map((action) => (
-            <ActionButton
-              key={action.name}
-              action={action}
-              object={object}
-              loaded={loaded.data}
-              description={described.data}
-            />
-          ))}
-          {canArchive && (
-            <Button
-              variant="destructive"
-              disabled={archive.isPending}
-              onClick={() => archive.mutate()}
-            >
-              Archive
-            </Button>
-          )}
-        </div>
-      </div>
-      <ErrorMessage error={archive.error} />
-      <div role="tablist" className="flex gap-1 border-b">
-        {tabs.map((each) => (
+      <PageHeader
+        title={titleOf(record.record, object)}
+        leading={
           <Link
-            key={each.key}
-            role="tab"
-            aria-selected={tab === each.key}
-            to="/o/$object/$id"
-            params={{ object: name, id }}
-            search={{ tab: each.key === "history" ? "history" : undefined }}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${
-              tab === each.key
-                ? "border-foreground font-medium"
-                : "border-transparent text-muted-foreground"
-            }`}
+            to="/o/$object"
+            params={{ object: name }}
+            className="shrink-0 text-sm text-muted-foreground hover:underline"
           >
-            {each.label}
+            {`← ${object.label}s`}
           </Link>
-        ))}
-      </div>
+        }
+        actions={
+          <>
+            {customActions(described.data, name).map((action) => (
+              <ActionButton
+                key={action.name}
+                action={action}
+                object={object}
+                loaded={record}
+                description={described.data}
+              />
+            ))}
+            {canArchive && (
+              <Button
+                variant="destructive"
+                disabled={archive.isPending}
+                onClick={() => archive.mutate()}
+              >
+                Archive
+              </Button>
+            )}
+          </>
+        }
+      />
+      <ErrorMessage error={archive.error} />
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          if (value !== "details" && value !== "history") {
+            return;
+          }
+          void navigate({
+            to: "/o/$object/$id",
+            params: { object: name, id },
+            search: { tab: value === "history" ? "history" : undefined },
+          });
+        }}
+      >
+        <TabsList>
+          {tabs.map((each) => (
+            <TabsTrigger key={each.key} value={each.key}>
+              {each.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       {tab === "history" ? (
         <RecordHistory object={object} id={id} description={described.data} />
       ) : (
-        <Details
-          object={object}
-          loaded={loaded.data}
-          description={described.data}
-        />
+        <Details object={object} loaded={record} description={described.data} />
       )}
     </div>
   );

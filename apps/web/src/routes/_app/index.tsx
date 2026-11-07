@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { PageHeader } from "../../components/page-header.tsx";
+
 const Home = () => {
   const { session } = Route.useRouteContext();
   return (
     <div className="flex flex-col gap-2">
-      <h1 className="text-xl font-medium">Hello, {session.user.name}</h1>
+      <PageHeader title={`Hello, ${session.user.name}`} />
       <p className="text-sm text-muted-foreground">
-        Pick something from the menu.
+        Choose an object to get started.
       </p>
     </div>
   );
