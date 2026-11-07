@@ -1,0 +1,15 @@
+// The example CRM: organisations and contacts, with one hand-written action.
+import { defineSystem } from "@workspace/server";
+
+import { moveToOrganisation } from "./move-to-organisation.ts";
+import { contact, organisation } from "./objects.ts";
+import { roles } from "./roles.ts";
+
+export const crm = defineSystem({
+  name: "example-crm",
+  objects: [organisation, contact],
+  actions: [moveToOrganisation],
+  roles,
+});
+
+export default crm;

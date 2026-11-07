@@ -34,6 +34,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0028 | [MCP tools](0028-mcp-tools.md) | Accepted |
 | 0029 | [`system.describe`](0029-system-describe.md) | Accepted |
 | 0030 | [Contract tests across surfaces](0030-contract-tests-across-surfaces.md) | Accepted |
+| 0031 | [`defineSystem`, `createServer` and running a system](0031-define-system-and-create-server.md) | Accepted |
 
 ## Template
 

@@ -3,7 +3,12 @@ import { contact, organisation } from "@workspace/objects/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createApi } from "./api.ts";
-import { httpSurface, mcpSurface, runContract } from "./testing/contract.ts";
+import {
+  httpSurface,
+  identitySamples,
+  mcpSurface,
+  runContract,
+} from "./testing/contract.ts";
 import type { ContractOptions, Surface } from "./testing/contract.ts";
 import { createTestApi, registry } from "./testing/test-api.ts";
 import type { TestApi } from "./testing/test-api.ts";
@@ -33,38 +38,13 @@ describe("contract across surfaces", () => {
     http = httpSurface(request);
     mcp = mcpSurface(request);
 
-    /** Runs an action directly, as setup for a sample. */
-    const setUp = async (name: string, input: unknown) => {
-      const action = registry.get(name);
-      const result =
-        action?.kind === "action" &&
-        (await test.pipeline.run(action, input, caller));
-      if (!(result && result.ok)) {
-        throw new Error(`${name} failed in setup`);
-      }
-      return result.output as Record<string, string>;
-    };
-    const agentKey = async () => {
-      const { actorId } = await setUp("actor.createAgent", { name: "Helper" });
-      return { actorId: actorId ?? "", label: "contract" };
-    };
-
     options = {
       registry,
       objects: [organisation, contact],
       pipeline: test.pipeline,
       db: test.crm.db,
       caller,
-      samples: {
-        "actor.createAgent": () => Promise.resolve({ name: "Agent" }),
-        "actor.createIntegration": () =>
-          Promise.resolve({ name: "Site", roles: ["website"] }),
-        "apiKey.create": agentKey,
-        "apiKey.revoke": async () => {
-          const key = await setUp("apiKey.create", await agentKey());
-          return { id: key.id };
-        },
-      },
+      samples: identitySamples(registry, test.pipeline, caller),
     };
   });
 

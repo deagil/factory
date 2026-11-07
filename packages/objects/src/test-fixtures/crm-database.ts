@@ -35,7 +35,7 @@ const fixtureSchema = path.resolve(import.meta.dirname, "crm-schema.ts");
  * migration. drizzle-kit mangles absolute paths, and repeated `--schema`
  * flags don't add up, so it gets a config with paths relative to the package.
  */
-const generate = (out: string): string => {
+const generate = (out: string, schema: string, name: string): string => {
   cpSync(migrationsFolder, out, { recursive: true });
   const relative = (to: string) => path.relative(packageDir, to);
   const config = path.join(out, "drizzle.config.mjs");
@@ -43,7 +43,7 @@ const generate = (out: string): string => {
     config,
     `export default ${JSON.stringify({
       dialect: "postgresql",
-      schema: [relative(coreSchema), relative(fixtureSchema)],
+      schema: [relative(coreSchema), relative(schema)],
       out: relative(out),
       schemaFilter: ["public", "auth"],
     })};\n`
@@ -57,11 +57,13 @@ const generate = (out: string): string => {
       "--config",
       relative(config),
       "--name",
-      "crm",
+      name,
     ],
     { cwd: packageDir, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
   );
-  const sqlFile = readdirSync(out).find((name) => name.endsWith("_crm.sql"));
+  const sqlFile = readdirSync(out).find((file) =>
+    file.endsWith(`_${name}.sql`)
+  );
   if (!sqlFile) {
     throw new Error(
       `drizzle-kit generated no migration:\n${result.stdout}${result.stderr}`
@@ -72,17 +74,26 @@ const generate = (out: string): string => {
 
 export interface CrmDatabase {
   readonly db: Db;
+  /** Its connection string, for code that makes its own pool. */
+  readonly url: string;
   /** The SQL drizzle-kit generated for the fixture objects. */
   readonly migration: string;
   /** Closes the pool and drops the database. Call it in `afterAll`. */
   readonly close: () => Promise<void>;
 }
 
-/** A fresh test database with the core and fixture CRM tables. */
-export const createCrmDatabase = async (): Promise<CrmDatabase> => {
-  const out = mkdtempSync(path.join(tmpdir(), "objects-crm-"));
+/**
+ * A fresh test database with the core tables and the objects in `schema`, a
+ * file drizzle-kit can load on its own that exports their tables. Systems'
+ * tests use it until fx writes systems' own migrations.
+ */
+export const createObjectsDatabase = async (
+  schema: string,
+  name = "objects"
+): Promise<CrmDatabase> => {
+  const out = mkdtempSync(path.join(tmpdir(), `objects-${name}-`));
   try {
-    const migration = generate(out);
+    const migration = generate(out, schema, name);
     const database = await createTestDatabase();
     const db = createDb(database.url);
     try {
@@ -94,6 +105,7 @@ export const createCrmDatabase = async (): Promise<CrmDatabase> => {
     }
     return {
       db,
+      url: database.url,
       migration,
       close: async () => {
         await closeDb(db);
@@ -104,6 +116,10 @@ export const createCrmDatabase = async (): Promise<CrmDatabase> => {
     rmSync(out, { recursive: true, force: true });
   }
 };
+
+/** A fresh test database with the core and fixture CRM tables. */
+export const createCrmDatabase = (): Promise<CrmDatabase> =>
+  createObjectsDatabase(fixtureSchema, "crm");
 
 /** A user and their staff actor, for `created_by` and actor refs. */
 export const createStaffActor = async (db: Db, name = "Sarah") => {
