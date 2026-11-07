@@ -21,6 +21,8 @@ import type { Filter, ListPage } from "../../lib/records.ts";
 
 interface ListSearch {
   sort?: string;
+  /** Show archived records alongside the rest. */
+  archived?: boolean;
   filter?: Filter;
   cursor?: string;
   /** Cursors of earlier pages, for "Previous". */
@@ -46,6 +48,7 @@ const ListScreen = () => {
       runQuery<ListPage>(`${name}.list`, {
         filter: search.filter,
         sort: search.sort,
+        archived: search.archived ? "include" : undefined,
         cursor: search.cursor,
         limit: pageSize,
         expand: expandable(columns),
@@ -102,15 +105,27 @@ const ListScreen = () => {
           ) : null
         }
       />
-      <FilterBar
-        fields={object.fields}
-        filter={search.filter ?? {}}
-        onChange={(filter) =>
-          update({
-            filter: Object.keys(filter).length > 0 ? filter : undefined,
-          })
-        }
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <FilterBar
+          fields={object.fields}
+          filter={search.filter ?? {}}
+          onChange={(filter) =>
+            update({
+              filter: Object.keys(filter).length > 0 ? filter : undefined,
+            })
+          }
+        />
+        <label className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={search.archived ?? false}
+            onChange={(event) =>
+              update({ archived: event.target.checked || undefined })
+            }
+          />
+          Show archived
+        </label>
+      </div>
       {page.isError && (
         <p role="alert" className="text-sm text-destructive">
           {page.error.message}
@@ -166,14 +181,20 @@ const ListScreen = () => {
                           described.data
                         ) || "(blank)"}
                       </Link>
-                    ) : (
-                      displayValue(
-                        field,
-                        record,
-                        page.data.related,
-                        described.data
-                      )
-                    )}
+                    ) : null}
+                    {index === 0 && record.archivedAt ? (
+                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        Archived
+                      </span>
+                    ) : null}
+                    {index === 0
+                      ? null
+                      : displayValue(
+                          field,
+                          record,
+                          page.data.related,
+                          described.data
+                        )}
                   </td>
                 ))}
               </tr>
@@ -233,6 +254,7 @@ export const Route = createFileRoute("/_app/o/$object/")({
   staticData: { section: "data" },
   validateSearch: (search: Record<string, unknown>): ListSearch => ({
     sort: typeof search.sort === "string" ? search.sort : undefined,
+    archived: search.archived === true ? true : undefined,
     filter:
       search.filter && typeof search.filter === "object"
         ? (search.filter as Filter)

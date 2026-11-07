@@ -20,17 +20,28 @@ const RefName = ({
   description: SystemDescription | undefined;
 }) => {
   const object = findObject(description, target);
+  // Refs to actors (an account owner) are named through `actor.get`.
+  const isActor = target === "actor";
   const found = useQuery({
     queryKey: ["ref", target, id],
-    queryFn: () =>
-      runQuery<{ record: Record<string, unknown> }>(`${target}.get`, {
-        id,
-        archived: "include",
-      }),
-    enabled: object !== undefined,
+    queryFn: async () => {
+      if (isActor) {
+        const { actor } = await runQuery<{ actor: { name: string } }>(
+          "actor.get",
+          { id }
+        );
+        return actor.name;
+      }
+      const { record } = await runQuery<{ record: Record<string, unknown> }>(
+        `${target}.get`,
+        { id, archived: "include" }
+      );
+      return titleOf(record, object);
+    },
+    enabled: isActor || object !== undefined,
     retry: false,
   });
-  return found.data ? titleOf(found.data.record, object) : id;
+  return found.data ?? id;
 };
 
 const Value = ({
@@ -107,12 +118,18 @@ export const RecordHistory = ({
     <ol className="flex flex-col gap-3">
       {history.data.entries.map((entry) => {
         const created = Object.keys(entry.before).length === 0;
+        const keys = Object.keys(entry.after);
+        // Archiving and restoring change only archivedAt (decision 0035).
+        const archiving = keys.length === 1 && keys[0] === "archivedAt";
+        let verb = created ? "created it" : "changed it";
+        if (archiving) {
+          verb = entry.after.archivedAt ? "archived it" : "restored it";
+        }
         return (
           <li key={entry.id} className="rounded-2xl border p-3 text-sm">
             <p>
               <span className="font-medium">{entry.actor.name}</span>
-              {entry.onBehalfOf && ` for ${entry.onBehalfOf.name}`}{" "}
-              {created ? "created it" : "changed it"}
+              {entry.onBehalfOf && ` for ${entry.onBehalfOf.name}`} {verb}
               <span className="text-muted-foreground">
                 {" "}
                 ·{" "}
@@ -126,34 +143,36 @@ export const RecordHistory = ({
                 · {when(entry.at)}
               </span>
             </p>
-            <ul className="mt-2 flex flex-col gap-1">
-              {Object.keys(entry.after)
-                .toSorted((a, b) => order(a) - order(b))
-                .map((key) => (
-                  <li key={key}>
-                    <span className="text-muted-foreground">
-                      {labelOf(key)}:
-                    </span>{" "}
-                    {!created && (
-                      <>
-                        <Value
-                          object={object}
-                          fieldKey={key}
-                          values={entry.before}
-                          description={description}
-                        />{" "}
-                        →{" "}
-                      </>
-                    )}
-                    <Value
-                      object={object}
-                      fieldKey={key}
-                      values={entry.after}
-                      description={description}
-                    />
-                  </li>
-                ))}
-            </ul>
+            {archiving ? null : (
+              <ul className="mt-2 flex flex-col gap-1">
+                {Object.keys(entry.after)
+                  .toSorted((a, b) => order(a) - order(b))
+                  .map((key) => (
+                    <li key={key}>
+                      <span className="text-muted-foreground">
+                        {labelOf(key)}:
+                      </span>{" "}
+                      {!created && (
+                        <>
+                          <Value
+                            object={object}
+                            fieldKey={key}
+                            values={entry.before}
+                            description={description}
+                          />{" "}
+                          →{" "}
+                        </>
+                      )}
+                      <Value
+                        object={object}
+                        fieldKey={key}
+                        values={entry.after}
+                        description={description}
+                      />
+                    </li>
+                  ))}
+              </ul>
+            )}
           </li>
         );
       })}

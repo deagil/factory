@@ -1,6 +1,6 @@
 # 0018. One `audit_log` row per record change
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by [0035](0035-restore-and-audited-archiving.md) (archiving and restoring are recorded)
 - **Date:** 2026-11-06
 
 ## Context
