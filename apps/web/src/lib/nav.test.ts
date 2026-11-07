@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { navFrom } from "./nav.ts";
 
-const described = (objects: object[], queries: string[] = []) =>
+const described = (
+  objects: object[],
+  queries: string[] = [],
+  actions: string[] = []
+) =>
   ({
     objects,
-    actions: [],
+    actions: actions.map((name) => ({ name })),
     queries: queries.map((name) => ({ name })),
     events: [],
   }) as never;
@@ -46,6 +50,19 @@ describe(navFrom, () => {
     expect(nav[0]?.pages.map((page) => page.link)).toStrictEqual([
       { to: "/activity/actions" },
       { to: "/activity/events" },
+    ]);
+  });
+
+  it("shows Access pages only to those who manage access", () => {
+    const own = navFrom(described([], ["actor.list", "actor.get"]));
+    const admin = navFrom(
+      described([], ["role.list"], ["user.invite", "actor.setRoles"])
+    );
+    expect(own).toStrictEqual([]);
+    expect(admin[0]?.pages.map((page) => page.label)).toStrictEqual([
+      "Users",
+      "Agents",
+      "Roles",
     ]);
   });
 

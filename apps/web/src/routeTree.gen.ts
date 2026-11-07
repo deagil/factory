@@ -12,8 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAccessAgentsRouteImport } from './routes/_app/access.agents'
+import { Route as AppAccessIntegrationsRouteImport } from './routes/_app/access.integrations'
+import { Route as AppAccessRolesRouteImport } from './routes/_app/access.roles'
+import { Route as AppAccessUsersRouteImport } from './routes/_app/access.users'
+import { Route as AppAccountAgentsRouteImport } from './routes/_app/account.agents'
 import { Route as AppActivityChangesRouteImport } from './routes/_app/activity.changes'
 import { Route as AppActivityEventsRouteImport } from './routes/_app/activity.events'
+import { Route as AppAccessActorsIdRouteImport } from './routes/_app/access.actors.$id'
 import { Route as AppActivityActionsIndexRouteImport } from './routes/_app/activity.actions.index'
 import { Route as AppActivityActionsIdRouteImport } from './routes/_app/activity.actions.$id'
 import { Route as AppOObjectIndexRouteImport } from './routes/_app/o.$object.index'
@@ -34,6 +40,31 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAccessAgentsRoute = AppAccessAgentsRouteImport.update({
+  id: '/access/agents',
+  path: '/access/agents',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccessIntegrationsRoute = AppAccessIntegrationsRouteImport.update({
+  id: '/access/integrations',
+  path: '/access/integrations',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccessRolesRoute = AppAccessRolesRouteImport.update({
+  id: '/access/roles',
+  path: '/access/roles',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccessUsersRoute = AppAccessUsersRouteImport.update({
+  id: '/access/users',
+  path: '/access/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountAgentsRoute = AppAccountAgentsRouteImport.update({
+  id: '/account/agents',
+  path: '/account/agents',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppActivityChangesRoute = AppActivityChangesRouteImport.update({
   id: '/activity/changes',
   path: '/activity/changes',
@@ -42,6 +73,11 @@ const AppActivityChangesRoute = AppActivityChangesRouteImport.update({
 const AppActivityEventsRoute = AppActivityEventsRouteImport.update({
   id: '/activity/events',
   path: '/activity/events',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccessActorsIdRoute = AppAccessActorsIdRouteImport.update({
+  id: '/access/actors/$id',
+  path: '/access/actors/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const AppActivityActionsIndexRoute = AppActivityActionsIndexRouteImport.update({
@@ -73,8 +109,14 @@ const AppOObjectNewRoute = AppOObjectNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/sign-in': typeof SignInRoute
+  '/access/agents': typeof AppAccessAgentsRoute
+  '/access/integrations': typeof AppAccessIntegrationsRoute
+  '/access/roles': typeof AppAccessRolesRoute
+  '/access/users': typeof AppAccessUsersRoute
+  '/account/agents': typeof AppAccountAgentsRoute
   '/activity/changes': typeof AppActivityChangesRoute
   '/activity/events': typeof AppActivityEventsRoute
+  '/access/actors/$id': typeof AppAccessActorsIdRoute
   '/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
@@ -84,8 +126,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/': typeof AppIndexRoute
+  '/access/agents': typeof AppAccessAgentsRoute
+  '/access/integrations': typeof AppAccessIntegrationsRoute
+  '/access/roles': typeof AppAccessRolesRoute
+  '/access/users': typeof AppAccessUsersRoute
+  '/account/agents': typeof AppAccountAgentsRoute
   '/activity/changes': typeof AppActivityChangesRoute
   '/activity/events': typeof AppActivityEventsRoute
+  '/access/actors/$id': typeof AppAccessActorsIdRoute
   '/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
@@ -97,8 +145,14 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/access/agents': typeof AppAccessAgentsRoute
+  '/_app/access/integrations': typeof AppAccessIntegrationsRoute
+  '/_app/access/roles': typeof AppAccessRolesRoute
+  '/_app/access/users': typeof AppAccessUsersRoute
+  '/_app/account/agents': typeof AppAccountAgentsRoute
   '/_app/activity/changes': typeof AppActivityChangesRoute
   '/_app/activity/events': typeof AppActivityEventsRoute
+  '/_app/access/actors/$id': typeof AppAccessActorsIdRoute
   '/_app/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/_app/o/$object/$id': typeof AppOObjectIdRoute
   '/_app/o/$object/new': typeof AppOObjectNewRoute
@@ -110,8 +164,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/access/agents'
+    | '/access/integrations'
+    | '/access/roles'
+    | '/access/users'
+    | '/account/agents'
     | '/activity/changes'
     | '/activity/events'
+    | '/access/actors/$id'
     | '/activity/actions/$id'
     | '/o/$object/$id'
     | '/o/$object/new'
@@ -121,8 +181,14 @@ export interface FileRouteTypes {
   to:
     | '/sign-in'
     | '/'
+    | '/access/agents'
+    | '/access/integrations'
+    | '/access/roles'
+    | '/access/users'
+    | '/account/agents'
     | '/activity/changes'
     | '/activity/events'
+    | '/access/actors/$id'
     | '/activity/actions/$id'
     | '/o/$object/$id'
     | '/o/$object/new'
@@ -133,8 +199,14 @@ export interface FileRouteTypes {
     | '/_app'
     | '/sign-in'
     | '/_app/'
+    | '/_app/access/agents'
+    | '/_app/access/integrations'
+    | '/_app/access/roles'
+    | '/_app/access/users'
+    | '/_app/account/agents'
     | '/_app/activity/changes'
     | '/_app/activity/events'
+    | '/_app/access/actors/$id'
     | '/_app/activity/actions/$id'
     | '/_app/o/$object/$id'
     | '/_app/o/$object/new'
@@ -170,6 +242,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/access/agents': {
+      id: '/_app/access/agents'
+      path: '/access/agents'
+      fullPath: '/access/agents'
+      preLoaderRoute: typeof AppAccessAgentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/access/integrations': {
+      id: '/_app/access/integrations'
+      path: '/access/integrations'
+      fullPath: '/access/integrations'
+      preLoaderRoute: typeof AppAccessIntegrationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/access/roles': {
+      id: '/_app/access/roles'
+      path: '/access/roles'
+      fullPath: '/access/roles'
+      preLoaderRoute: typeof AppAccessRolesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/access/users': {
+      id: '/_app/access/users'
+      path: '/access/users'
+      fullPath: '/access/users'
+      preLoaderRoute: typeof AppAccessUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/account/agents': {
+      id: '/_app/account/agents'
+      path: '/account/agents'
+      fullPath: '/account/agents'
+      preLoaderRoute: typeof AppAccountAgentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/activity/changes': {
       id: '/_app/activity/changes'
       path: '/activity/changes'
@@ -182,6 +289,13 @@ declare module '@tanstack/react-router' {
       path: '/activity/events'
       fullPath: '/activity/events'
       preLoaderRoute: typeof AppActivityEventsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/access/actors/$id': {
+      id: '/_app/access/actors/$id'
+      path: '/access/actors/$id'
+      fullPath: '/access/actors/$id'
+      preLoaderRoute: typeof AppAccessActorsIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/activity/actions/': {
@@ -224,8 +338,14 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppAccessAgentsRoute: typeof AppAccessAgentsRoute
+  AppAccessIntegrationsRoute: typeof AppAccessIntegrationsRoute
+  AppAccessRolesRoute: typeof AppAccessRolesRoute
+  AppAccessUsersRoute: typeof AppAccessUsersRoute
+  AppAccountAgentsRoute: typeof AppAccountAgentsRoute
   AppActivityChangesRoute: typeof AppActivityChangesRoute
   AppActivityEventsRoute: typeof AppActivityEventsRoute
+  AppAccessActorsIdRoute: typeof AppAccessActorsIdRoute
   AppActivityActionsIdRoute: typeof AppActivityActionsIdRoute
   AppOObjectIdRoute: typeof AppOObjectIdRoute
   AppOObjectNewRoute: typeof AppOObjectNewRoute
@@ -235,8 +355,14 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppAccessAgentsRoute: AppAccessAgentsRoute,
+  AppAccessIntegrationsRoute: AppAccessIntegrationsRoute,
+  AppAccessRolesRoute: AppAccessRolesRoute,
+  AppAccessUsersRoute: AppAccessUsersRoute,
+  AppAccountAgentsRoute: AppAccountAgentsRoute,
   AppActivityChangesRoute: AppActivityChangesRoute,
   AppActivityEventsRoute: AppActivityEventsRoute,
+  AppAccessActorsIdRoute: AppAccessActorsIdRoute,
   AppActivityActionsIdRoute: AppActivityActionsIdRoute,
   AppOObjectIdRoute: AppOObjectIdRoute,
   AppOObjectNewRoute: AppOObjectNewRoute,

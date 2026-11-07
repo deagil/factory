@@ -10,7 +10,7 @@ The web app is just another client of the HTTP API (AGENTS.md rule 6). It runs o
 ## Decision
 
 - **TanStack Start runs in SPA mode.** No server rendering, server functions or loaders that reach the server; the browser does everything.
-- **The web app's dev server proxies** `/api/*` to the system's server with the `/api` prefix removed, and `/auth/*` unchanged (`API_URL`, default `http://localhost:4000`). The browser only talks to its own origin, so the session cookie is first-party. A deployed web app does the same with its host's proxy or rewrite rules.
+- **The web app's dev server proxies** `/api/*` to the system's server with the `/api` prefix removed, and `/auth/*` and `/mcp` unchanged (`API_URL`, default `http://localhost:4000`). `/mcp` is there so My agents can give an MCP client the web app's own origin (P1b.06). The browser only talks to its own origin, so the session cookie is first-party. A deployed web app does the same with its host's proxy or rewrite rules.
 - **Better Auth's `baseURL` is the web app's origin** (`BETTER_AUTH_URL`, default `http://localhost:3000`), since that is where sign-in happens.
 - **The API client** (`apps/web/src/lib/api.ts`) has `runAction`, `runQuery` and `describeSystem`. It throws `ApiCallError` carrying the typed error (decision 0027). Types come from `@workspace/actions` and `@workspace/server` as type-only imports.
 - **Sign-in** calls Better Auth's email-code endpoints directly with `fetch`; no Better Auth client library.

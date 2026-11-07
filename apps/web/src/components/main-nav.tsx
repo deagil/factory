@@ -159,6 +159,10 @@ export const AccountMenu = ({
         </DropdownMenuLabel>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
+      <DropdownMenuItem render={<Link to="/account/agents" />}>
+        My agents
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuItem onClick={onSignOut}>Sign out</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
