@@ -36,6 +36,9 @@ const server = await createServer(crm, {
   // origin (decision 0032).
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   trustedOrigins: [`http://localhost:${port}`],
+  // `pnpm dev` sets FACTORY_DEV, so the dev bar can sign in as anyone.
+  devOutbox:
+    process.env.FACTORY_DEV === "1" && process.env.NODE_ENV !== "production",
 });
 const seeded = await seed(crm, server.db, server.pipeline);
 const listening = server.listen(port);

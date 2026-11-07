@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { createApi } from "./api.ts";
 import { createTestApi, registry } from "./testing/test-api.ts";
 import type { TestApi } from "./testing/test-api.ts";
 
@@ -47,6 +48,25 @@ describe("HTTP API", () => {
       body: (await response.json()) as Body,
     };
   };
+
+  it("serves /dev/session only when asked, for local development", async () => {
+    const missing = await api.request("/dev/session");
+    const dev = createApi({
+      registry,
+      pipeline: test.pipeline,
+      callerFrom: () => Promise.resolve(null),
+      devSession: () =>
+        Promise.resolve({
+          users: [{ name: "Sam", email: "sam@example.com" }],
+          outbox: [],
+        }),
+    });
+    const served = await dev.request("/dev/session");
+    expect(missing.status).toBe(404);
+    await expect(served.json()).resolves.toMatchObject({
+      users: [{ email: "sam@example.com" }],
+    });
+  });
 
   it("reaches every registered action and query", async () => {
     const routes = await Promise.all(

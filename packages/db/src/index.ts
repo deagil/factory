@@ -5,6 +5,7 @@ export { closeDb, createDb, withTransaction } from "./client.ts";
 export type { Db, Executor, Schema, Tx } from "./client.ts";
 export { loadEnv, redactUrl, requireEnv, rootEnvFile } from "./env.ts";
 export {
+  activeUsers,
   actorForApiKey,
   apiKeyPrefix,
   bootstrapStaff,

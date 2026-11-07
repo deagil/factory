@@ -18,6 +18,7 @@ import {
   writeMotionRate,
 } from "./motion.ts";
 import type { MotionRate } from "./motion.ts";
+import { SessionMenu } from "./session-menu.tsx";
 import {
   SystemMenuContent,
   SystemMenuLabel,
@@ -89,6 +90,7 @@ export const DevMenuBar = () => {
             </MenubarGroup>
           </SystemMenuContent>
         </MenubarMenu>
+        <SessionMenu />
         <MenubarMenu>
           <SystemMenuTrigger>Design</SystemMenuTrigger>
           <SystemMenuContent>

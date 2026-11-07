@@ -18,6 +18,14 @@ export const isActiveUser = async (db: Executor, userId: string) => {
   return user?.status === "active";
 };
 
+/** People who may sign in, oldest first: for the local dev bar only. */
+export const activeUsers = (db: Executor) =>
+  db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.status, "active"))
+    .orderBy(users.createdAt);
+
 /** The user's staff actor, created the first time it's asked for. */
 export const staffActorFor = async (db: Executor, userId: string) => {
   const find = () =>

@@ -7,7 +7,7 @@
     ".": "./src/system.ts"
   },
   "scripts": {
-    "dev": "drizzle-kit push --force && node --watch src/main.ts",
+    "dev": "drizzle-kit push --force && FACTORY_DEV=1 node --watch src/main.ts",
     "start": "node src/main.ts",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
