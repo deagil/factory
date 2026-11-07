@@ -72,7 +72,7 @@ describe("sign-in", () => {
     const caller = await auth.callerFrom(signedIn.headers ?? new Headers());
     const pipeline = createPipeline({
       db,
-      config: { sha: null },
+      config: { sha: null, roles: [] },
       clock: { now: () => new Date() },
     });
     const result = await pipeline.run(touch, {}, caller ?? { actorId: "" });

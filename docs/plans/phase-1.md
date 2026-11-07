@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 to P1.10 are done.
-- **Next task:** P1.11, roles and permissions. Extend `ConfigService` in `packages/actions/src/define-action.ts` with roles, read `actor_roles`, and implement the pipeline's `Permissions` seam (`authorise`, `canRead`) in `packages/actions/src/pipeline.ts`.
+- **Status:** in progress. P1.01 to P1.11 are done.
+- **Next task:** P1.12, API keys, integration and agent actors, in `packages/auth` (keys) and `packages/actions/src/permissions.ts` (an agent's `Granted` is its own roles intersected with its user's staff actor's; an integration's is limited to its allowed actions).
 - **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.07.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
@@ -114,7 +114,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - **Needs:** P1.07.
   - **Done when:** a test signs in with a code, gets a session, and an action run with that session records the right `actor_id` and `origin_user_id`.
 
-- [ ] **P1.11 Roles, permissions and authorise**
+- [x] **P1.11 Roles, permissions and authorise**
   - Roles come through `ConfigService` (see "Decisions for this phase"). Each permission has an object or action, a verb and a scope (`all` only); `actor_roles` link actors to roles.
   - The authorise stage and the data access layer filter both use them, and permission errors say which permission was missing.
   - **Needs:** P1.10.
@@ -132,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0024 at the time of writing; 0012 is taken).
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0025 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -221,3 +221,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-07 · P1.08 · [#29](https://github.com/deagil/factory/pull/29) · `run(action, input, caller, { retryKey, dryRun })`, with decision 0021 and a partial unique index `action_log_retry_key_unique` on `(actor_id, retry_key)` for succeeded, non-dry-run rows. A retry key replays the earlier success (`replayed: true`); concurrent calls collide on the index and the loser replays, so the handler runs once (tested with two calls in `Promise.all`). Only successes are remembered, so a key can be retried after a failure; reuse for a different action or input is a `conflict`. A dry run rolls back after record and returns `changes` (its `audit_log` rows) plus one `action_log` row with `dry_run`. To run tests against a schema edit before `fx ship`, I generated a throwaway migration into `packages/db/migrations` and deleted it before committing.
 - 2026-11-07 · P1.09 · [#30](https://github.com/deagil/factory/pull/30) · `generateDefinitions(object)` in `packages/actions/src/generated.ts`, with decision 0022. Inputs are flat (`update` is `{ id, version?, ...fields }`), outputs are `{ record }`, `get` gives `{ record, related }` and `list` the data access layer's page. `.updated` events carry `before` and `after`; a no-op update or a second archive succeeds with no event. Repository `not_found` maps to `not_found`; `conflict` and `archived` map to `conflict`. The generated file is held to the handler boundary like any action file.
 - 2026-11-07 · P1.10 · [#31](https://github.com/deagil/factory/pull/31) · `createAuth({ db, secret, baseURL, sendCode })` in `packages/auth`, with decision 0023 and Better Auth 1.7 (the email OTP and bearer plugins). Better Auth's user is our `users` table (three new columns); its sessions, accounts and verifications are in an `auth` Postgres schema, so drizzle-kit's `schemaFilter` is now `public` and `auth` (the objects fixture generator too). Sign-up is off; disabled users are refused. Signing in finds or creates the staff actor (`staffActorFor` in `@workspace/db`, with a partial unique index on staff actors per user). `callerFrom(headers)` gives the pipeline's caller. Traps: Better Auth's verification ids aren't uuids, so that `id` is text; and Better Auth's `kysely` dependency gives the auth package a second drizzle-orm copy whose types clash, so auth imports no drizzle and its queries live in `@workspace/db`.
+- 2026-11-07 · P1.11 · [#32](https://github.com/deagil/factory/pull/32) · `roleSchema`, `rolePermissions({ db, config })` and `grantedBy(roles)` in `packages/actions/src/permissions.ts`, with decision 0024. `ConfigService` gained `roles`. Generated definitions carry `objectPermission` (`view` for `.get`/`.list`); hand-written ones need `{ action: <name> }`. `*` works for objects and actions. The pipeline's `permissions` option is now `{ load(actor) }`, called once per run; its `Granted` answers both authorise and the data access layer's `canRead`. Unknown role keys in `actor_roles` grant nothing.

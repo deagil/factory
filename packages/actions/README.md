@@ -2,7 +2,7 @@
 
 defineAction and defineQuery, the action registry, the action pipeline, permissions and scopes, approvals, action_log.
 
-**Status:** definitions, the registry, the handler context and typed errors (P1.06; decision [0019](../../docs/decisions/0019-define-action-context-and-errors.md)) and the pipeline (P1.07; decision [0020](../../docs/decisions/0020-action-pipeline.md)) are built, with retry keys and dry runs (P1.08; decision [0021](../../docs/decisions/0021-retry-keys-and-dry-runs.md)). So are generated actions and queries (P1.09; decision [0022](../../docs/decisions/0022-generated-actions.md)): `generateDefinitions(object)` gives `<object>.create`, `.update`, `.archive`, `.get` and `.list`. Permissions (P1.11) come next.
+**Status:** definitions, the registry, the handler context and typed errors (P1.06; decision [0019](../../docs/decisions/0019-define-action-context-and-errors.md)) and the pipeline (P1.07; decision [0020](../../docs/decisions/0020-action-pipeline.md)) are built, with retry keys and dry runs (P1.08; decision [0021](../../docs/decisions/0021-retry-keys-and-dry-runs.md)). So are generated actions and queries (P1.09; decision [0022](../../docs/decisions/0022-generated-actions.md)): `generateDefinitions(object)` gives `<object>.create`, `.update`, `.archive`, `.get` and `.list`. Roles and permissions are built too (P1.11; decision [0024](../../docs/decisions/0024-roles-and-permissions.md)): pass `permissions: rolePermissions({ db, config })` to `createPipeline`.
 
 Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), section 4.2 Actions and the action pipeline.
 

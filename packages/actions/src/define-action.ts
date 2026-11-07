@@ -8,6 +8,7 @@ import type { DataAccess, Repository } from "@workspace/objects";
 import type { z } from "zod";
 
 import type { ActionFailure, ErrorHelpers } from "./errors.ts";
+import type { Role } from "./permissions.ts";
 
 /** Time, from the context, so tests and dry runs control it. */
 export interface Clock {
@@ -15,12 +16,27 @@ export interface Clock {
 }
 
 /**
- * Config, as actions see it. Phase 1 has no config from git, so `sha` is
- * null; roles (P1.11) and later config types are added here.
+ * Config, as actions see it. In phase 1 it's a static object passed to
+ * defineSystem, so `sha` is null; phase 2 loads it from git.
  */
 export interface ConfigService {
   /** The config commit this run uses, written to action_log.config_sha. */
   readonly sha: string | null;
+  /** Every role, by key. */
+  readonly roles: readonly Role[];
+}
+
+/** What a permission on an object lets an actor do. */
+export const objectVerbs = ["view", "create", "update", "archive"] as const;
+export type ObjectVerb = (typeof objectVerbs)[number];
+
+/**
+ * The object permission a generated definition needs. Hand-written ones
+ * have none, and need a permission on their own name instead.
+ */
+export interface ObjectPermission {
+  object: string;
+  can: ObjectVerb;
 }
 
 /** Who is performing the action or query. */
@@ -139,6 +155,7 @@ export interface AnyActionDefinition {
   readonly output: ObjectSchema;
   readonly emits: EventSchemas;
   readonly handler: (ctx: any, input: any) => unknown;
+  readonly objectPermission?: ObjectPermission;
 }
 
 /** Any query. */
@@ -149,6 +166,7 @@ export interface AnyQueryDefinition {
   readonly input: ObjectSchema;
   readonly output: ObjectSchema;
   readonly handler: (ctx: any, input: any) => unknown;
+  readonly objectPermission?: ObjectPermission;
 }
 /* oxlint-enable typescript/no-explicit-any */
 

@@ -3,7 +3,12 @@
 // P1.07 to P1.11. See docs/SYSTEM_DESIGN.md section 4.2 and decision 0019.
 export { createActionContext, createQueryContext } from "./context.ts";
 export type { ActionServices, EmittedEvent, QueryServices } from "./context.ts";
-export { defineAction, defineQuery, namePattern } from "./define-action.ts";
+export {
+  defineAction,
+  defineQuery,
+  namePattern,
+  objectVerbs,
+} from "./define-action.ts";
 export type {
   ActionContext,
   ActionDefinition,
@@ -18,7 +23,9 @@ export type {
   EventSchemas,
   HandlerResult,
   NoEvents,
+  ObjectPermission,
   ObjectSchema,
+  ObjectVerb,
   QueryContext,
   QueryDefinition,
   QueryOptions,
@@ -43,13 +50,12 @@ export type {
 } from "./errors.ts";
 export { createRegistry } from "./registry.ts";
 export type { RegisteredEvent, Registry } from "./registry.ts";
-export { allowAll, createPipeline } from "./pipeline.ts";
+export { createPipeline } from "./pipeline.ts";
 export type {
   ActionResult,
   ApprovalRules,
   Caller,
   InternalError,
-  Permissions,
   Pipeline,
   PipelineOptions,
   QueryResult,
@@ -58,3 +64,13 @@ export type {
   RunOptions,
 } from "./pipeline.ts";
 export { generateDefinitions } from "./generated.ts";
+export {
+  allowAll,
+  grantedBy,
+  permissionNameOf,
+  permissionSchema,
+  rolePermissions,
+  roleSchema,
+  scopes,
+} from "./permissions.ts";
+export type { Granted, Permission, Permissions, Role } from "./permissions.ts";

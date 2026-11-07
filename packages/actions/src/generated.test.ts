@@ -57,7 +57,7 @@ describe("generated actions and queries", () => {
     caller = { actorId: actor.id };
     pipeline = createPipeline({
       db: crm.db,
-      config: { sha: null },
+      config: { sha: null, roles: [] },
       clock: { now: () => new Date("2026-11-07T09:00:00Z") },
     });
   });
