@@ -1,12 +1,55 @@
-// MCP tools from the registry, served statelessly over streamable HTTP
-// (decision 0026). P1.15 finishes the MCP server.
+// The MCP server (P1.15, decision 0026): one tool per action and query,
+// generated from the registry, served statelessly over streamable HTTP at
+// `/mcp`. An agent connects with its API key as the bearer token, so its
+// calls run as the agent, for its user.
 import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
 } from "@modelcontextprotocol/server";
-import type { Caller, Pipeline, Registry } from "@workspace/actions";
+import type { CallToolResult } from "@modelcontextprotocol/server";
+import type {
+  AnyDefinition,
+  Caller,
+  Pipeline,
+  Registry,
+} from "@workspace/actions";
 
 import { callDefinition } from "./call.ts";
+
+/**
+ * A definition's tool name. Clients such as Claude only accept letters,
+ * digits, `_` and `-` in tool names, and definition names have exactly one
+ * dot and no underscores, so `organisation.create` is `organisation_create`.
+ */
+export const toolNameOf = (definition: AnyDefinition) =>
+  definition.name.replace(".", "_");
+
+const instructions = [
+  "Each tool is an action (a change, permission-checked and logged) or a query (a read).",
+  "Tool names are the action or query name with `_` for `.`; the title is the real name.",
+  "A failed call returns an error result whose `error.code` is validation, permission, approval_required, conflict, not_found or internal.",
+].join(" ");
+
+const toolResult = (
+  result: Awaited<ReturnType<typeof callDefinition>>
+): CallToolResult => {
+  if (!result.ok) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.error.code}: ${result.error.message}\n${JSON.stringify({ error: result.error })}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+  const output = result.output as Record<string, unknown>;
+  return {
+    content: [{ type: "text", text: JSON.stringify(output) }],
+    structuredContent: output,
+  };
+};
 
 /** One MCP server for one request, with a tool per definition. */
 const mcpServerFor = (
@@ -14,25 +57,27 @@ const mcpServerFor = (
   pipeline: Pipeline,
   caller: Caller
 ) => {
-  const server = new McpServer({ name: "factory", version: "0.0.0" });
+  const server = new McpServer(
+    { name: "factory", version: "0.0.0" },
+    { instructions }
+  );
   for (const definition of registry.list()) {
+    const isQuery = definition.kind === "query";
     server.registerTool(
-      definition.name,
-      { description: definition.description, inputSchema: definition.input },
-      async (input) => {
-        const result = await callDefinition(
-          pipeline,
-          definition,
-          input,
-          caller
-        );
-        const body = result.ok ? result.output : { error: result.error };
-        return {
-          content: [{ type: "text", text: JSON.stringify(body) }],
-          structuredContent: body as Record<string, unknown>,
-          isError: !result.ok,
-        };
-      }
+      toolNameOf(definition),
+      {
+        title: definition.name,
+        description: definition.description,
+        inputSchema: definition.input,
+        outputSchema: definition.output,
+        annotations: {
+          readOnlyHint: isQuery,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async (input) =>
+        toolResult(await callDefinition(pipeline, definition, input, caller))
     );
   }
   return server;
