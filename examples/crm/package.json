@@ -24,5 +24,8 @@
     "@workspace/auth": "workspace:*",
     "@workspace/testing": "workspace:*",
     "drizzle-kit": "^0.31.11"
+  },
+  "factory": {
+    "system": "./src/system.ts"
   }
 }

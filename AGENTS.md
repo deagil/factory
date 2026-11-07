@@ -22,6 +22,7 @@ pnpm typecheck
 pnpm lint
 pnpm format
 pnpm test
+pnpm fx describe   # what the system has: objects, actions, queries, events and schemas
 ```
 
 ## Making a change

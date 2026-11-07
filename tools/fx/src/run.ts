@@ -1,5 +1,6 @@
 import { helpText, parseCliArgs } from "./args.ts";
 import type { ParsedArgs } from "./args.ts";
+import { describeSystem, formatDescribe } from "./commands/describe.ts";
 import { dev } from "./commands/dev.ts";
 import { done, formatDone } from "./commands/done.ts";
 import { formatShip, ship } from "./commands/ship.ts";
@@ -63,6 +64,14 @@ export const run = async (
           force: args.options.force === true,
         });
         writeResult(args.json, result, formatDone(result));
+        return 0;
+      }
+      case "describe": {
+        const [name] = args.positionals;
+        const result = await describeSystem(cwd, name, {
+          system: args.options.system,
+        });
+        writeResult(args.json, result, formatDescribe(result));
         return 0;
       }
       case "dev": {
