@@ -76,4 +76,6 @@ export {
 } from "./permissions.ts";
 export type { Granted, Permission, Permissions, Role } from "./permissions.ts";
 export { describeOutput, describeQuery } from "./describe.ts";
+export { historyEntrySchema, historyQuery } from "./history.ts";
+export type { HistoryEntry } from "./history.ts";
 export type { DescribeOptions, SystemDescription } from "./describe.ts";

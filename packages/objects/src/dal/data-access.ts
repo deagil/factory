@@ -5,7 +5,7 @@
 
 import { ascNullsLast, descNullsLast } from "@workspace/db";
 import type { Executor } from "@workspace/db";
-import { actors } from "@workspace/db/schema";
+import { actionLog, actors, auditLog, users } from "@workspace/db/schema";
 import {
   and,
   asc,
@@ -76,6 +76,23 @@ export interface ListResult<TRecord> {
   /** Pass as `cursor` for the next page; null on the last page. */
   nextCursor: string | null;
   related: Related;
+}
+
+/** One change to a record: one `audit_log` row (decision 0018). */
+export interface HistoryEntry {
+  id: string;
+  /** When the change was made, as an ISO timestamp. */
+  at: string;
+  /** The action that made it, and its `action_log` id. */
+  action: string;
+  actionId: string;
+  /** Who made it. */
+  actor: ActorSummary;
+  /** The user an agent or workflow acted for; null for staff. */
+  onBehalfOf: { id: string; name: string } | null;
+  /** The changed fields only, by key. A create has an empty `before`. */
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
 }
 
 export interface GetOptions {
@@ -304,7 +321,48 @@ export const createDataAccess = ({ executor, canRead }: DataAccessOptions) => {
     };
   };
 
-  return { get, list };
+  /**
+   * Every change to one record, newest first, with the action and actor
+   * behind it. Empty if the reader can't read the object.
+   */
+  const history = async (
+    object: AnyObjectDefinition,
+    recordId: string
+  ): Promise<HistoryEntry[]> => {
+    if (canRead(object) === "none") {
+      return [];
+    }
+    const rows = await executor
+      .select({
+        id: auditLog.id,
+        at: auditLog.at,
+        action: actionLog.name,
+        actionId: auditLog.actionId,
+        actor: { id: actors.id, name: actors.name, kind: actors.kind },
+        originUserId: actionLog.originUserId,
+        originUserName: users.name,
+        before: auditLog.before,
+        after: auditLog.after,
+      })
+      .from(auditLog)
+      .innerJoin(actionLog, eq(auditLog.actionId, actionLog.id))
+      .innerJoin(actors, eq(auditLog.actorId, actors.id))
+      .leftJoin(users, eq(actionLog.originUserId, users.id))
+      .where(
+        and(eq(auditLog.object, object.name), eq(auditLog.recordId, recordId))
+      )
+      .orderBy(desc(auditLog.at), desc(auditLog.id));
+    return rows.map(({ originUserId, originUserName, at, ...row }) => ({
+      ...row,
+      at: at.toISOString(),
+      onBehalfOf:
+        originUserId && row.actor.kind !== "staff"
+          ? { id: originUserId, name: originUserName ?? "" }
+          : null,
+    }));
+  };
+
+  return { get, history, list };
 };
 
 /** A data access layer, as actions get it through `ctx.dal`. */
