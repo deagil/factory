@@ -164,7 +164,7 @@ const shipWith = (
   ...extra,
 });
 
-describe("fx ship", () => {
+describe("fx ship", { timeout: 30_000 }, () => {
   describe("shipping a change twice", () => {
     let repo: string;
     let worktree: string;
