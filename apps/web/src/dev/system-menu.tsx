@@ -65,7 +65,8 @@ export const SystemMenuContent = ({
   <MenubarContent
     sideOffset={sideOffset}
     alignOffset={alignOffset}
-    className={cn(surface, className)}
+    // Wide enough for its rows, not just its trigger.
+    className={cn(surface, "w-auto", className)}
     {...props}
   />
 );

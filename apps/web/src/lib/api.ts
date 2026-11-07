@@ -16,18 +16,72 @@ export class ApiCallError extends Error {
   }
 }
 
+/** One call the web app made, for the dev bar's API menu. */
+export interface ApiCallRecord {
+  at: number;
+  path: string;
+  status: number;
+  ms: number;
+  requestId?: string;
+  actionId?: string;
+  dryRun: boolean;
+  forced: boolean;
+}
+
+/** Local-development hooks around every call; only the dev bar sets them. */
+export interface ApiDevHooks {
+  before: (path: string) => Promise<{
+    dryRun?: boolean;
+    fail?: { error: ApiError; status: number };
+  }>;
+  after: (call: ApiCallRecord) => void;
+}
+
+let devHooks: ApiDevHooks | undefined;
+
+export const setApiDevHooks = (hooks: ApiDevHooks | undefined) => {
+  devHooks = hooks;
+};
+
 const post = async <T>(
   path: string,
   input: unknown,
   headers: Record<string, string> = {}
 ): Promise<T> => {
-  const response = await fetch(`/api${path}`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(input ?? {}),
+  const started = Date.now();
+  const plan = devHooks ? await devHooks.before(path) : {};
+  const record = (call: Omit<ApiCallRecord, "at" | "path" | "ms" | "dryRun">) =>
+    devHooks?.after({
+      ...call,
+      at: started,
+      path,
+      ms: Date.now() - started,
+      dryRun: plan.dryRun ?? false,
+    });
+  if (plan.fail) {
+    record({ status: plan.fail.status, forced: true });
+    throw new ApiCallError(plan.fail.error, plan.fail.status);
+  }
+  const response = await fetch(
+    `/api${path}${plan.dryRun ? "?dryRun=true" : ""}`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(input ?? {}),
+    }
+  );
+  const body = (await response.json()) as {
+    error?: ApiError;
+    actionId?: string;
+    requestId?: string;
+  } & T;
+  record({
+    status: response.status,
+    requestId: response.headers.get("x-request-id") ?? body.requestId,
+    actionId: body.actionId,
+    forced: false,
   });
-  const body = (await response.json()) as { error?: ApiError } & T;
   if (!response.ok || body.error) {
     throw new ApiCallError(
       body.error ?? { code: "internal", message: response.statusText },

@@ -172,6 +172,7 @@ const Details = ({
           submitLabel="Save"
           pending={save.isPending}
           error={save.error}
+          dryRun={save.data?.dryRun ? save.data : undefined}
           onSubmit={(values) => save.mutate(values)}
         />
       )}
