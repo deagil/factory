@@ -12,7 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as AppOObjectRouteImport } from './routes/_app/o.$object'
+import { Route as AppOObjectIndexRouteImport } from './routes/_app/o.$object.index'
+import { Route as AppOObjectIdRouteImport } from './routes/_app/o.$object.$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -28,35 +29,49 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppOObjectRoute = AppOObjectRouteImport.update({
-  id: '/o/$object',
-  path: '/o/$object',
+const AppOObjectIndexRoute = AppOObjectIndexRouteImport.update({
+  id: '/o/$object/',
+  path: '/o/$object/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOObjectIdRoute = AppOObjectIdRouteImport.update({
+  id: '/o/$object/$id',
+  path: '/o/$object/$id',
   getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/sign-in': typeof SignInRoute
-  '/o/$object': typeof AppOObjectRoute
+  '/o/$object/$id': typeof AppOObjectIdRoute
+  '/o/$object/': typeof AppOObjectIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/': typeof AppIndexRoute
-  '/o/$object': typeof AppOObjectRoute
+  '/o/$object/$id': typeof AppOObjectIdRoute
+  '/o/$object': typeof AppOObjectIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/o/$object': typeof AppOObjectRoute
+  '/_app/o/$object/$id': typeof AppOObjectIdRoute
+  '/_app/o/$object/': typeof AppOObjectIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/o/$object'
+  fullPaths: '/' | '/sign-in' | '/o/$object/$id' | '/o/$object/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/sign-in' | '/' | '/o/$object'
-  id: '__root__' | '/_app' | '/sign-in' | '/_app/' | '/_app/o/$object'
+  to: '/sign-in' | '/' | '/o/$object/$id' | '/o/$object'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/sign-in'
+    | '/_app/'
+    | '/_app/o/$object/$id'
+    | '/_app/o/$object/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -87,11 +102,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/o/$object': {
-      id: '/_app/o/$object'
+    '/_app/o/$object/': {
+      id: '/_app/o/$object/'
       path: '/o/$object'
-      fullPath: '/o/$object'
-      preLoaderRoute: typeof AppOObjectRouteImport
+      fullPath: '/o/$object/'
+      preLoaderRoute: typeof AppOObjectIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/o/$object/$id': {
+      id: '/_app/o/$object/$id'
+      path: '/o/$object/$id'
+      fullPath: '/o/$object/$id'
+      preLoaderRoute: typeof AppOObjectIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -99,12 +121,14 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
-  AppOObjectRoute: typeof AppOObjectRoute
+  AppOObjectIdRoute: typeof AppOObjectIdRoute
+  AppOObjectIndexRoute: typeof AppOObjectIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
-  AppOObjectRoute: AppOObjectRoute,
+  AppOObjectIdRoute: AppOObjectIdRoute,
+  AppOObjectIndexRoute: AppOObjectIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
