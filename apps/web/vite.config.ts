@@ -15,6 +15,8 @@ const config = defineConfig({
     proxy: {
       "/api": { target: api, rewrite: (path) => path.replace(/^\/api/u, "") },
       "/auth": { target: api },
+      // MCP clients (Claude Code) connect here, through My agents' command.
+      "/mcp": { target: api },
     },
   },
   plugins: [
