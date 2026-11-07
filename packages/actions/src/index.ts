@@ -75,3 +75,5 @@ export {
   scopes,
 } from "./permissions.ts";
 export type { Granted, Permission, Permissions, Role } from "./permissions.ts";
+export { describeOutput, describeQuery } from "./describe.ts";
+export type { DescribeOptions, SystemDescription } from "./describe.ts";

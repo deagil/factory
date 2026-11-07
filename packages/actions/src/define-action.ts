@@ -9,7 +9,7 @@ import type { DataAccess, Repository } from "@workspace/objects";
 import type { z } from "zod";
 
 import type { ActionFailure, ErrorHelpers } from "./errors.ts";
-import type { Role } from "./permissions.ts";
+import type { Granted, Role } from "./permissions.ts";
 
 /** Time, from the context, so tests and dry runs control it. */
 export interface Clock {
@@ -69,6 +69,8 @@ export type Emit<TEmits extends EventSchemas> = <
 /** What a query handler gets: reads, config, time, who and the error helpers. */
 export interface QueryContext extends ErrorHelpers {
   readonly dal: DataAccess;
+  /** What the actor may do, for handlers that filter by it. */
+  readonly granted: Granted;
   readonly config: ConfigService;
   readonly clock: Clock;
   readonly actor: Actor;
@@ -129,6 +131,11 @@ export interface QueryOptions<
   description: string;
   input: TInput;
   output: TOutput;
+  /**
+   * Any caller may run it, with no permission. Only for queries that filter
+   * their result by `ctx.granted` themselves, such as `system.describe`.
+   */
+  everyone?: boolean;
   handler: (
     ctx: QueryContext,
     input: z.output<TInput>
@@ -174,6 +181,7 @@ export interface AnyQueryDefinition {
   readonly description: string;
   readonly input: ObjectSchema;
   readonly output: ObjectSchema;
+  readonly everyone?: boolean;
   readonly handler: (ctx: any, input: any) => unknown;
   readonly objectPermission?: ObjectPermission;
 }
@@ -246,6 +254,7 @@ export const defineQuery = <
     description: options.description,
     input: options.input,
     output: options.output,
+    everyone: options.everyone ?? false,
     handler: options.handler,
   });
 };

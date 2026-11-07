@@ -96,6 +96,14 @@ describe("HTTP API", () => {
     });
   });
 
+  it("describes the system to any caller, filtered", async () => {
+    const { status, body } = await send("GET", "/queries/system.describe");
+    expect(status).toBe(200);
+    expect(body.output?.objects).toStrictEqual([
+      expect.objectContaining({ name: "organisation" }),
+    ]);
+  });
+
   it("runs a query by GET with ?input=", async () => {
     const input = encodeURIComponent(JSON.stringify({ limit: 1 }));
     const { status, body } = await send(

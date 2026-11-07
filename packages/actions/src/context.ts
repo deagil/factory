@@ -16,10 +16,12 @@ import type {
   QueryContext,
 } from "./define-action.ts";
 import { failures } from "./errors.ts";
+import type { Granted } from "./permissions.ts";
 
 /** The services one run's `ctx` is made from. */
 export interface QueryServices {
   dal: DataAccess;
+  granted: Granted;
   config: ConfigService;
   clock: Clock;
   actor: Actor;
@@ -42,6 +44,7 @@ export const createQueryContext = (services: QueryServices): QueryContext =>
   Object.freeze({
     ...failures,
     dal: services.dal,
+    granted: services.granted,
     config: services.config,
     clock: services.clock,
     actor: services.actor,
