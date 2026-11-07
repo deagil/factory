@@ -34,7 +34,7 @@ All of this is exported from `@workspace/objects` and `@workspace/db`.
 - **`action_log` ordering and status.** `audit_log.action_id` is a foreign key, so the `action_log` row goes in first and is filled in at the record stage. `actionStatuses` has no in-flight value. Either add one (an expand migration) or insert with the expected final status and update it; write down the choice. A failed action's row is written again in its own transaction after the rollback (P1.07).
 - **`packages/actions` dependencies.** It needs `@workspace/objects` and `@workspace/db` as workspace dependencies. The dependency direction is `actions` → `objects` → `db` (AGENTS.md rule 9).
 - **Read-only fields** are enforced by the generated update action's input schema (P1.09), not by the repository, which will write any field it's given. Hand-written actions that own a field (`contact.moveToOrganisation`) rely on that.
-- **P1.13's decision record** is the next free number: 0022 now that P1.06 to P1.08 took 0019 to 0021. The plan used to say 0012, which is the Ultracite decision.
+- **P1.13's decision record** is the next free number: 0023 now that P1.06 to P1.09 took 0019 to 0022. The plan used to say 0012, which is the Ultracite decision.
 
 ## How the work has been run
 
