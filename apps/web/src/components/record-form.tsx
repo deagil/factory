@@ -91,6 +91,17 @@ export const ErrorMessage = ({ error }: { error: Error | null }) => {
   if (!error) {
     return null;
   }
+  if (error instanceof ApiCallError && error.error.code === "conflict") {
+    return (
+      <div role="alert" className="text-sm text-destructive">
+        <p>
+          Someone changed this record after you opened it. Reload to see their
+          change, then make yours again.
+        </p>
+        <p className="text-muted-foreground">{error.message}</p>
+      </div>
+    );
+  }
   const issues =
     error instanceof ApiCallError && "issues" in error.error
       ? (error.error.issues as { path: (string | number)[]; message: string }[])
@@ -111,6 +122,16 @@ export const ErrorMessage = ({ error }: { error: Error | null }) => {
   );
 };
 
+/** A dry run's result: what the action would have returned. */
+export const DryRunResult = ({ output }: { output: unknown }) => (
+  <div aria-live="polite" className="flex flex-col gap-1 text-sm">
+    <p>Dry run: the action passed every check and changed nothing.</p>
+    <pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 text-xs">
+      {JSON.stringify(output, null, 2)}
+    </pre>
+  </div>
+);
+
 export const RecordForm = ({
   fields,
   initial,
@@ -118,6 +139,7 @@ export const RecordForm = ({
   submitLabel,
   pending,
   error,
+  dryRun,
   onSubmit,
   onCancel,
 }: {
@@ -127,6 +149,8 @@ export const RecordForm = ({
   submitLabel: string;
   pending: boolean;
   error: Error | null;
+  /** Set after a dry run: the output the action would have returned. */
+  dryRun?: { output: unknown } | undefined;
   onSubmit: (values: FormValues) => void;
   onCancel?: () => void;
 }) => {
@@ -182,6 +206,7 @@ export const RecordForm = ({
         );
       })}
       <ErrorMessage error={error} />
+      {dryRun ? <DryRunResult output={dryRun.output} /> : null}
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : submitLabel}

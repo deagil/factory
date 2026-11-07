@@ -35,11 +35,14 @@ const CreateScreen = () => {
         fromFormValues(fields, values),
         { retryKey }
       ),
-    onSuccess: ({ output }) =>
-      navigate({
-        to: "/o/$object/$id",
-        params: { object: name, id: output.record.id },
-      }),
+    onSuccess: ({ output, dryRun }) =>
+      // A dry run made nothing to go to; the form shows its result.
+      dryRun
+        ? undefined
+        : navigate({
+            to: "/o/$object/$id",
+            params: { object: name, id: output.record.id },
+          }),
   });
 
   if (described.isPending) {
@@ -76,6 +79,7 @@ const CreateScreen = () => {
         submitLabel="Create"
         pending={create.isPending}
         error={create.error}
+        dryRun={create.data?.dryRun ? create.data : undefined}
         onSubmit={(values) => create.mutate(values)}
       />
     </div>

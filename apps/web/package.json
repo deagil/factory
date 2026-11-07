@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.8.6",
+    "@tanstack/react-query-devtools": "^5.107.1",
     "@tanstack/router-cli": "^1.167.46",
     "@types/node": "^26",
     "@types/react": "^19",

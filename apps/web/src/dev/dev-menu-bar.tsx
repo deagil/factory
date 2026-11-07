@@ -8,6 +8,8 @@ import {
 import { useEffect, useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
 
+import { ApiMenu } from "./api-menu.tsx";
+import { InspectMenu } from "./inspect-menu.tsx";
 import {
   MOTION_RATES,
   motionRateFrom,
@@ -21,6 +23,7 @@ import type { MotionRate } from "./motion.ts";
 import { SessionMenu } from "./session-menu.tsx";
 import {
   SystemMenuContent,
+  SystemMenuItem,
   SystemMenuLabel,
   SystemMenuRadioItem,
   SystemMenuSubContent,
@@ -47,6 +50,18 @@ const blueprint: CSSProperties = {
 
 // Local-development menu, mounted only while `import.meta.env.DEV` is set.
 // New developer tools belong in a menu here.
+// From vite.config.ts: the branch, change and database this server runs on.
+// Tests run without it.
+const change =
+  typeof __FACTORY_CHANGE__ === "undefined"
+    ? { change: "", branch: "", database: "" }
+    : __FACTORY_CHANGE__;
+const changeFacts: [string, string][] = [
+  ["Change", change.change],
+  ["Branch", change.branch],
+  ["Database", change.database],
+];
+
 const serverMotionRate = (): MotionRate => 1;
 
 const chooseRate = (value: unknown) => {
@@ -87,10 +102,25 @@ export const DevMenuBar = () => {
           <SystemMenuContent>
             <MenubarGroup>
               <SystemMenuLabel>Local development</SystemMenuLabel>
+              {changeFacts.map(([label, value]) => (
+                <SystemMenuItem
+                  key={label}
+                  className="whitespace-nowrap"
+                  disabled={!value}
+                  onClick={() => navigator.clipboard?.writeText(value)}
+                >
+                  {label}
+                  <span className="ml-auto pl-6 font-mono opacity-70">
+                    {value || "—"}
+                  </span>
+                </SystemMenuItem>
+              ))}
             </MenubarGroup>
           </SystemMenuContent>
         </MenubarMenu>
         <SessionMenu />
+        <ApiMenu />
+        <InspectMenu />
         <MenubarMenu>
           <SystemMenuTrigger>Design</SystemMenuTrigger>
           <SystemMenuContent>
