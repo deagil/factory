@@ -38,6 +38,7 @@ import {
   timestampSortKeys,
 } from "./list-input.ts";
 import type { ArchivedMode, ListInput } from "./list-input.ts";
+import { createLogReader } from "./logs.ts";
 
 /**
  * Which of an object's records the reader may see. Phase 1 has only the
@@ -362,7 +363,9 @@ export const createDataAccess = ({ executor, canRead }: DataAccessOptions) => {
     }));
   };
 
-  return { get, history, list };
+  // The logs aren't records of an object, so the read hook doesn't apply;
+  // the queries that read them check their own permissions.
+  return { get, history, list, ...createLogReader(executor) };
 };
 
 /** A data access layer, as actions get it through `ctx.dal`. */

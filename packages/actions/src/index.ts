@@ -82,5 +82,18 @@ export {
   describeQuery,
 } from "./describe.ts";
 export { historyEntrySchema, historyQuery } from "./history.ts";
+export {
+  actionLogDetailSchema,
+  actionLogEntrySchema,
+  changeEntrySchema,
+  eventEntrySchema,
+} from "./log-schemas.ts";
+export {
+  actionLogGet,
+  actionLogList,
+  auditLogList,
+  eventLogList,
+  logQueries,
+} from "./logs.ts";
 export type { HistoryEntry } from "./history.ts";
 export type { DescribeOptions, SystemDescription } from "./describe.ts";

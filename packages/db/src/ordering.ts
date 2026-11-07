@@ -9,6 +9,10 @@ import type { AnyColumn, SQL } from "drizzle-orm";
 export const ascNullsLast = (column: AnyColumn): SQL =>
   sql`${column} asc nulls last`;
 
+/** `column ? key`: a JSONB object has the key. Uses a GIN index on it. */
+export const jsonbHasKey = (column: AnyColumn, key: string): SQL =>
+  sql`${column} ? ${key}`;
+
 /** `column desc nulls last`, so empty values come last both ways. */
 export const descNullsLast = (column: AnyColumn): SQL =>
   sql`${column} desc nulls last`;

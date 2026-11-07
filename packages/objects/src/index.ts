@@ -74,6 +74,19 @@ export {
   sortKeysOf,
 } from "./dal/list-input.ts";
 export type { ArchivedMode, Cursor, ListInput } from "./dal/list-input.ts";
+export type {
+  ActionLogDetail,
+  ActionLogEntry,
+  ActionLogFilter,
+  ActionStatus,
+  ChangeEntry,
+  ChangeFilter,
+  EventEntry,
+  EventFilter,
+  LogPage,
+  LogResult,
+  UserSummary,
+} from "./dal/logs.ts";
 export { createRepository } from "./repository.ts";
 export type {
   ArchiveResult,
