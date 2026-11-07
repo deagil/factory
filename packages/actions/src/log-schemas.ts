@@ -78,3 +78,8 @@ export const range = {
 
 export const pageOf = <TEntry extends z.ZodType>(entry: TEntry) =>
   z.object({ entries: z.array(entry), nextCursor: z.string().nullable() });
+
+export type ActionLogEntry = z.infer<typeof actionLogEntrySchema>;
+export type ActionLogDetail = z.infer<typeof actionLogDetailSchema>;
+export type ChangeEntry = z.infer<typeof changeEntrySchema>;
+export type EventEntry = z.infer<typeof eventEntrySchema>;

@@ -108,4 +108,10 @@ export {
   logQueries,
 } from "./logs.ts";
 export type { HistoryEntry } from "./history.ts";
+export type {
+  ActionLogDetail,
+  ActionLogEntry,
+  ChangeEntry,
+  EventEntry,
+} from "./log-schemas.ts";
 export type { DescribeOptions, SystemDescription } from "./describe.ts";

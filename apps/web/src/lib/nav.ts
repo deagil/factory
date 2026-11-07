@@ -4,13 +4,14 @@
 // adds Inbox, Automation and Config.
 import type { SystemDescription } from "./api.ts";
 
-export type SectionKey = "data";
+export type SectionKey = "data" | "activity";
 
 /** Where a page lives. Each section adds its own routes. */
-export interface NavLink {
-  to: "/o/$object";
-  params: { object: string };
-}
+export type NavLink =
+  | { to: "/o/$object"; params: { object: string } }
+  | { to: "/activity/actions" }
+  | { to: "/activity/changes" }
+  | { to: "/activity/events" };
 
 export interface NavPage {
   key: string;
@@ -28,6 +29,10 @@ export interface NavSection {
 /** "contact" → "Contacts"; labels are singular, navigation is plural. */
 export const plural = (label: string) =>
   label.endsWith("s") ? label : `${label.replace(/y$/u, "ie")}s`;
+
+/** Whether the caller may run the query `name`. */
+const has = (description: SystemDescription, name: string) =>
+  description.queries.some((query) => query.name === name);
 
 const sections: {
   key: SectionKey;
@@ -47,6 +52,43 @@ const sections: {
           `Every ${object.label.toLowerCase()} in the system.`,
         link: { to: "/o/$object", params: { object: object.name } },
       })),
+  },
+  {
+    key: "activity",
+    label: "Activity",
+    pages: (description) =>
+      [
+        {
+          query: "actionLog.list",
+          page: {
+            key: "activity:actions",
+            label: "Actions",
+            description:
+              "Everything that ran: who ran it, for whom, and what it did.",
+            link: { to: "/activity/actions" },
+          },
+        },
+        {
+          query: "auditLog.list",
+          page: {
+            key: "activity:changes",
+            label: "Changes",
+            description: "Every field that changed on every record.",
+            link: { to: "/activity/changes" },
+          },
+        },
+        {
+          query: "eventLog.list",
+          page: {
+            key: "activity:events",
+            label: "Events",
+            description: "What happened, as workflows will hear it.",
+            link: { to: "/activity/events" },
+          },
+        },
+      ]
+        .filter(({ query }) => has(description, query))
+        .map(({ page }) => page as NavPage),
   },
 ];
 

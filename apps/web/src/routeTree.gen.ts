@@ -12,6 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppActivityChangesRouteImport } from './routes/_app/activity.changes'
+import { Route as AppActivityEventsRouteImport } from './routes/_app/activity.events'
+import { Route as AppActivityActionsIndexRouteImport } from './routes/_app/activity.actions.index'
+import { Route as AppActivityActionsIdRouteImport } from './routes/_app/activity.actions.$id'
 import { Route as AppOObjectIndexRouteImport } from './routes/_app/o.$object.index'
 import { Route as AppOObjectIdRouteImport } from './routes/_app/o.$object.$id'
 import { Route as AppOObjectNewRouteImport } from './routes/_app/o.$object.new'
@@ -28,6 +32,26 @@ const SignInRoute = SignInRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityChangesRoute = AppActivityChangesRouteImport.update({
+  id: '/activity/changes',
+  path: '/activity/changes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityEventsRoute = AppActivityEventsRouteImport.update({
+  id: '/activity/events',
+  path: '/activity/events',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityActionsIndexRoute = AppActivityActionsIndexRouteImport.update({
+  id: '/activity/actions/',
+  path: '/activity/actions/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityActionsIdRoute = AppActivityActionsIdRouteImport.update({
+  id: '/activity/actions/$id',
+  path: '/activity/actions/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const AppOObjectIndexRoute = AppOObjectIndexRouteImport.update({
@@ -49,15 +73,23 @@ const AppOObjectNewRoute = AppOObjectNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/sign-in': typeof SignInRoute
+  '/activity/changes': typeof AppActivityChangesRoute
+  '/activity/events': typeof AppActivityEventsRoute
+  '/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
+  '/activity/actions/': typeof AppActivityActionsIndexRoute
   '/o/$object/': typeof AppOObjectIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/': typeof AppIndexRoute
+  '/activity/changes': typeof AppActivityChangesRoute
+  '/activity/events': typeof AppActivityEventsRoute
+  '/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
+  '/activity/actions': typeof AppActivityActionsIndexRoute
   '/o/$object': typeof AppOObjectIndexRoute
 }
 export interface FileRoutesById {
@@ -65,23 +97,48 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/activity/changes': typeof AppActivityChangesRoute
+  '/_app/activity/events': typeof AppActivityEventsRoute
+  '/_app/activity/actions/$id': typeof AppActivityActionsIdRoute
   '/_app/o/$object/$id': typeof AppOObjectIdRoute
   '/_app/o/$object/new': typeof AppOObjectNewRoute
+  '/_app/activity/actions/': typeof AppActivityActionsIndexRoute
   '/_app/o/$object/': typeof AppOObjectIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/sign-in' | '/o/$object/$id' | '/o/$object/new' | '/o/$object/'
+    | '/'
+    | '/sign-in'
+    | '/activity/changes'
+    | '/activity/events'
+    | '/activity/actions/$id'
+    | '/o/$object/$id'
+    | '/o/$object/new'
+    | '/activity/actions/'
+    | '/o/$object/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/sign-in' | '/' | '/o/$object/$id' | '/o/$object/new' | '/o/$object'
+  to:
+    | '/sign-in'
+    | '/'
+    | '/activity/changes'
+    | '/activity/events'
+    | '/activity/actions/$id'
+    | '/o/$object/$id'
+    | '/o/$object/new'
+    | '/activity/actions'
+    | '/o/$object'
   id:
     | '__root__'
     | '/_app'
     | '/sign-in'
     | '/_app/'
+    | '/_app/activity/changes'
+    | '/_app/activity/events'
+    | '/_app/activity/actions/$id'
     | '/_app/o/$object/$id'
     | '/_app/o/$object/new'
+    | '/_app/activity/actions/'
     | '/_app/o/$object/'
   fileRoutesById: FileRoutesById
 }
@@ -113,6 +170,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/activity/changes': {
+      id: '/_app/activity/changes'
+      path: '/activity/changes'
+      fullPath: '/activity/changes'
+      preLoaderRoute: typeof AppActivityChangesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/activity/events': {
+      id: '/_app/activity/events'
+      path: '/activity/events'
+      fullPath: '/activity/events'
+      preLoaderRoute: typeof AppActivityEventsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/activity/actions/': {
+      id: '/_app/activity/actions/'
+      path: '/activity/actions'
+      fullPath: '/activity/actions/'
+      preLoaderRoute: typeof AppActivityActionsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/activity/actions/$id': {
+      id: '/_app/activity/actions/$id'
+      path: '/activity/actions/$id'
+      fullPath: '/activity/actions/$id'
+      preLoaderRoute: typeof AppActivityActionsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/o/$object/': {
       id: '/_app/o/$object/'
       path: '/o/$object'
@@ -139,15 +224,23 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppActivityChangesRoute: typeof AppActivityChangesRoute
+  AppActivityEventsRoute: typeof AppActivityEventsRoute
+  AppActivityActionsIdRoute: typeof AppActivityActionsIdRoute
   AppOObjectIdRoute: typeof AppOObjectIdRoute
   AppOObjectNewRoute: typeof AppOObjectNewRoute
+  AppActivityActionsIndexRoute: typeof AppActivityActionsIndexRoute
   AppOObjectIndexRoute: typeof AppOObjectIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppActivityChangesRoute: AppActivityChangesRoute,
+  AppActivityEventsRoute: AppActivityEventsRoute,
+  AppActivityActionsIdRoute: AppActivityActionsIdRoute,
   AppOObjectIdRoute: AppOObjectIdRoute,
   AppOObjectNewRoute: AppOObjectNewRoute,
+  AppActivityActionsIndexRoute: AppActivityActionsIndexRoute,
   AppOObjectIndexRoute: AppOObjectIndexRoute,
 }
 
