@@ -1,3 +1,5 @@
+import { on } from "node:events";
+
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
@@ -38,5 +40,25 @@ export const withTransaction = <T>(
   config?: PgTransactionConfig
 ): Promise<T> => executor.transaction(work, config);
 
-/** Closes the pool behind a database. */
-export const closeDb = (db: Db): Promise<void> => db.$client.end();
+/**
+ * Closes the pool behind a database. pg-pool's `end()` resolves before its
+ * clients' connections have closed, so this also waits for each client's
+ * `remove` event; otherwise dropping the database straight after can hit a
+ * closing connection, whose error then has no listener.
+ */
+export const closeDb = async (db: Db): Promise<void> => {
+  const pool = db.$client;
+  let open = pool.totalCount;
+  // Listen before ending: `on` buffers events until they are read.
+  const removals = on(pool, "remove");
+  await pool.end();
+  if (open === 0) {
+    return;
+  }
+  for await (const _removed of removals) {
+    open -= 1;
+    if (open === 0) {
+      break;
+    }
+  }
+};
