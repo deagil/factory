@@ -1,15 +1,9 @@
 import {
   Menubar,
-  MenubarContent,
   MenubarGroup,
-  MenubarLabel,
   MenubarMenu,
   MenubarRadioGroup,
-  MenubarRadioItem,
   MenubarSub,
-  MenubarSubContent,
-  MenubarSubTrigger,
-  MenubarTrigger,
 } from "@workspace/ui/components/menubar";
 import { useEffect, useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
@@ -24,6 +18,14 @@ import {
   writeMotionRate,
 } from "./motion.ts";
 import type { MotionRate } from "./motion.ts";
+import {
+  SystemMenuContent,
+  SystemMenuLabel,
+  SystemMenuRadioItem,
+  SystemMenuSubContent,
+  SystemMenuSubTrigger,
+  SystemMenuTrigger,
+} from "./system-menu.tsx";
 
 const blueprintInk = "#0e2438";
 
@@ -41,9 +43,6 @@ const blueprint: CSSProperties = {
   backgroundSize: "8px 8px, 8px 8px, 24px 24px, 24px 24px",
   boxShadow: `inset 0 0 0 1px ${blueprintInk}`,
 };
-
-const menuShadow =
-  "shadow-[0_18px_44px_-8px_rgb(15_23_42/0.45),0_8px_18px_-6px_rgb(15_23_42/0.38)]";
 
 // Local-development menu, mounted only while `import.meta.env.DEV` is set.
 // New developer tools belong in a menu here.
@@ -73,48 +72,50 @@ export const DevMenuBar = () => {
 
   return (
     <div
-      className="flex h-8 shrink-0 items-center px-1.5 text-[#d6e7f4] [&_[data-slot=menubar-trigger]]:text-inherit [&_[data-slot=menubar-trigger]]:hover:bg-white/20 [&_[data-slot=menubar-trigger]]:aria-expanded:bg-white/30"
+      className="flex h-8 shrink-0 items-center px-1.5 [font-family:system-ui] text-[13px] text-[#d6e7f4]"
       style={blueprint}
     >
       <Menubar
         aria-label="Developer"
-        className="h-full min-w-0 flex-1 justify-start rounded-none border-0 bg-transparent p-0 shadow-none"
+        className="h-full min-w-0 flex-1 justify-start gap-0.5 rounded-none border-0 bg-transparent p-0 shadow-none"
       >
         <MenubarMenu>
-          <MenubarTrigger className="font-semibold">Factory</MenubarTrigger>
-          <MenubarContent className={menuShadow}>
+          <SystemMenuTrigger className="font-semibold">
+            Factory
+          </SystemMenuTrigger>
+          <SystemMenuContent>
             <MenubarGroup>
-              <MenubarLabel>Local development</MenubarLabel>
+              <SystemMenuLabel>Local development</SystemMenuLabel>
             </MenubarGroup>
-          </MenubarContent>
+          </SystemMenuContent>
         </MenubarMenu>
         <MenubarMenu>
-          <MenubarTrigger>Design</MenubarTrigger>
-          <MenubarContent className={menuShadow}>
+          <SystemMenuTrigger>Design</SystemMenuTrigger>
+          <SystemMenuContent>
             <MenubarSub>
-              <MenubarSubTrigger className="whitespace-nowrap">
+              <SystemMenuSubTrigger className="whitespace-nowrap">
                 Animation speed
-              </MenubarSubTrigger>
-              <MenubarSubContent className={menuShadow}>
+              </SystemMenuSubTrigger>
+              <SystemMenuSubContent>
                 <MenubarGroup>
                   <MenubarRadioGroup
                     value={String(rate)}
                     onValueChange={chooseRate}
                   >
                     {MOTION_RATES.map((item) => (
-                      <MenubarRadioItem
+                      <SystemMenuRadioItem
                         key={item.rate}
                         value={String(item.rate)}
                         closeOnClick
                       >
                         {item.label}
-                      </MenubarRadioItem>
+                      </SystemMenuRadioItem>
                     ))}
                   </MenubarRadioGroup>
                 </MenubarGroup>
-              </MenubarSubContent>
+              </SystemMenuSubContent>
             </MenubarSub>
-          </MenubarContent>
+          </SystemMenuContent>
         </MenubarMenu>
       </Menubar>
       {rate === 1 ? null : (
