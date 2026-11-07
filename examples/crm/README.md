@@ -32,11 +32,13 @@ Seed data: `admin@example.com` (admin), `sarah@example.com` (sales), `sam@exampl
 
 ## Look at the data
 
+`pnpm dev` and `pnpm fx dev` both start Drizzle Studio, on the database they use, at <https://local.drizzle.studio>. To run it on its own, with the dev servers stopped:
+
 ```bash
 pnpm db:studio
 ```
 
-Opens Drizzle Studio on the database in `.env` (the change's own, in a worktree) at <https://local.drizzle.studio>, showing the core tables, the `auth` tables and the CRM's. The CRM's tables and seed data appear once `pnpm fx dev` has run on that database. Use Chrome or Arc; Safari blocks the page from reaching the local server. It's for looking only: an edit there skips the action pipeline, so it leaves no `action_log` or `audit_log` row and history stops matching the data.
+It shows the database in `.env` (the change's own, in a worktree): showing the core tables, the `auth` tables and the CRM's. The CRM's tables and seed data appear once the CRM has started on that database. Use Chrome or Arc; Safari blocks the page from reaching the local server. It's for looking only: an edit there skips the action pipeline, so it leaves no `action_log` or `audit_log` row and history stops matching the data.
 
 ## Files
 

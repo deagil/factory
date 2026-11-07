@@ -41,7 +41,7 @@ pnpm fx --help
 
 - `fx dev` runs in a change's worktree. It prints which database it uses, then:
   - pushes the Drizzle schema to the change's database with `drizzle-kit push --force`. Data in a change database is disposable, and no migration files are written; `fx ship` writes the one migration;
-  - runs the worktree's `turbo dev --ui=stream` with `DATABASE_URL` pointed at the change's database;
+  - runs the worktree's `turbo run dev db:studio --ui=stream` (the dev servers and Drizzle Studio) with `DATABASE_URL` pointed at the change's database;
   - pushes again whenever a `.ts` file under `packages/db/src/schema` is saved (test files are ignored), one push at a time.
 
   A failed push is reported and the dev servers keep running; the next save tries again. drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. When it needs to, restart with `fx dev --reset`, which drops the database and rebuilds it, empty, from the schema.

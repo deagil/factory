@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "turbo build",
-    "dev": "pnpm db:migrate && turbo dev",
+    "dev": "pnpm db:migrate && turbo run dev db:studio",
     "lint": "turbo lint lint:root",
     "format": "ultracite fix",
     "typecheck": "turbo typecheck",
