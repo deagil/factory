@@ -22,6 +22,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0016 | [What the schema check compares](0016-schema-check.md) | Accepted |
 | 0017 | [How the data access layer lists, pages and follows refs](0017-data-access-layer.md) | Accepted |
 | 0018 | [One `audit_log` row per record change](0018-audit-log-row-per-change.md) | Accepted |
+| 0019 | [`defineAction`, the handler context and typed errors](0019-define-action-context-and-errors.md) | Accepted |
 
 ## Template
 

@@ -224,23 +224,34 @@ export const moveDealStage = defineAction({
     stage: z.string(),
     reason: z.string().optional(),
   }),
-  output: z.object({ deal: dealSchema }),
+  output: z.object({ deal: deal.schemas.record }),
+  emits: { "deal.stageChanged": stageChangedSchema },
   async handler(ctx, { dealId, stage, reason }) {
-    const deal = await ctx.repo.deal.get(dealId, { lock: true });
     const option = ctx.config.choice("deal-stages").get(stage); // validated, not archived
-    if (option.category === "lost" && !reason)
-      throw ctx.invalid("A reason is required for lost deals");
-    const updated = await ctx.repo.deal.update(dealId, { stage });
+    if (option.category === "lost" && !reason) {
+      return ctx.invalid("A reason is required for lost deals");
+    }
+    const result = await ctx.repo.update(
+      deal,
+      dealId,
+      { stage },
+      { lock: true }
+    );
+    if (result.status === "not_found") return ctx.notFound("deal", dealId);
+    if (result.status !== "updated")
+      return ctx.conflict("The deal can't move now");
     ctx.emit("deal.stageChanged", {
       dealId,
-      from: deal.stage,
+      from: result.before.stage,
       to: stage,
       category: option.category,
     });
-    return { deal: updated };
+    return { deal: result.record };
   },
 });
 ```
+
+- Handlers get everything through `ctx`: `repo` (writes, bound to the run's transaction), `dal` (reads), `config`, `clock`, `actor`, `emit` and the error helpers. Expected failures are returned as typed errors (validation, permission, approval required, conflict, not found), not thrown. Queries get the same `ctx` without `repo` and `emit` (decision 0019).
 
 Every action, whoever calls it, runs the same pipeline in one database transaction:
 
