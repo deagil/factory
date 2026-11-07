@@ -21,3 +21,6 @@ todos.json
 
 # fx: state of open changes
 .fx/
+
+#cursor config
+.cursor
