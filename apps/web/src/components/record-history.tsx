@@ -1,6 +1,7 @@
 // A record's history: each audit_log change, newest first, with who made
 // it and through which action, from the `record.history` query (P1.21).
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type { HistoryEntry } from "@workspace/actions";
 
 import { runQuery } from "../lib/api.ts";
@@ -114,7 +115,15 @@ export const RecordHistory = ({
               {created ? "created it" : "changed it"}
               <span className="text-muted-foreground">
                 {" "}
-                · {entry.action} · {when(entry.at)}
+                ·{" "}
+                <Link
+                  to="/activity/actions/$id"
+                  params={{ id: entry.actionId }}
+                  className="hover:underline"
+                >
+                  {entry.action}
+                </Link>{" "}
+                · {when(entry.at)}
               </span>
             </p>
             <ul className="mt-2 flex flex-col gap-1">

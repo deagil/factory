@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { navFrom } from "./nav.ts";
 
-const described = (objects: object[]) =>
-  ({ objects, actions: [], queries: [], events: [] }) as never;
+const described = (objects: object[], queries: string[] = []) =>
+  ({
+    objects,
+    actions: [],
+    queries: queries.map((name) => ({ name })),
+    events: [],
+  }) as never;
 
 describe(navFrom, () => {
   it("puts the objects in Data, in plural, with their descriptions", () => {
@@ -32,6 +37,15 @@ describe(navFrom, () => {
           },
         ],
       },
+    ]);
+  });
+
+  it("puts the logs the caller can read in Activity", () => {
+    const nav = navFrom(described([], ["actionLog.list", "eventLog.list"]));
+    expect(nav.map((section) => section.key)).toStrictEqual(["activity"]);
+    expect(nav[0]?.pages.map((page) => page.link)).toStrictEqual([
+      { to: "/activity/actions" },
+      { to: "/activity/events" },
     ]);
   });
 

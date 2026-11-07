@@ -27,12 +27,28 @@ const RefSelect = ({
   description: SystemDescription | undefined;
 }) => {
   const target = field.target ?? "";
-  const listable =
-    description?.queries.some((query) => query.name === `${target}.list`) ??
-    false;
+  const can = (name: string) =>
+    description?.queries.some((query) => query.name === name) ?? false;
+  // Refs to actors list people (P1b.04's `actor.list`); refs to objects use
+  // the object's own `.list`, whose output differs.
+  const isActor = target === "actor";
+  const listable = isActor
+    ? can("actor.list")
+    : findObject(description, target) !== undefined && can(`${target}.list`);
   const options = useQuery({
     queryKey: ["options", target],
-    queryFn: () => runQuery<ListPage>(`${target}.list`, { limit: 100 }),
+    queryFn: async (): Promise<Record<string, unknown>[]> => {
+      if (isActor) {
+        const { entries } = await runQuery<{
+          entries: Record<string, unknown>[];
+        }>("actor.list", { kind: "staff", status: "active", limit: 200 });
+        return entries;
+      }
+      const { records } = await runQuery<ListPage>(`${target}.list`, {
+        limit: 100,
+      });
+      return records;
+    },
     enabled: listable,
   });
   if (!listable) {
@@ -55,7 +71,7 @@ const RefSelect = ({
       onChange={(event) => onChange(event.target.value)}
     >
       <option value="">{options.isPending ? "Loading…" : "None"}</option>
-      {options.data?.records.map((record) => (
+      {options.data?.map((record) => (
         <option key={String(record.id)} value={String(record.id)}>
           {titleOf(record, object)}
         </option>
