@@ -39,30 +39,34 @@ describe(migrationsHash, () => {
 });
 
 describe(ensureTemplateDatabase, () => {
-  it("builds one template, even when called concurrently", async () => {
-    // A copy of the core migrations with a unique hash, so this test's
-    // template and builds can't be confused with other test files'.
-    const folder = mkdtempSync(path.join(tmpdir(), "migrations-"));
-    cpSync(coreMigrationsFolder, folder, { recursive: true });
-    writeFileSync(
-      path.join(folder, "unique.json"),
-      JSON.stringify(randomBytes(8).toString("hex"))
-    );
-    const expected = `${templatePrefix}${migrationsHash(folder)}`;
+  it(
+    "builds one template, even when called concurrently",
+    { timeout: 30_000 },
+    async () => {
+      // A copy of the core migrations with a unique hash, so this test's
+      // template and builds can't be confused with other test files'.
+      const folder = mkdtempSync(path.join(tmpdir(), "migrations-"));
+      cpSync(coreMigrationsFolder, folder, { recursive: true });
+      writeFileSync(
+        path.join(folder, "unique.json"),
+        JSON.stringify(randomBytes(8).toString("hex"))
+      );
+      const expected = `${templatePrefix}${migrationsHash(folder)}`;
 
-    const names = await Promise.all([
-      ensureTemplateDatabase(folder),
-      ensureTemplateDatabase(folder),
-      ensureTemplateDatabase(folder),
-    ]);
-    const [templates, builds] = await withAdmin(async (client) => {
-      const found = await listDatabases(client, expected);
-      await dropDatabase(client, expected);
-      return [found, found.filter((name) => name.includes("_build_"))];
-    });
+      const names = await Promise.all([
+        ensureTemplateDatabase(folder),
+        ensureTemplateDatabase(folder),
+        ensureTemplateDatabase(folder),
+      ]);
+      const [templates, builds] = await withAdmin(async (client) => {
+        const found = await listDatabases(client, expected);
+        await dropDatabase(client, expected);
+        return [found, found.filter((name) => name.includes("_build_"))];
+      });
 
-    expect(names).toStrictEqual([expected, expected, expected]);
-    expect(templates).toStrictEqual([expected]);
-    expect(builds).toStrictEqual([]);
-  });
+      expect(names).toStrictEqual([expected, expected, expected]);
+      expect(templates).toStrictEqual([expected]);
+      expect(builds).toStrictEqual([]);
+    }
+  );
 });

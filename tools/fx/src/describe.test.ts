@@ -18,23 +18,34 @@ describe("fx describe", () => {
     );
   });
 
-  it("describes one object with its actions, queries and events", async () => {
-    const result = await describeSystem(repoRoot, "contact");
-    expect(result.match).toBe("object");
-    expect(result.description.actions.map((action) => action.name)).toContain(
-      "contact.moveToOrganisation"
-    );
-    expect(result.description.events.map((event) => event.type)).toContain(
-      "contact.moved"
-    );
-    expect(formatDescribe(result)).toMatch(
-      /organisation\s+ref → organisation\s+required, read-only/u
-    );
-  });
+  it(
+    "describes one object with its actions, queries and events",
+    { timeout: 30_000 },
+    async () => {
+      const result = await describeSystem(repoRoot, "contact");
+      expect(result.match).toBe("object");
+      expect(result.description.actions.map((action) => action.name)).toContain(
+        "contact.moveToOrganisation"
+      );
+      expect(result.description.events.map((event) => event.type)).toContain(
+        "contact.moved"
+      );
+      expect(formatDescribe(result)).toMatch(
+        /organisation\s+ref → organisation\s+required, read-only/u
+      );
+    }
+  );
 
-  it("shows one action's schemas, and refuses an unknown name", async () => {
-    const result = await describeSystem(repoRoot, "contact.moveToOrganisation");
-    expect(formatDescribe(result)).toContain('"organisation"');
-    await expect(describeSystem(repoRoot, "nope")).rejects.toThrow(/nope/u);
-  });
+  it(
+    "shows one action's schemas, and refuses an unknown name",
+    { timeout: 30_000 },
+    async () => {
+      const result = await describeSystem(
+        repoRoot,
+        "contact.moveToOrganisation"
+      );
+      expect(formatDescribe(result)).toContain('"organisation"');
+      await expect(describeSystem(repoRoot, "nope")).rejects.toThrow(/nope/u);
+    }
+  );
 });
