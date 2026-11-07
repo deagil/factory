@@ -35,6 +35,8 @@ export interface Seeded {
   sales: Caller;
   /** An agent key for the admin, if this run created the agent. */
   agentKey: string | null;
+  /** A key for the Website integration, if this run created it. */
+  integrationKey: string | null;
 }
 
 export const seed = async (
@@ -93,11 +95,24 @@ export const seed = async (
     });
   }
 
-  const agent = await run("actor.createAgent", { name: "Claude" });
-  if (agent.replayed) {
-    return { admin, sales, agentKey: null };
-  }
-  const { actorId } = agent.output as { actorId: string };
-  const key = await run("apiKey.create", { actorId, label: "seed" });
-  return { admin, sales, agentKey: (key.output as { key: string }).key };
+  /** A new key for the actor `create` makes; null if it already existed. */
+  const keyFor = async (create: string, input: unknown) => {
+    const made = await run(create, input);
+    if (made.replayed) {
+      return null;
+    }
+    const { actorId } = made.output as { actorId: string };
+    const key = await run("apiKey.create", { actorId, label: "seed" });
+    return (key.output as { key: string }).key;
+  };
+
+  return {
+    admin,
+    sales,
+    agentKey: await keyFor("actor.createAgent", { name: "Claude" }),
+    integrationKey: await keyFor("actor.createIntegration", {
+      name: "Website",
+      roles: ["website"],
+    }),
+  };
 };

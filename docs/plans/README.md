@@ -5,8 +5,8 @@ One plan file per phase, with tasks to tick off. The phase goals are in the [REA
 | Phase | Plan | Status |
 | --- | --- | --- |
 | 0. Foundations | [phase-0.md](phase-0.md) | Done |
-| 1. Walking skeleton | [phase-1.md](phase-1.md) ([handover](phase-1-handover.md)) | In progress |
-| 2. Config over git | Written when phase 1 is done |  |
+| 1. Walking skeleton | [phase-1.md](phase-1.md) ([handover](phase-1-handover.md)) | Done |
+| 2. Config over git | [phase-2.md](phase-2.md) | Next |
 | 3. CRM, hosted |  |  |
 | 4. Breadth |  |  |
 
