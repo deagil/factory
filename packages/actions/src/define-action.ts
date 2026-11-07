@@ -3,6 +3,7 @@
 // Handlers reach services only through `ctx`. See docs/SYSTEM_DESIGN.md
 // section 4.2 and decision 0019.
 
+import type { IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
 import type { DataAccess, Repository } from "@workspace/objects";
 import type { z } from "zod";
@@ -80,6 +81,8 @@ export interface ActionContext<
   TEmits extends EventSchemas = EventSchemas,
 > extends QueryContext {
   readonly repo: Repository;
+  /** Actors and API keys, for the core's identity actions. */
+  readonly identity: IdentityStore;
   readonly emit: Emit<TEmits>;
 }
 
@@ -105,6 +108,11 @@ export interface ActionOptions<
   output: TOutput;
   /** The events it may emit, past tense, such as `deal.stageChanged`. */
   emits?: TEmits;
+  /**
+   * Output keys whose values are secrets, such as a new API key. The caller
+   * gets them once; action_log stores "[redacted]".
+   */
+  redact?: readonly string[];
   handler: (
     ctx: ActionContext<TEmits>,
     input: z.output<TInput>
@@ -154,6 +162,7 @@ export interface AnyActionDefinition {
   readonly input: ObjectSchema;
   readonly output: ObjectSchema;
   readonly emits: EventSchemas;
+  readonly redact: readonly string[];
   readonly handler: (ctx: any, input: any) => unknown;
   readonly objectPermission?: ObjectPermission;
 }
@@ -217,6 +226,7 @@ export const defineAction = <
     input: options.input,
     output: options.output,
     emits: Object.freeze({ ...options.emits }) as TEmits,
+    redact: Object.freeze([...(options.redact ?? [])]),
     handler: options.handler,
   });
 };

@@ -228,6 +228,7 @@ describe("types", () => {
   it("gives handlers services only through ctx", () => {
     expectTypeOf<keyof ActionContext>().toEqualTypeOf<
       | "repo"
+      | "identity"
       | "dal"
       | "config"
       | "clock"

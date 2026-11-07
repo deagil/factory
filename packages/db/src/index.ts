@@ -4,7 +4,15 @@
 export { closeDb, createDb, withTransaction } from "./client.ts";
 export type { Db, Executor, Schema, Tx } from "./client.ts";
 export { loadEnv, redactUrl, requireEnv, rootEnvFile } from "./env.ts";
-export { isActiveUser, staffActorFor } from "./identity.ts";
+export {
+  actorForApiKey,
+  apiKeyPrefix,
+  createIdentityStore,
+  hashApiKey,
+  isActiveUser,
+  staffActorFor,
+} from "./identity.ts";
+export type { IdentityStore } from "./identity.ts";
 export { migrationsFolder, runMigrations } from "./migrate.ts";
 export {
   contractMarker,

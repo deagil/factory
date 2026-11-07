@@ -67,6 +67,7 @@ export { generateDefinitions } from "./generated.ts";
 export {
   allowAll,
   grantedBy,
+  intersect,
   permissionNameOf,
   permissionSchema,
   rolePermissions,

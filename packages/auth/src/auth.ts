@@ -6,6 +6,8 @@
 import type { Caller } from "@workspace/actions";
 import {
   accounts,
+  actorForApiKey,
+  apiKeyPrefix,
   isActiveUser,
   sessions,
   staffActorFor,
@@ -89,10 +91,20 @@ export const createAuth = ({
   });
 
   /**
-   * The caller a request's session belongs to: the user's staff actor, with
-   * the user as origin. Null without a valid session.
+   * The caller a request is from. An `Authorization: Bearer fx_…` API key
+   * gives its agent or integration actor (an agent's user is the origin); a
+   * session gives the user's staff actor. Null if neither is valid.
    */
   const callerFrom = async (headers: Headers): Promise<Caller | null> => {
+    const token = headers
+      .get("authorization")
+      ?.match(/^Bearer\s+(?<token>\S+)$/iu)?.groups?.token;
+    if (token?.startsWith(apiKeyPrefix)) {
+      const found = await actorForApiKey(db, token, new Date());
+      return found
+        ? { actorId: found.actorId, originUserId: found.userId }
+        : null;
+    }
     const session = await auth.api.getSession({ headers });
     if (!session) {
       return null;

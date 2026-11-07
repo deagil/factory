@@ -28,6 +28,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0022 | [The shape of generated actions and queries](0022-generated-actions.md) | Accepted |
 | 0023 | [Sign-in with Better Auth, and where its tables live](0023-sign-in-with-better-auth.md) | Accepted |
 | 0024 | [How roles grant permissions](0024-roles-and-permissions.md) | Accepted |
+| 0025 | [API keys, agents and integrations](0025-api-keys-agents-and-integrations.md) | Accepted |
 
 ## Template
 

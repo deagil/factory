@@ -1,10 +1,13 @@
-// Identity lookups the sign-in code needs before any actor exists to run an
-// action as (decision 0023). Everything else writes through actions.
+// Identity lookups and writes. Sign-in uses the lookups before any actor
+// exists to run an action as (decision 0023); the identity store is only
+// used through `ctx.identity`, inside actions (decision 0025).
 
-import { and, eq } from "drizzle-orm";
+import { createHash, randomBytes } from "node:crypto";
+
+import { and, eq, isNull } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
-import { actors, users } from "./schema/core.ts";
+import { actorRoles, actors, apiKeys, users } from "./schema/core.ts";
 
 /** Whether the user exists and may sign in. */
 export const isActiveUser = async (db: Executor, userId: string) => {
@@ -44,3 +47,97 @@ export const staffActorFor = async (db: Executor, userId: string) => {
   }
   return created;
 };
+
+/** API keys look like `fx_<43 characters>`; only their hash is stored. */
+export const apiKeyPrefix = "fx_";
+
+/** The stored form of an API key. */
+export const hashApiKey = (key: string) =>
+  createHash("sha256").update(key).digest("hex");
+
+/**
+ * The actor an API key belongs to, if the key is live and the actor active.
+ * Records when the key was last used.
+ */
+export const actorForApiKey = async (db: Executor, key: string, now: Date) => {
+  const [found] = await db
+    .select({
+      keyId: apiKeys.id,
+      revokedAt: apiKeys.revokedAt,
+      actorId: actors.id,
+      status: actors.status,
+      userId: actors.userId,
+    })
+    .from(apiKeys)
+    .innerJoin(actors, eq(actors.id, apiKeys.actorId))
+    .where(eq(apiKeys.keyHash, hashApiKey(key)));
+  if (!found || found.revokedAt !== null || found.status !== "active") {
+    return;
+  }
+  await db
+    .update(apiKeys)
+    .set({ lastUsedAt: now })
+    .where(eq(apiKeys.id, found.keyId));
+  return { actorId: found.actorId, userId: found.userId };
+};
+
+/**
+ * Writes to the identity tables, for the core's own actions (`apiKey.create`
+ * and friends) through `ctx.identity`. Bound to the run's transaction.
+ */
+export const createIdentityStore = (executor: Executor) => ({
+  getActor: async (id: string) => {
+    const [actor] = await executor
+      .select()
+      .from(actors)
+      .where(eq(actors.id, id));
+    return actor;
+  },
+  createActor: async (values: {
+    kind: "agent" | "integration";
+    name: string;
+    userId?: string | null;
+  }) => {
+    const [actor] = await executor.insert(actors).values(values).returning();
+    if (!actor) {
+      throw new Error("insert returned no actor");
+    }
+    return actor;
+  },
+  grantRoles: async (actorId: string, roleKeys: readonly string[]) => {
+    if (roleKeys.length > 0) {
+      await executor
+        .insert(actorRoles)
+        .values(roleKeys.map((roleKey) => ({ actorId, roleKey })))
+        .onConflictDoNothing();
+    }
+  },
+  /** A new key for `actorId`. The plain key is only ever returned here. */
+  createApiKey: async (values: { actorId: string; label: string }) => {
+    const key = `${apiKeyPrefix}${randomBytes(32).toString("base64url")}`;
+    const [row] = await executor
+      .insert(apiKeys)
+      .values({ ...values, keyHash: hashApiKey(key) })
+      .returning({ id: apiKeys.id });
+    return { id: row?.id ?? "", key };
+  },
+  getApiKey: async (id: string) => {
+    const [key] = await executor
+      .select({
+        id: apiKeys.id,
+        actorId: apiKeys.actorId,
+        revokedAt: apiKeys.revokedAt,
+      })
+      .from(apiKeys)
+      .where(eq(apiKeys.id, id));
+    return key;
+  },
+  revokeApiKey: async (id: string, at: Date) => {
+    await executor
+      .update(apiKeys)
+      .set({ revokedAt: at })
+      .where(and(eq(apiKeys.id, id), isNull(apiKeys.revokedAt)));
+  },
+});
+
+export type IdentityStore = ReturnType<typeof createIdentityStore>;

@@ -2,6 +2,7 @@
 // these inside the run's transaction, once the action_log row exists, so the
 // repository and data access layer are bound to that run. See decision 0019.
 
+import type { IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";
 import { z } from "zod";
 
@@ -27,6 +28,7 @@ export interface QueryServices {
 
 export interface ActionServices extends QueryServices {
   repo: Repository;
+  identity: IdentityStore;
 }
 
 /** An event an action emitted, its payload checked against its schema. */
@@ -75,6 +77,7 @@ export const createActionContext = <TEmits extends EventSchemas>(
   const ctx = Object.freeze({
     ...createQueryContext(services),
     repo: services.repo,
+    identity: services.identity,
     emit,
   }) as ActionContext<TEmits>;
   return { ctx, events: () => [...emitted] };
