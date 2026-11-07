@@ -136,6 +136,13 @@ export const actionLog = pgTable(
   (t) => [
     index("action_log_actor_id_created_at_idx").on(t.actorId, t.createdAt),
     index("action_log_run_id_idx").on(t.runId),
+    // One success per retry key and actor: a second run with the key waits
+    // on this index, then replays the first's result (decision 0021).
+    uniqueIndex("action_log_retry_key_unique")
+      .on(t.actorId, t.retryKey)
+      .where(
+        sql`${t.retryKey} is not null and ${t.status} = 'succeeded' and not ${t.dryRun}`
+      ),
   ]
 );
 
