@@ -29,6 +29,13 @@
       "when": 1794048956953,
       "tag": "0003_p1_08_retry_keys_dry_run",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794049662185,
+      "tag": "0004_p1_10_sign_in",
+      "breakpoints": true
     }
   ]
 }
