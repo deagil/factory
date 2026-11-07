@@ -62,6 +62,33 @@ describe("fx status", () => {
     const text = formatStatus(report);
     expect(text).toContain("database  factory_deal_pipeline");
     expect(text).toContain("checks    failed on abcdef1");
+    expect(report.remoteCheck).toBeNull();
+  });
+
+  it("shows GitHub's check when the report has one", () => {
+    const text = formatStatus({
+      repo: "factory",
+      worktree: "/tmp/factory",
+      branch: "change/deal-pipeline",
+      current: {
+        name: "deal pipeline",
+        slug: "deal-pipeline",
+        branch: "change/deal-pipeline",
+        worktree: "/tmp/factory",
+        database: "factory_deal_pipeline",
+        createdAt: "2026-11-06T10:00:00.000Z",
+        lastCheck: null,
+      },
+      remoteCheck: {
+        state: "pending",
+        url: "https://github.com/acme/factory/pull/1",
+        detail: null,
+      },
+      changes: [],
+    });
+    expect(text).toContain(
+      "ci        pending  https://github.com/acme/factory/pull/1"
+    );
   });
 
   it("refuses to run outside a git repo", async () => {

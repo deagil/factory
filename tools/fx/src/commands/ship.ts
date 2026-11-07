@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { databaseUrl } from "@workspace/testing/databases";
@@ -8,6 +10,8 @@ import { requireAdminUrl } from "../admin.ts";
 import { dbPackageDir, renameQuestion, wantedToAsk } from "../drizzle.ts";
 import { FxError } from "../errors.ts";
 import { currentBranch, findRepo, git, hasOrigin } from "../git.ts";
+import { ghInstalled, watchRemoteCheck } from "../github.ts";
+import type { RemoteCheck } from "../github.ts";
 import { capture, errorLine, plainText, runToStderr } from "../process.ts";
 import { changeForPath, listChanges, saveChange } from "../state.ts";
 import type { Change } from "../state.ts";
@@ -348,54 +352,123 @@ export type OpenPullRequest = (
   base: string
 ) => Promise<PullRequest | undefined>;
 
-const ghInstalled = async (cwd: string): Promise<boolean> => {
-  try {
-    const version = await capture("gh", ["--version"], { cwd });
-    return version.code === 0;
-  } catch {
-    return false;
-  }
+/** Watches GitHub's `check` after the push. Tests replace it. */
+export type WatchRemoteCheck = (
+  worktree: string,
+  branch: string
+) => Promise<RemoteCheck | null>;
+
+/** Commit messages on the branch, oldest first. */
+const commitMessages = async (
+  worktree: string,
+  base: string
+): Promise<string[]> => {
+  const raw = await git(
+    worktree,
+    "log",
+    "--reverse",
+    "--format=%B%x1e",
+    `${base}..HEAD`
+  );
+  return raw
+    .split("\u001E")
+    .map((message) => message.trim())
+    .filter((message) => message !== "");
 };
 
-/** Opens a PR with gh from the branch's first commit, unless one is open. */
+/**
+ * The pull request title is the first commit's subject, which is what a
+ * squash onto main keeps. The body is every commit, so a later ship can
+ * refresh it.
+ */
+export const pullRequestCopy = (
+  messages: readonly string[]
+): { readonly title: string; readonly body: string } => {
+  const trimmed = messages
+    .map((message) => message.trim())
+    .filter((message) => message !== "");
+  const first = trimmed[0] ?? "update";
+  const title = first.split("\n")[0] ?? "update";
+  return { title, body: trimmed.join("\n\n") };
+};
+
+/** Opens a PR with gh, or refreshes the open one's title and body. */
 export const openWithGh: OpenPullRequest = async (worktree, branch, base) => {
   if (!(await ghInstalled(worktree))) {
     return;
   }
-  const open = await capture(
-    "gh",
-    [
-      "pr",
-      "list",
-      "--head",
-      branch,
-      "--state",
-      "open",
-      "--json",
-      "url",
-      "--jq",
-      ".[0].url // empty",
-    ],
-    { cwd: worktree }
-  );
-  const existing = open.stdout.trim();
-  if (open.code === 0 && existing !== "") {
-    return { url: existing, created: false };
-  }
-  const created = await capture(
-    "gh",
-    ["pr", "create", "--base", base, "--head", branch, "--fill-first"],
-    { cwd: worktree }
-  );
-  const url = created.stdout.trim().split("\n").at(-1) ?? "";
-  if (created.code !== 0 || !url.startsWith("http")) {
-    throw new FxError(
-      "command_failed",
-      `gh pr create failed: ${errorLine(`${created.stderr}${created.stdout}`)}`,
-      "The branch is pushed; open the PR on your git host."
+  const copy = pullRequestCopy(await commitMessages(worktree, base));
+  const bodyFile = path.join(tmpdir(), `fx-pr-${randomUUID()}.md`);
+  await writeFile(bodyFile, copy.body);
+  try {
+    const open = await capture(
+      "gh",
+      [
+        "pr",
+        "list",
+        "--head",
+        branch,
+        "--state",
+        "open",
+        "--json",
+        "url",
+        "--jq",
+        ".[0].url // empty",
+      ],
+      { cwd: worktree }
     );
+    const existing = open.stdout.trim();
+    if (open.code === 0 && existing !== "") {
+      const edit = await capture(
+        "gh",
+        [
+          "pr",
+          "edit",
+          existing,
+          "--title",
+          copy.title,
+          "--body-file",
+          bodyFile,
+        ],
+        { cwd: worktree }
+      );
+      if (edit.code !== 0) {
+        throw new FxError(
+          "command_failed",
+          `gh pr edit failed: ${errorLine(`${edit.stderr}${edit.stdout}`)}`,
+          "The branch is pushed; update the PR body on your git host."
+        );
+      }
+      return { url: existing, created: false };
+    }
+    const created = await capture(
+      "gh",
+      [
+        "pr",
+        "create",
+        "--base",
+        base,
+        "--head",
+        branch,
+        "--title",
+        copy.title,
+        "--body-file",
+        bodyFile,
+      ],
+      { cwd: worktree }
+    );
+    const url = created.stdout.trim().split("\n").at(-1) ?? "";
+    if (created.code !== 0 || !url.startsWith("http")) {
+      throw new FxError(
+        "command_failed",
+        `gh pr create failed: ${errorLine(`${created.stderr}${created.stdout}`)}`,
+        "The branch is pushed; open the PR on your git host."
+      );
+    }
+    return { url, created: true };
+  } finally {
+    await rm(bodyFile, { force: true });
   }
-  return { url, created: true };
 };
 
 // ---------------------------------------------------------------------------
@@ -410,6 +483,8 @@ export interface ShipOptions {
   readonly generate?: Generate;
   readonly checks?: readonly Check[];
   readonly openPullRequest?: OpenPullRequest;
+  /** After a push. The default watches GitHub and skips any other remote. */
+  readonly watchRemoteCheck?: WatchRemoteCheck;
 }
 
 export interface ShipResult {
@@ -423,6 +498,8 @@ export interface ShipResult {
   readonly pullRequest: PullRequest | null;
   /** Where to open a PR by hand, when fx ship didn't open one. */
   readonly compareUrl: string | null;
+  /** GitHub's `check` after the push. Null when this remote is not watched. */
+  readonly remoteCheck: RemoteCheck | null;
 }
 
 const findShippableChange = async (cwd: string) => {
@@ -586,7 +663,7 @@ const publish = async (
 /**
  * `fx ship`: rebases the change on main, writes its one migration from the
  * schema (replacing the one an earlier ship wrote), runs the checks, then
- * pushes and opens a PR.
+ * pushes, opens or refreshes the PR, and waits for GitHub's `check`.
  */
 export const ship = async (
   cwd: string,
@@ -625,7 +702,31 @@ export const ship = async (
   const published = origin
     ? await publish(change, options.openPullRequest ?? openWithGh, log)
     : { pushed: false, pullRequest: null, compareUrl: null };
-  return { change: shipped, ...written, checks: runs, ...published };
+  const remoteCheck = published.pushed
+    ? await (options.watchRemoteCheck ?? watchRemoteCheck)(
+        change.worktree,
+        change.branch
+      )
+    : null;
+  if (remoteCheck?.state === "failed") {
+    throw new FxError(
+      "checks_failed",
+      [
+        `GitHub's check failed${remoteCheck.url ? `: ${remoteCheck.url}` : ""}.`,
+        remoteCheck.detail ?? "",
+      ]
+        .filter((line) => line !== "")
+        .join("\n"),
+      "Fix it, commit, and run fx ship again. The branch is already pushed."
+    );
+  }
+  return {
+    change: shipped,
+    ...written,
+    checks: runs,
+    ...published,
+    remoteCheck,
+  };
 };
 
 const where = (result: ShipResult): string => {
@@ -640,6 +741,17 @@ const where = (result: ShipResult): string => {
     : "  pushed     no: the repo has no origin remote";
 };
 
+const ciLine = (result: ShipResult): string | undefined => {
+  if (!result.pushed) {
+    return undefined;
+  }
+  if (!result.remoteCheck) {
+    return "  ci         not watched; merge after GitHub's check is green";
+  }
+  const url = result.remoteCheck.url ? `  ${result.remoteCheck.url}` : "";
+  return `  ci         ${result.remoteCheck.state}${url}`;
+};
+
 /** The human-readable result of `fx ship`. */
 export const formatShip = (result: ShipResult): string =>
   `${[
@@ -647,4 +759,7 @@ export const formatShip = (result: ShipResult): string =>
     `  migration  ${result.migration ?? "none (the schema didn't change)"}${result.contractStep ? ` (contract step: ${result.contractStep})` : ""}`,
     `  checks     ${result.checks.map((check) => check.name).join(", ")} passed`,
     where(result),
-  ].join("\n")}\n`;
+    ciLine(result),
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n")}\n`;

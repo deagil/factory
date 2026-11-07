@@ -17,6 +17,7 @@ import {
   migrationName,
   migrationsPath,
   runGenerate,
+  pullRequestCopy,
   ship,
   webUrl,
   withContractStep,
@@ -251,6 +252,51 @@ describe("fx ship", () => {
     ]);
   });
 
+  it("pushes, then reports a failed GitHub check", async () => {
+    const { repo, worktree } = await shipRepo();
+    commitSchema(worktree, "a+b", "feat: add b");
+    await expect(
+      ship(
+        worktree,
+        shipWith([], {
+          watchRemoteCheck: () =>
+            Promise.resolve({
+              state: "failed",
+              url: "https://github.com/acme/factory/actions/runs/1",
+              detail: "TypeError: boom",
+            }),
+        })
+      )
+    ).rejects.toMatchObject({
+      code: "checks_failed",
+      message: expect.stringContaining(
+        "https://github.com/acme/factory/actions/runs/1"
+      ),
+    });
+    expect(git(repo, "ls-remote", "origin", "change/try-it")).not.toBe("");
+  });
+
+  it("records a passing GitHub check on the result", async () => {
+    const { worktree } = await shipRepo();
+    commitSchema(worktree, "a+b", "feat: add b");
+    const result = await ship(
+      worktree,
+      shipWith([], {
+        watchRemoteCheck: () =>
+          Promise.resolve({
+            state: "passed",
+            url: "https://github.com/acme/factory/actions/runs/2",
+            detail: null,
+          }),
+      })
+    );
+    expect(result.remoteCheck).toStrictEqual({
+      state: "passed",
+      url: "https://github.com/acme/factory/actions/runs/2",
+      detail: null,
+    });
+  });
+
   it("records failed checks and doesn't push", async () => {
     const { repo, worktree } = await shipRepo();
     commitSchema(worktree, "a+b", "feat: add b");
@@ -351,6 +397,17 @@ describe(compareUrl, () => {
 
   it("has none for a local path", () => {
     expect(webUrl("/srv/git/factory.git")).toBeUndefined();
+  });
+});
+
+describe(pullRequestCopy, () => {
+  it("titles the pull request from the first commit and keeps every commit in the body", () => {
+    expect(
+      pullRequestCopy(["feat: add b\n\nThe whole change.", "fix: later"])
+    ).toStrictEqual({
+      title: "feat: add b",
+      body: "feat: add b\n\nThe whole change.\n\nfix: later",
+    });
   });
 });
 

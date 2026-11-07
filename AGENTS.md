@@ -29,10 +29,10 @@ pnpm fx describe   # what the system has: objects, actions, queries, events and 
 
 Use `fx` for all change management, and never run raw git branch commands or Drizzle commands yourself. Run it as `pnpm fx` from any checkout; there is no global `fx`. Every command takes `--json`. [tools/fx/README.md](tools/fx/README.md) has the details.
 
-1. `pnpm fx start "<name>"` makes the branch `change/<slug>`, a worktree at `../factory.worktrees/<slug>`, and the change's own database and `.env`. Work in that worktree. For a plan task, put its ID in the name: `pnpm fx start "P1.01 define object"`.
-2. Edit and commit. `pnpm fx dev` runs the dev servers on the change's database and pushes schema edits to it on save. You need it only to try the change by hand. An agent runs `pnpm fx dev --json` in the background, waits for the `schema_pushed` line, and stops it with SIGTERM.
-3. `pnpm fx ship`, with everything committed, rebases on `origin/main` and writes the change's one migration. Then it runs every check CI runs, pushes and opens the PR. The PR's title and body come from the first commit, so write that commit for the reader of the PR.
-4. Once the PR is merged, `pnpm fx done` removes the worktree, the branches and the database.
+1. `pnpm fx start "<name>"` makes the branch `change/<slug>`, a worktree at `../factory.worktrees/<slug>`, and the change's own database and `.env`. Work in that worktree. For a plan task, put its ID in the name: `pnpm fx start "P1.01 define object"`. A dirty checkout is refused, and the error names the files. Stash them on that checkout and pop the stash there after `fx start`. The worktree is created from the commit, so the stash is not in it.
+2. Edit and commit in the worktree. Later `fx` commands run in the worktree path from `fx start`. `pnpm fx dev` runs the dev servers on the change's database and pushes schema edits to it on save. You need it only to try the change by hand. An agent runs `pnpm fx dev --json` in the background, waits for the `schema_pushed` line, and stops it with SIGTERM.
+3. `pnpm fx ship`, with everything committed, rebases on `origin/main` and writes the change's one migration. Then it runs every check CI runs, pushes, and opens or refreshes the PR. The first commit's subject is the squash subject on main, so it has to describe the whole change. Later commits are written into the PR body on the next ship. A green ship is the local run. It then waits for GitHub's `check` and prints the failing log. `fx status` shows that check too. Merge only after it is green.
+4. Once the PR is merged, run `pnpm fx done <name>` from the main checkout. It removes the worktree, the branches and the database, fast-forwards a clean main checkout to `origin/main`, and runs `pnpm install` when `pnpm-lock.yaml` changed. A dirty main checkout is left as it is, with the files named.
 
 Tests run on databases built from the migrations, not from the schema. After a schema edit, tests that use it fail until there is a migration. `fx ship` writes the migration before it runs the checks, so use it to check a schema change. It pushes nothing if a check fails.
 
@@ -69,6 +69,6 @@ TypeScript (strict), Node 26, Hono, DBOS, Drizzle, Postgres, Zod 4, Better Auth,
 
 - Small and focused: one ticket, one change, merged within hours or days.
 - Comes with tests for what it adds.
-- Passes typecheck, lint and tests locally before the PR. `fx ship` runs them all and stops before pushing if one fails.
+- Passes typecheck, lint and tests locally before the PR. `fx ship` runs them all and stops before pushing if one fails. That green run is local. GitHub's `check` is the one that has to be green before merging, and `fx ship` waits for it.
 - Updates docs or a decision record when it changes how something works.
 - Commit messages use conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).

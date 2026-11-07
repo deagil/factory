@@ -39,7 +39,7 @@ const assertClean = async (worktreeRoot: string): Promise<void> => {
     throw new FxError(
       "dirty_worktree",
       `${worktreeRoot} has uncommitted changes:\n  ${files}`,
-      "Commit them, or stash them with `git stash -u`, then run fx start again."
+      'These stay on this checkout. Stash them (`git stash push -u -m "fx start"`), run fx start, then pop the stash here. The worktree is created from the commit, so the stash is not in it.'
     );
   }
 };

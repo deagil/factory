@@ -101,10 +101,10 @@ Every change goes through `fx`, run as `pnpm fx`. [tools/fx/README.md](tools/fx/
 ```bash
 pnpm fx start "deal pipeline"   # new change: branch, worktree and its own database
 pnpm fx dev                     # in the worktree: dev servers on the change's database
-pnpm fx ship                    # rebase, write the migration, run every check, open the PR
-pnpm fx done                    # after the merge: remove the worktree, branches and database
+pnpm fx ship                    # rebase, write the migration, run every check, refresh the PR, wait for GitHub's check
+pnpm fx done                    # after the merge: remove the change, then fast-forward a clean main
 pnpm fx switch refunds          # where another open change's worktree is
-pnpm fx status                  # the current change and its last checks
+pnpm fx status                  # the current change, its last local checks, and GitHub's check
 pnpm db:studio                  # Drizzle Studio on its own, when the dev servers aren't running
 ```
 
