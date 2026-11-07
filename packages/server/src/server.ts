@@ -5,9 +5,15 @@ import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
 import { createPipeline, rolePermissions } from "@workspace/actions";
-import { createAuth } from "@workspace/auth";
+import { createAuth, createDevOutbox } from "@workspace/auth";
 import type { SendCode } from "@workspace/auth";
-import { assertSchema, closeDb, coreTables, createDb } from "@workspace/db";
+import {
+  activeUsers,
+  assertSchema,
+  closeDb,
+  coreTables,
+  createDb,
+} from "@workspace/db";
 import type { Db } from "@workspace/db";
 
 import { createApi } from "./api.ts";
@@ -23,6 +29,12 @@ export interface ServerOptions {
   trustedOrigins?: string[];
   /** Sends sign-in codes; prints them to the console by default. */
   sendCode?: SendCode;
+  /**
+   * Local development only: keep the codes printed, and serve them with
+   * the people who can sign in at `GET /dev/session`, for the web app's dev
+   * bar (P1b.09). Never set it in production.
+   */
+  devOutbox?: boolean;
 }
 
 export const createServer = async (system: System, options: ServerOptions) => {
@@ -40,18 +52,22 @@ export const createServer = async (system: System, options: ServerOptions) => {
     clock: { now: () => new Date() },
     permissions: rolePermissions({ db, config }),
   });
+  const outbox = options.devOutbox ? createDevOutbox() : null;
   const auth = createAuth({
     db,
     secret: options.authSecret,
     baseURL: options.baseURL,
     trustedOrigins: options.trustedOrigins,
-    sendCode: options.sendCode,
+    sendCode: outbox?.send ?? options.sendCode,
   });
   const app = createApi({
     registry: system.registry,
     pipeline,
     callerFrom: auth.callerFrom,
     authHandler: auth.auth.handler,
+    devSession: outbox
+      ? async () => ({ users: await activeUsers(db), outbox: outbox.list() })
+      : undefined,
   });
 
   return {

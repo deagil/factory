@@ -22,6 +22,14 @@ export interface ApiOptions {
   callerFrom: (headers: Headers) => Promise<Caller | null>;
   /** Better Auth's handler, served under `/auth`; `createAuth().auth.handler`. */
   authHandler?: (request: Request) => Promise<Response>;
+  /**
+   * Local development only: serves `GET /dev/session` with who can sign in
+   * and the last codes sent. Without it, the route doesn't exist.
+   */
+  devSession?: () => Promise<{
+    users: { name: string; email: string }[];
+    outbox: { email: string; code: string; at: string }[];
+  }>;
 }
 
 interface Env {
@@ -99,6 +107,7 @@ export const createApi = ({
   pipeline,
   callerFrom,
   authHandler,
+  devSession,
 }: ApiOptions) => {
   const app = new Hono<Env>();
   app.use(requestId());
@@ -106,6 +115,9 @@ export const createApi = ({
   app.get("/openapi.json", (c) => c.json(openApiDocument(registry)));
   if (authHandler) {
     app.on(["GET", "POST"], "/auth/*", (c) => authHandler(c.req.raw));
+  }
+  if (devSession) {
+    app.get("/dev/session", async (c) => c.json(await devSession()));
   }
 
   const authenticate = async (c: Context<Env>, next: () => Promise<void>) => {

@@ -17,6 +17,8 @@ const config = defineConfig({
       "/auth": { target: api },
       // MCP clients (Claude Code) connect here, through My agents' command.
       "/mcp": { target: api },
+      // The dev bar's Session menu; the server serves it only under pnpm dev.
+      "/dev": { target: api },
     },
   },
   plugins: [
