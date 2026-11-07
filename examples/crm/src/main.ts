@@ -32,8 +32,10 @@ if (authSecret.length < 32) {
 const server = await createServer(crm, {
   databaseUrl,
   authSecret,
-  baseURL: `http://localhost:${port}`,
-  trustedOrigins: [process.env.WEB_URL ?? "http://localhost:3000"],
+  // The web app proxies /auth and /api here, so sign-in happens on its
+  // origin (decision 0032).
+  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  trustedOrigins: [`http://localhost:${port}`],
 });
 const seeded = await seed(crm, server.db, server.pipeline);
 const listening = server.listen(port);

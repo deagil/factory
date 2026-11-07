@@ -1,7 +1,7 @@
-// Seed data for local and preview databases: an admin, a salesperson, and a
-// few organisations and contacts. People are bootstrapped (there is no actor
-// to run an action as yet); everything else goes through actions. Running it
-// twice changes nothing.
+// Seed data for local and preview databases: an admin, a salesperson, a
+// support person, and a few organisations and contacts. People are
+// bootstrapped (there is no actor to run an action as yet); everything else
+// goes through actions. Running it twice changes nothing.
 import type { Caller, Pipeline } from "@workspace/actions";
 import { bootstrapStaff } from "@workspace/db";
 import type { Db } from "@workspace/db";
@@ -52,6 +52,11 @@ export const seed = async (
     name: "Sarah Sales",
     email: "sarah@example.com",
     roles: ["sales"],
+  });
+  await bootstrapStaff(db, {
+    name: "Sam Support",
+    email: "sam@example.com",
+    roles: ["support"],
   });
   const admin = { actorId: boss.id, originUserId: boss.userId };
   const sales = { actorId: sarah.id, originUserId: sarah.userId };

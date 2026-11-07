@@ -30,4 +30,9 @@ export const roles: Role[] = [
       { action: "apiKey.revoke", scope: "all" },
     ],
   },
+  {
+    key: "support",
+    label: "Support",
+    permissions: [{ object: "contact", can: ["view", "update"], scope: "all" }],
+  },
 ];
