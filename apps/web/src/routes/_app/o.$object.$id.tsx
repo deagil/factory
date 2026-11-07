@@ -126,7 +126,10 @@ const Details = ({
 }) => {
   const id = String(loaded.record.id);
   const refresh = useRefresh(object.name, id);
-  const updateAction = findAction(description, `${object.name}.update`);
+  // An archived record can't be changed until it's restored.
+  const updateAction = loaded.record.archivedAt
+    ? undefined
+    : findAction(description, `${object.name}.update`);
   const fields = updateAction ? formFields(updateAction, object) : [];
   const editable = new Set(fields.map((field) => field.key));
   const save = useMutation({
@@ -195,13 +198,20 @@ const RecordScreen = () => {
     queryFn: () =>
       runQuery<Loaded>(`${name}.get`, {
         id,
+        archived: "include",
         expand: expandable(object?.fields ?? []),
       }),
     enabled: object !== undefined,
   });
+  const refresh = useRefresh(name, id);
+  // Archiving stays on the record, so Restore is right there to undo it.
   const archive = useMutation({
     mutationFn: () => runAction(`${name}.archive`, { id }),
-    onSuccess: () => navigate({ to: "/o/$object", params: { object: name } }),
+    onSuccess: refresh,
+  });
+  const restore = useMutation({
+    mutationFn: () => runAction(`${name}.restore`, { id }),
+    onSuccess: refresh,
   });
 
   if (described.isPending || (object && loaded.isPending)) {
@@ -240,7 +250,10 @@ const RecordScreen = () => {
   }
 
   const record = loaded.data;
-  const canArchive = findAction(described.data, `${name}.archive`);
+  const archivedAt = record.record.archivedAt as string | null;
+  const canArchive =
+    !archivedAt && findAction(described.data, `${name}.archive`);
+  const canRestore = findAction(described.data, `${name}.restore`);
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -253,15 +266,17 @@ const RecordScreen = () => {
         ]}
         actions={
           <>
-            {customActions(described.data, name).map((action) => (
-              <ActionButton
-                key={action.name}
-                action={action}
-                object={object}
-                loaded={record}
-                description={described.data}
-              />
-            ))}
+            {(archivedAt ? [] : customActions(described.data, name)).map(
+              (action) => (
+                <ActionButton
+                  key={action.name}
+                  action={action}
+                  object={object}
+                  loaded={record}
+                  description={described.data}
+                />
+              )
+            )}
             {canArchive && (
               <Button
                 variant="destructive"
@@ -274,7 +289,29 @@ const RecordScreen = () => {
           </>
         }
       />
-      <ErrorMessage error={archive.error} />
+      {archivedAt ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+          <span>
+            This {object.label.toLowerCase()} was archived on{" "}
+            {new Date(archivedAt).toLocaleString("en-GB", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+            . It is hidden from lists and can&rsquo;t be changed.
+          </span>
+          {canRestore && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={restore.isPending}
+              onClick={() => restore.mutate()}
+            >
+              Restore
+            </Button>
+          )}
+        </div>
+      ) : null}
+      <ErrorMessage error={archive.error ?? restore.error} />
       <Tabs
         value={tab}
         onValueChange={(value) => {

@@ -22,7 +22,7 @@ export type FormValues = Record<string, string | boolean>;
 /** Keys the screen fills in itself, never shown on a form. */
 const filledIn = new Set(["id", "version", "customFields"]);
 
-const generatedVerbs = new Set(["create", "update", "archive"]);
+const generatedVerbs = new Set(["create", "update", "archive", "restore"]);
 
 interface InputSchema {
   properties?: Record<string, { type?: string }>;

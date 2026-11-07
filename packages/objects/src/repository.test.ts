@@ -296,16 +296,41 @@ describe("repositories", () => {
   });
 
   describe("archive", () => {
-    it("sets archivedAt and writes no audit row", async () => {
+    it("sets archivedAt and records it in the audit log", async () => {
       const org = await newOrganisation();
       const result = await inAction((repo) =>
         repo.archive(organisation, org.id)
       );
+      const rows = await auditRows(org.id);
       expect(result).toMatchObject({
         status: "archived",
         record: { archivedAt: clock.toISOString(), version: 2 },
       });
-      await expect(auditRows(org.id)).resolves.toHaveLength(1);
+      expect(rows.at(-1)).toMatchObject({
+        before: { archivedAt: null },
+        after: { archivedAt: clock.toISOString() },
+      });
+    });
+
+    it("restores an archived record, and records that too", async () => {
+      const org = await newOrganisation();
+      await inAction((repo) => repo.archive(organisation, org.id));
+      const restored = await inAction((repo) =>
+        repo.restore(organisation, org.id)
+      );
+      const again = await inAction((repo) =>
+        repo.restore(organisation, org.id)
+      );
+      const rows = await auditRows(org.id);
+      expect(restored).toMatchObject({
+        status: "restored",
+        record: { archivedAt: null, version: 3 },
+      });
+      expect(again.status).toBe("unchanged");
+      expect(rows.at(-1)).toMatchObject({
+        before: { archivedAt: clock.toISOString() },
+        after: { archivedAt: null },
+      });
     });
 
     it("leaves an archived record alone", async () => {

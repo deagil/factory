@@ -1,6 +1,7 @@
 // Generated actions and queries: every object gets `<object>.create`,
-// `.update` and `.archive` actions and `.get` and `.list` queries, built from
-// its definition. They emit `<object>.created`, `.updated` and `.archived`.
+// `.update`, `.archive` and `.restore` actions and `.get` and `.list`
+// queries, built from its definition. They emit `<object>.created`,
+// `.updated`, `.archived` and `.restored`.
 // See docs/SYSTEM_DESIGN.md section 4.2 and decision 0022.
 
 import { listInputSchema, refKeysOf } from "@workspace/objects";
@@ -131,6 +132,33 @@ const archiveAction = (object: AnyObjectDefinition) => {
   });
 };
 
+/** Undoes `.archive`; it comes with it and needs the same permission. */
+const restoreAction = (object: AnyObjectDefinition) => {
+  const schemas = schemasOf(object);
+  return defineAction({
+    name: `${object.name}.restore`,
+    description: `Restore an archived ${object.label.toLowerCase()}, so it shows in lists again.`,
+    input: schemas.byId,
+    output: schemas.output,
+    emits: { [`${object.name}.restored`]: schemas.output },
+    handler: async (ctx, { id }) => {
+      const result = await ctx.repo.restore(object, id);
+      if (result.status === "not_found") {
+        return ctx.notFound(object.name, id);
+      }
+      if (result.status === "conflict") {
+        return ctx.conflict(
+          `This ${object.label.toLowerCase()} changed while it was being restored. Retry.`
+        );
+      }
+      if (result.status === "restored") {
+        ctx.emit(`${object.name}.restored`, { record: result.record });
+      }
+      return { record: result.record };
+    },
+  });
+};
+
 const getQuery = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   const refs = refKeysOf(object);
@@ -196,7 +224,10 @@ export const generateDefinitions = (
     actions.push(needs(updateAction(object), object, "update"));
   }
   if (object.actions.archive.generated) {
-    actions.push(needs(archiveAction(object), object, "archive"));
+    actions.push(
+      needs(archiveAction(object), object, "archive"),
+      needs(restoreAction(object), object, "archive")
+    );
   }
   const queries: AnyQueryDefinition[] = [
     needs(getQuery(object), object, "view"),

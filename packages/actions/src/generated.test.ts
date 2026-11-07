@@ -66,16 +66,18 @@ describe("generated actions and queries", () => {
     await crm?.close();
   });
 
-  it("generates five definitions per object, and the events", () => {
+  it("generates six definitions per object, and the events", () => {
     expect(registry.list().map((d) => d.name)).toStrictEqual([
       "organisation.create",
       "organisation.update",
       "organisation.archive",
+      "organisation.restore",
       "organisation.get",
       "organisation.list",
       "contact.create",
       "contact.update",
       "contact.archive",
+      "contact.restore",
       "contact.get",
       "contact.list",
     ]);
@@ -177,6 +179,23 @@ describe("generated actions and queries", () => {
     });
     expect(again).toMatchObject({ ok: true, events: [] });
     expect(get).toMatchObject({ ok: false, error: { code: "not_found" } });
+  });
+
+  it("restores an archived record, emitting <object>.restored", async () => {
+    const { record } = await output("organisation.create", { name: "Back" });
+    await call("organisation.archive", { id: record.id });
+    const restored = await call("organisation.restore", { id: record.id });
+    const again = await call("organisation.restore", { id: record.id });
+    const get = await call("organisation.get", { id: record.id });
+    expect(restored).toMatchObject({
+      ok: true,
+      events: [{ type: "organisation.restored" }],
+    });
+    expect(again).toMatchObject({ ok: true, events: [] });
+    expect(get).toMatchObject({
+      ok: true,
+      output: { record: { archivedAt: null } },
+    });
   });
 
   it("switches off jobs that are off or owned by a hand-written action", () => {

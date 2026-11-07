@@ -38,6 +38,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0032 | [How the web app reaches the API](0032-web-app-reaches-the-api.md) | Accepted |
 | 0033 | [Web navigation by section, and what the dev bar is for](0033-web-navigation-and-dev-bar.md) | Accepted |
 | 0034 | [Inviting people, setting roles, and disabling actors](0034-inviting-and-disabling-people.md) | Accepted |
+| 0035 | [Restoring archived records, and archiving in the audit log](0035-restore-and-audited-archiving.md) | Accepted |
 
 ## Template
 

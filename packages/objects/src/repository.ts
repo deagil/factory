@@ -65,6 +65,13 @@ export type ArchiveResult<TRecord> =
   | { status: "not_found" }
   | { status: "conflict"; record: TRecord };
 
+export type RestoreResult<TRecord> =
+  | { status: "restored"; record: TRecord }
+  /** It wasn't archived. */
+  | { status: "unchanged"; record: TRecord }
+  | { status: "not_found" }
+  | { status: "conflict"; record: TRecord };
+
 const customFieldsValue = z.record(z.string(), z.json());
 
 const columnOf = (table: PgTable, key: string): PgColumn =>
@@ -288,8 +295,8 @@ export const createRepository = ({
   };
 
   /**
-   * Archives a record. `archived_at` is a housekeeping column, so this
-   * writes no audit row; the action_log row records it.
+   * Archives a record, with an audit row for `archivedAt` so its history
+   * shows it (decision 0035).
    */
   const archive = async <TObject extends AnyObjectDefinition>(
     object: TObject,
@@ -308,10 +315,39 @@ export const createRepository = ({
     if (!written) {
       return { status: "conflict", record: record as RecordOf<TObject> };
     }
+    await audit(object, id, {
+      before: { archivedAt: null },
+      after: { archivedAt: written.archivedAt },
+    });
     return { status: "archived", record: written as RecordOf<TObject> };
   };
 
-  return { create, update, archive };
+  /** Restores an archived record, with an audit row like archiving's. */
+  const restore = async <TObject extends AnyObjectDefinition>(
+    object: TObject,
+    id: string
+  ): Promise<RestoreResult<RecordOf<TObject>>> => {
+    const record = await current(object, id, true);
+    if (!record) {
+      return { status: "not_found" };
+    }
+    if (record.archivedAt === null) {
+      return { status: "unchanged", record: record as RecordOf<TObject> };
+    }
+    const written = await writeAt(object, id, record.version as number, {
+      archivedAt: null,
+    });
+    if (!written) {
+      return { status: "conflict", record: record as RecordOf<TObject> };
+    }
+    await audit(object, id, {
+      before: { archivedAt: record.archivedAt },
+      after: { archivedAt: null },
+    });
+    return { status: "restored", record: written as RecordOf<TObject> };
+  };
+
+  return { create, update, archive, restore };
 };
 
 /** A repository, as actions get it through `ctx.repo`. */

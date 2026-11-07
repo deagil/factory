@@ -79,7 +79,12 @@ describe("forms from action inputs", () => {
 
   it("finds the hand-written actions and names them", () => {
     const description = {
-      actions: [update, move, { name: "organisation.merge" }],
+      actions: [
+        update,
+        move,
+        { name: "contact.restore" },
+        { name: "organisation.merge" },
+      ],
     } as unknown as SystemDescription;
     expect(
       customActions(description, "contact").map((a) => a.name)

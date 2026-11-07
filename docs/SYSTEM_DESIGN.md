@@ -266,9 +266,9 @@ Every action, whoever calls it, runs the same pipeline in one database transacti
 8. Commit         all of the above together, or none of it
 ```
 
-- Generated actions (`deal.create`, `deal.update`, `deal.archive`) and queries come from each object, and are on by default. When a hand-written action owns one of these (`actions: { create: 'booking.place' }`) the generated one switches off; when a hand-written action owns a field, the generated update marks it read-only.
+- Generated actions (`deal.create`, `deal.update`, `deal.archive`, `deal.restore`) and queries come from each object, and are on by default. When a hand-written action owns one of these (`actions: { create: 'booking.place' }`) the generated one switches off; when a hand-written action owns a field, the generated update marks it read-only.
 - The `action_log` table records every action: who did it, the person who started the chain, the input, the config version and what happened.
-- Actions declare the events they emit (`emits: { 'deal.stageChanged': schema }`); generated actions emit `<object>.created`, `.updated` and `.archived`. Actions are named as verbs, events in the past tense.
+- Actions declare the events they emit (`emits: { 'deal.stageChanged': schema }`); generated actions emit `<object>.created`, `.updated`, `.archived` and `.restored`. Actions are named as verbs, events in the past tense.
 
 **Connects to.** Everything. The HTTP API, MCP, CLI, web surface, workflows and external systems all call actions. Actions write through repositories and emit events.
 
@@ -616,7 +616,7 @@ A one-week trial after phase 1 rebuilds the action pipeline, one route, one MCP 
 | **Custom fields** | Fields staff add to an object through config, stored in the record's `custom_fields` column. |
 | **Choice field** | A dropdown field. Its options are `system` (code owns the values; staff rename only), `mapped` (staff add options, each in a category code knows), or `custom` (staff own them entirely). |
 | **Category** | One of the few outcomes code acts on for a mapped choice field, such as open, won or lost. |
-| **Action** | Anything that changes data, defined with `defineAction`. Generated ones (create, update, archive) come with each object. |
+| **Action** | Anything that changes data, defined with `defineAction`. Generated ones (create, update, archive, restore) come with each object. |
 | **Query** | Anything that reads data, defined with `defineQuery`. |
 | **Action pipeline** | The fixed sequence every action runs through: identify, validate, retry check, authorise, approve, run, record, commit. |
 | **Action registry** | Every action and query, from which every surface is generated. |

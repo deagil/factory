@@ -99,6 +99,7 @@ export type {
 export { createRepository } from "./repository.ts";
 export type {
   ArchiveResult,
+  RestoreResult,
   Changes,
   Repository,
   RepositoryOptions,
