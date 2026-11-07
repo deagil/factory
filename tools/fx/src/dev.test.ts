@@ -209,6 +209,7 @@ describe(dev, () => {
     execFileSync("git", ["init", "-q", "-b", "main", root]);
     await expect(dev(root, { push: okPush })).rejects.toMatchObject({
       code: "change_not_found",
+      hint: expect.stringContaining("pnpm dev"),
     });
   });
 

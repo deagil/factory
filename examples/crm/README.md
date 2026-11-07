@@ -6,7 +6,7 @@ Used to design and test the core, and as a starting point for real clients. Deal
 
 ## Run it
 
-From a change's worktree (`pnpm fx start "…"`):
+To look around without starting a change, run `pnpm dev` in the main checkout: it migrates the main `factory` database and runs the same servers on it. To work on a change, from its worktree (`pnpm fx start "…"`):
 
 ```bash
 pnpm fx dev
