@@ -57,6 +57,7 @@ export type {
   DataAccessOptions,
   GetOptions,
   GetResult,
+  HistoryEntry,
   ListResult,
   ReadAccess,
   RecordOf,

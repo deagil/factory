@@ -3,7 +3,7 @@
 // are in the URL (P1.20).
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Button } from "@workspace/ui/components/button";
+import { Button, buttonVariants } from "@workspace/ui/components/button";
 
 import { FilterBar } from "../../components/filter-bar.tsx";
 import { describeSystem, runQuery } from "../../lib/api.ts";
@@ -75,6 +75,17 @@ const ListScreen = () => {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-medium">{object.label}s</h1>
+        {described.data?.actions.some(
+          (action) => action.name === `${name}.create`
+        ) && (
+          <Link
+            to="/o/$object/new"
+            params={{ object: name }}
+            className={buttonVariants()}
+          >
+            New {object.label.toLowerCase()}
+          </Link>
+        )}
       </div>
       <FilterBar
         fields={object.fields}
