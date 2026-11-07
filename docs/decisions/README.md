@@ -31,6 +31,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0025 | [API keys, agents and integrations](0025-api-keys-agents-and-integrations.md) | Accepted |
 | 0026 | [API transport: our own generator on Hono](0026-api-transport-own-generator-on-hono.md) | Accepted |
 | 0027 | [The HTTP API's shape](0027-http-api-shape.md) | Accepted |
+| 0028 | [MCP tools](0028-mcp-tools.md) | Accepted |
 
 ## Template
 
