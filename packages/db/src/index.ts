@@ -7,6 +7,7 @@ export { loadEnv, redactUrl, requireEnv, rootEnvFile } from "./env.ts";
 export {
   actorForApiKey,
   apiKeyPrefix,
+  bootstrapStaff,
   createIdentityStore,
   hashApiKey,
   isActiveUser,

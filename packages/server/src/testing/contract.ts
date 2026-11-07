@@ -323,3 +323,39 @@ export const runContract = async ({
   return problems;
 };
 /* oxlint-enable eslint/no-await-in-loop */
+
+/**
+ * Samples for the identity actions every system has, run as `caller`, who
+ * must be a staff actor allowed to run them.
+ */
+export const identitySamples = (
+  registry: Registry,
+  pipeline: Pipeline,
+  caller: Caller
+): Record<string, () => Promise<unknown>> => {
+  const setUp = async (name: string, input: unknown) => {
+    const action = registry.get(name);
+    const result =
+      action?.kind === "action"
+        ? await pipeline.run(action, input, caller)
+        : null;
+    if (!result?.ok) {
+      throw new Error(`${name} failed in setup: ${JSON.stringify(result)}`);
+    }
+    return result.output as Record<string, string>;
+  };
+  const agentKey = async () => {
+    const { actorId } = await setUp("actor.createAgent", { name: "Helper" });
+    return { actorId, label: "contract" };
+  };
+  return {
+    "actor.createAgent": () => Promise.resolve({ name: "Agent" }),
+    "actor.createIntegration": () =>
+      Promise.resolve({ name: "Integration", roles: [] }),
+    "apiKey.create": agentKey,
+    "apiKey.revoke": async () => {
+      const key = await setUp("apiKey.create", await agentKey());
+      return { id: key.id };
+    },
+  };
+};

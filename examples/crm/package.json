@@ -1,0 +1,28 @@
+{
+  "name": "@workspace/example-crm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/system.ts"
+  },
+  "scripts": {
+    "dev": "drizzle-kit push --force && node --watch src/main.ts",
+    "start": "node src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "ultracite check",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@workspace/actions": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/objects": "workspace:*",
+    "@workspace/server": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@workspace/auth": "workspace:*",
+    "@workspace/testing": "workspace:*",
+    "drizzle-kit": "^0.31.11"
+  }
+}

@@ -4,7 +4,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
 import { actorRoles, actors, apiKeys, users } from "./schema/core.ts";
@@ -46,6 +46,36 @@ export const staffActorFor = async (db: Executor, userId: string) => {
     throw new Error(`No staff actor for user ${userId}`);
   }
   return created;
+};
+
+/**
+ * A person and their staff actor with `roles`, found by email or created.
+ * Only seed data and first-time setup use it: there is no actor yet to run
+ * an action as (decision 0031). Returns the staff actor.
+ */
+export const bootstrapStaff = async (
+  db: Executor,
+  person: { name: string; email: string; roles: readonly string[] }
+) => {
+  await db
+    .insert(users)
+    .values({ name: person.name, email: person.email })
+    .onConflictDoNothing();
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(sql`lower(${users.email}) = lower(${person.email})`);
+  if (!user) {
+    throw new Error(`Couldn't find or create ${person.email}`);
+  }
+  const actor = await staffActorFor(db, user.id);
+  if (person.roles.length > 0) {
+    await db
+      .insert(actorRoles)
+      .values(person.roles.map((roleKey) => ({ actorId: actor.id, roleKey })))
+      .onConflictDoNothing();
+  }
+  return { id: actor.id, userId: user.id };
 };
 
 /** API keys look like `fx_<43 characters>`; only their hash is stored. */

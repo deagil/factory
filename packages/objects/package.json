@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/test-fixtures/index.ts"
+    "./define": "./src/define.ts",
+    "./testing": "./src/test-fixtures/index.ts",
+    "./testing/database": "./src/test-fixtures/crm-database.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
