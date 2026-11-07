@@ -3,6 +3,7 @@ import {
   Outlet,
   createFileRoute,
   redirect,
+  useMatches,
   useNavigate,
 } from "@tanstack/react-router";
 
@@ -15,6 +16,12 @@ import { navFrom } from "../lib/nav.ts";
 const Shell = () => {
   const { session } = Route.useRouteContext();
   const navigate = useNavigate();
+  // The deepest route that names a section, for the header and breadcrumb.
+  const currentSection = useMatches({
+    select: (matches) =>
+      matches.findLast((match) => match.staticData.section)?.staticData
+        .section ?? null,
+  });
   const queryClient = useQueryClient();
   const described = useQuery({
     queryKey: ["system.describe"],
@@ -29,9 +36,10 @@ const Shell = () => {
 
   return (
     <AppShell
-      email={session.user.email}
+      user={{ name: session.user.name, email: session.user.email }}
       onSignOut={leave}
-      items={described.data ? navFrom(described.data) : []}
+      sections={described.data ? navFrom(described.data) : []}
+      currentSection={currentSection}
       navPending={described.isPending}
       navError={described.isError ? described.error.message : null}
     >
