@@ -10,8 +10,8 @@
 
 ## Resume here
 
-- **Status:** not started.
-- **Next task:** P2.01, system migrations. It closes phase 1's known gap, and choice fields (P2.06) add columns to object tables, so it comes first.
+- **Status:** not started. [Phase 1b](phase-1b.md), the web surface, comes first.
+- **Next task:** P2.01, system migrations, once phase 1b is done. It closes phase 1's known gap, and choice fields (P2.06) add columns to object tables, so it comes first.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has.
 - **Carried over from phase 1:**
   - Systems have no committed migrations; `fx ship` writes only the core's (decision 0031). P2.01.
@@ -74,7 +74,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P2.07 Deals in the CRM**
   - A `deal` object (name, organisation, value as money, owner, `stage` as a mapped choice of `config/choices/deal-stages`) and a hand-written `deal.moveStage` action that owns `stage` and emits `deal.stageChanged` with the stage's category.
-  - Choice options and labels appear in `system.describe`; the web app shows choice fields as selects, filters by them, and has an actor picker for refs to actors (a new `actor.list` query).
+  - Choice options and labels appear in `system.describe`; the web app shows choice fields as selects, filters by them, and has an actor picker for refs to actors (`actor.list`, from P1b.04).
   - **Needs:** P2.06.
   - **Done when:** a deal can be created and moved through its stages from the web, and history shows each move with the stage labels.
 

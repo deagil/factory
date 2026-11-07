@@ -6,7 +6,7 @@ A personal software factory: a core I own that lets me, working mostly through A
 
 Each client gets their own system: a thin repo that pins a version of the core packages, adds the client's own objects and logic, and keeps all of its configuration as files. It deploys as one API service, one static web front end and one Postgres database.
 
-**Status: phase 2.** The walking skeleton works: objects defined once get generated actions, history and logs, an HTTP API with OpenAPI, MCP tools and generated web screens. `examples/crm` runs it end to end. Config over git, choice fields and workflows come next; `config`, `events`, `workflows` and `sdk` are still placeholders. Start with [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
+**Status: phase 1b, then phase 2.** The walking skeleton works: objects defined once get generated actions, history and logs, an HTTP API with OpenAPI, MCP tools and generated web screens. `examples/crm` runs it end to end. Phase 1b makes all of it usable from the web app; config over git, choice fields and workflows follow; `config`, `events`, `workflows` and `sdk` are still placeholders. Start with [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
 
 ## What it is, and what it isn't
 
@@ -124,6 +124,7 @@ Task lists for each phase, with progress, are in [docs/plans/](docs/plans/README
 | --- | --- |
 | 0. Foundations | The factory can build itself: workspace, `fx start/dev/ship`, local databases, CI |
 | 1. Walking skeleton | One object on every surface: pipeline, history, generated screens and MCP tools |
+| 1b. Web surface | Everything phase 1 built, usable and testable from the web app |
 | 2. Config over git | Staff change behaviour: choice fields, drafts, workflows, comms |
 | 3. CRM, hosted | A system I could hand to a client, with releases and the `production` branch |
 | 4. Breadth | Bookings, cases, reports, page builder, in-app agent |
