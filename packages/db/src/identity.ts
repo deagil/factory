@@ -4,10 +4,10 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
-import { actorRoles, actors, apiKeys, users } from "./schema/core.ts";
+import { actorRoles, actors, apiKeys, sessions, users } from "./schema/core.ts";
 
 /** Whether the user exists and may sign in. */
 export const isActiveUser = async (db: Executor, userId: string) => {
@@ -97,11 +97,19 @@ export const actorForApiKey = async (db: Executor, key: string, now: Date) => {
       actorId: actors.id,
       status: actors.status,
       userId: actors.userId,
+      userStatus: users.status,
     })
     .from(apiKeys)
     .innerJoin(actors, eq(actors.id, apiKeys.actorId))
+    .leftJoin(users, eq(users.id, actors.userId))
     .where(eq(apiKeys.keyHash, hashApiKey(key)));
-  if (!found || found.revokedAt !== null || found.status !== "active") {
+  // An agent's key also stops working when its person is disabled.
+  if (
+    !found ||
+    found.revokedAt !== null ||
+    found.status !== "active" ||
+    (found.userId !== null && found.userStatus !== "active")
+  ) {
     return;
   }
   await db
@@ -133,6 +141,70 @@ export const createIdentityStore = (executor: Executor) => ({
       throw new Error("insert returned no actor");
     }
     return actor;
+  },
+  /** A new person, or null if the email is taken (in any case). */
+  createUser: async (values: { name: string; email: string }) => {
+    const [taken] = await executor
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = lower(${values.email})`);
+    if (taken) {
+      return null;
+    }
+    const [user] = await executor
+      .insert(users)
+      .values(values)
+      .returning({ id: users.id });
+    if (!user) {
+      throw new Error("insert returned no user");
+    }
+    return user;
+  },
+  /** The user's staff actor, made with them. */
+  createStaffActor: async (user: { id: string; name: string }) => {
+    const [actor] = await executor
+      .insert(actors)
+      .values({ kind: "staff", name: user.name, userId: user.id })
+      .returning();
+    if (!actor) {
+      throw new Error("insert returned no actor");
+    }
+    return actor;
+  },
+  /** The user's staff actor, if they have one. */
+  staffActorOf: async (userId: string) => {
+    const [actor] = await executor
+      .select()
+      .from(actors)
+      .where(and(eq(actors.userId, userId), eq(actors.kind, "staff")));
+    return actor;
+  },
+  rolesOf: async (actorId: string) => {
+    const rows = await executor
+      .select({ roleKey: actorRoles.roleKey })
+      .from(actorRoles)
+      .where(eq(actorRoles.actorId, actorId))
+      .orderBy(asc(actorRoles.roleKey));
+    return rows.map((row) => row.roleKey);
+  },
+  /** Replaces the actor's roles with `roleKeys`. */
+  setRoles: async (actorId: string, roleKeys: readonly string[]) => {
+    await executor.delete(actorRoles).where(eq(actorRoles.actorId, actorId));
+    if (roleKeys.length > 0) {
+      await executor
+        .insert(actorRoles)
+        .values(roleKeys.map((roleKey) => ({ actorId, roleKey })));
+    }
+  },
+  setActorStatus: async (actorId: string, status: "active" | "disabled") => {
+    await executor.update(actors).set({ status }).where(eq(actors.id, actorId));
+  },
+  /** Disabling a user also ends their sessions. */
+  setUserStatus: async (userId: string, status: "active" | "disabled") => {
+    await executor.update(users).set({ status }).where(eq(users.id, userId));
+    if (status === "disabled") {
+      await executor.delete(sessions).where(eq(sessions.userId, userId));
+    }
   },
   grantRoles: async (actorId: string, roleKeys: readonly string[]) => {
     if (roleKeys.length > 0) {
