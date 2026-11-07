@@ -4,6 +4,7 @@
 export { closeDb, createDb, withTransaction } from "./client.ts";
 export type { Db, Executor, Schema, Tx } from "./client.ts";
 export { loadEnv, redactUrl, requireEnv, rootEnvFile } from "./env.ts";
+export { isActiveUser, staffActorFor } from "./identity.ts";
 export { migrationsFolder, runMigrations } from "./migrate.ts";
 export {
   contractMarker,
@@ -23,6 +24,7 @@ export {
 } from "./schema-check.ts";
 export type { SchemaCheckResult, SchemaProblem } from "./schema-check.ts";
 export {
+  accounts,
   actionLog,
   actionStatuses,
   actorKinds,
@@ -31,7 +33,10 @@ export {
   actorStatuses,
   apiKeys,
   auditLog,
+  authSchema,
   eventLog,
+  sessions,
   users,
   userStatuses,
+  verifications,
 } from "./schema/core.ts";

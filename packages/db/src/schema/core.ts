@@ -13,6 +13,7 @@ import {
   index,
   integer,
   jsonb,
+  pgSchema,
   pgTable,
   primaryKey,
   text,
@@ -32,7 +33,10 @@ const createdAt = () => timestamptz("created_at").notNull().defaultNow();
 
 export const userStatuses = ["active", "disabled"] as const;
 
-/** People who sign in. Better Auth keeps its own tables (P1.10). */
+/**
+ * People who sign in. This is Better Auth's user table (decision 0023);
+ * its sessions, accounts and codes are in the `auth` schema below.
+ */
 export const users = pgTable(
   "users",
   {
@@ -40,7 +44,10 @@ export const users = pgTable(
     name: text("name").notNull(),
     email: text("email").notNull(),
     status: text("status", { enum: userStatuses }).notNull().default("active"),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
     createdAt: createdAt(),
+    updatedAt: timestamptz("updated_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("users_email_unique").on(sql`lower(${t.email})`)]
 );
@@ -66,6 +73,10 @@ export const actors = pgTable(
   },
   (t) => [
     index("actors_user_id_idx").on(t.userId),
+    // A user has one staff actor, found or created when they sign in.
+    uniqueIndex("actors_staff_user_unique")
+      .on(t.userId)
+      .where(sql`${t.kind} = 'staff'`),
     check(
       "actors_user_required",
       sql`${t.kind} not in ('staff', 'agent') or ${t.userId} is not null`
@@ -203,4 +214,68 @@ export const eventLog = pgTable(
       .on(t.createdAt)
       .where(sql`${t.dispatchedAt} is null`),
   ]
+);
+
+// Better Auth's own tables, in their own schema. Only Better Auth writes them.
+
+export const authSchema = pgSchema("auth");
+
+const authTimestamps = () => ({
+  createdAt: createdAt(),
+  updatedAt: timestamptz("updated_at").notNull().defaultNow(),
+});
+
+/** Signed-in sessions. */
+export const sessions = authSchema.table(
+  "sessions",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    ...authTimestamps(),
+  },
+  (t) => [index("sessions_user_id_idx").on(t.userId)]
+);
+
+/** Ways a user signs in: SSO providers (phase 3), and the email code. */
+export const accounts = authSchema.table(
+  "accounts",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamptz("access_token_expires_at"),
+    refreshTokenExpiresAt: timestamptz("refresh_token_expires_at"),
+    scope: text("scope"),
+    password: text("password"),
+    ...authTimestamps(),
+  },
+  (t) => [index("accounts_user_id_idx").on(t.userId)]
+);
+
+/** Sign-in codes waiting to be used. */
+export const verifications = authSchema.table(
+  "verifications",
+  {
+    // Better Auth chooses these ids itself, and they aren't uuids.
+    id: text("id")
+      .primaryKey()
+      .default(sql`uuidv7()::text`),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    ...authTimestamps(),
+  },
+  (t) => [index("verifications_identifier_idx").on(t.identifier)]
 );
