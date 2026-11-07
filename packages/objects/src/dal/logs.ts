@@ -129,7 +129,7 @@ interface Position {
 const encode = (position: Position) =>
   Buffer.from(JSON.stringify(position)).toString("base64url");
 
-const decode = (cursor: string | undefined): Position | undefined => {
+export const decode = (cursor: string | undefined): Position | undefined => {
   if (!cursor) {
     return;
   }
@@ -145,11 +145,11 @@ const decode = (cursor: string | undefined): Position | undefined => {
   }
 };
 
-const sizeOf = (limit: number | undefined) =>
+export const sizeOf = (limit: number | undefined) =>
   Math.min(Math.max(limit ?? defaultPageSize, 1), maxPageSize);
 
 /** Newer than nothing, older than the cursor: (at, id) descending. */
-const before = (
+export const before = (
   at: AnyColumn,
   id: AnyColumn,
   position: Position | undefined
@@ -170,7 +170,7 @@ const prefixPattern = (prefix: string) =>
   `${prefix.replaceAll(/[\\%_]/gu, String.raw`\$&`)}%`;
 
 /** Takes one more than a page, to know whether there's another. */
-const paged = <TEntry extends { at: string; id: string }>(
+export const paged = <TEntry extends { at: string; id: string }>(
   rows: TEntry[],
   size: number
 ): LogResult<TEntry> => {
@@ -183,8 +183,9 @@ const paged = <TEntry extends { at: string; id: string }>(
   };
 };
 
-const iso = (date: Date) => date.toISOString();
-const isoOrNull = (date: Date | null) => (date ? date.toISOString() : null);
+export const iso = (date: Date) => date.toISOString();
+export const isoOrNull = (date: Date | null) =>
+  date ? date.toISOString() : null;
 
 const originOf = (id: string | null, name: string | null) =>
   id ? { id, name: name ?? "" } : null;

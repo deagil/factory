@@ -89,6 +89,18 @@ export {
   eventEntrySchema,
 } from "./log-schemas.ts";
 export {
+  actorGet,
+  actorList,
+  apiKeyList,
+  identityQueries,
+  roleList,
+} from "./identity-queries.ts";
+export {
+  actorDetailSchema,
+  actorEntrySchema,
+  apiKeyEntrySchema,
+} from "./identity-schemas.ts";
+export {
   actionLogGet,
   actionLogList,
   auditLogList,

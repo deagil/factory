@@ -75,6 +75,15 @@ export {
 } from "./dal/list-input.ts";
 export type { ArchivedMode, Cursor, ListInput } from "./dal/list-input.ts";
 export type {
+  ActorDetail,
+  ActorEntry,
+  ActorFilter,
+  ActorKind,
+  ActorStatus,
+  ApiKeyEntry,
+  UserStatus,
+} from "./dal/identity.ts";
+export type {
   ActionLogDetail,
   ActionLogEntry,
   ActionLogFilter,
