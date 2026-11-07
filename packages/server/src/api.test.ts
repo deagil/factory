@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createTestApi, registry } from "./test-api.ts";
-import type { TestApi } from "./test-api.ts";
+import { createTestApi, registry } from "./testing/test-api.ts";
+import type { TestApi } from "./testing/test-api.ts";
 
 interface Body {
   output?: Record<string, unknown> & { record?: { id: string } };

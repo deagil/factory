@@ -6,7 +6,10 @@ import {
   McpServer,
   WebStandardStreamableHTTPServerTransport,
 } from "@modelcontextprotocol/server";
-import type { CallToolResult } from "@modelcontextprotocol/server";
+import type {
+  CallToolResult,
+  StandardSchemaWithJSON,
+} from "@modelcontextprotocol/server";
 import type {
   AnyDefinition,
   Caller,
@@ -30,6 +33,27 @@ const instructions = [
   "A failed call returns an error result whose `error.code` is validation, permission, approval_required, conflict, not_found or internal.",
 ].join(" ");
 
+/**
+ * The input schema as the SDK sees it: it advertises the JSON Schema but
+ * accepts anything, so the pipeline alone validates input. If the SDK
+ * validated, a bad call would get the SDK's error and no action_log row,
+ * unlike the same call over HTTP (decision 0028; the contract tests check).
+ */
+const advertised = (
+  schema: AnyDefinition["input"]
+): StandardSchemaWithJSON<Record<string, unknown>> => ({
+  "~standard": {
+    ...(schema["~standard"] as StandardSchemaWithJSON<
+      Record<string, unknown>
+    >["~standard"]),
+    validate: (value) => ({ value: (value ?? {}) as Record<string, unknown> }),
+  },
+});
+
+/** The action_log row a call wrote, for clients that keep it. */
+const metaOf = (result: Awaited<ReturnType<typeof callDefinition>>) =>
+  "actionId" in result && result.actionId ? { actionId: result.actionId } : {};
+
 const toolResult = (
   result: Awaited<ReturnType<typeof callDefinition>>
 ): CallToolResult => {
@@ -42,12 +66,14 @@ const toolResult = (
         },
       ],
       isError: true,
+      _meta: metaOf(result),
     };
   }
   const output = result.output as Record<string, unknown>;
   return {
     content: [{ type: "text", text: JSON.stringify(output) }],
     structuredContent: output,
+    _meta: metaOf(result),
   };
 };
 
@@ -68,7 +94,7 @@ const mcpServerFor = (
       {
         title: definition.name,
         description: definition.description,
-        inputSchema: definition.input,
+        inputSchema: advertised(definition.input),
         outputSchema: definition.output,
         annotations: {
           readOnlyHint: isQuery,

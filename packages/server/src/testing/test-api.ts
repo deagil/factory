@@ -17,7 +17,7 @@ import {
   organisation,
 } from "@workspace/objects/testing";
 
-import { createApi } from "./api.ts";
+import { createApi } from "../api.ts";
 
 export const roles: Role[] = [
   {
@@ -136,6 +136,8 @@ export const createTestApi = async () => {
   return {
     api,
     crm,
+    pipeline,
+    admin,
     keys: { website: website.key ?? "", agent: agentKey.key ?? "" },
     actors: {
       agent: agent.actorId ?? "",
