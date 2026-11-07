@@ -1,0 +1,116 @@
+# Phase 1b: Web surface
+
+**Goal:** everything phase 1 built can be used and tested from the web app, by a developer and by a client's staff. Navigation moves up a level, from a list of objects to the system's functions in sections (Data, Activity, Access, Settings). Each log gets its own screen, not only a record's History tab. People, agents, integrations, roles and keys can be managed without the seed. The local dev bar gets the tools for working on the factory itself. At the end, an admin can follow an organisation created three ways (web, MCP, `curl`) through Activity without opening Drizzle Studio, and set up a new agent key from the browser.
+
+**Out of scope:**
+
+- The agent chat. The sidebar is kept for it, but it comes with the in-app agent (phase 4).
+- Config editors, drafts, the approvals inbox, workflows and the run inspector (phase 2, P2.10 and P2.14). Their sections are planned here so they slot in without moving anything.
+- Scopes beyond `all`, reports and the page builder (later).
+
+## Resume here
+
+- **Status:** not started.
+- **Next task:** P1b.01, header navigation.
+- **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. The CRM's seeded users are Admin (`admin@example.com`, admin), Sarah (`sarah@example.com`, sales) and Sam (`sam@example.com`, support).
+
+## Decisions for this phase
+
+These fill gaps until later phases replace them. Don't build further than this.
+
+- **Navigation is in the main pane's header; the sidebar is kept for the agent chat.** The header has three rows: sections (a Navigation Menu whose panels list each section's pages with a line of description), a breadcrumb trail from the section down, and the page title with its actions. The account menu moves into the header.
+- **Sections and pages:** Data (one page per object), Activity (Actions, Changes, Events), Access (Users, Agents, Integrations, Roles), Settings (Reference, API & MCP). Phase 2 adds Inbox, Automation and Settings → Config. A page shows only when `system.describe` lists the query it needs; a section with no pages is hidden.
+- **App navigation and the dev bar don't mix.** If a client's admin would need it on a deployed system, it goes in the app behind a permission. If it only makes sense against a local dev server or the factory repo, it goes in the dev bar. The dev bar never changes data except through actions or sign-in, as the signed-in user.
+- **Logs are read through the data access layer** by hand-written queries in `@workspace/actions`, each needing a permission on its own name. Everyone can read their own actions (as actor or origin user) without it.
+- **Staff are invited, not signed up.** `user.invite` creates the user and their staff actor with roles; they then sign in with a code. Sign-up stays off.
+
+## Tasks
+
+### Shell (`apps/web`)
+
+- [ ] **P1b.01 Header navigation and breadcrumbs**
+  - Add shadcn's Navigation Menu to `packages/ui`. Sections and their pages are a typed list in `apps/web/src/lib/nav.ts`; each page names the query it needs, and `navFrom(description)` keeps the pages and sections the caller can use. Object pages take their description from `system.describe`.
+  - Breadcrumbs come from route `staticData` (section and page), and the screen gives the last crumb through `PageHeader`. They replace the back links.
+  - The account menu (email, sign out) moves to the header. The sidebar keeps its open, close, resize and side controls and holds an empty agent panel.
+  - On narrow screens the sections collapse into one menu button.
+  - Write a decision record for the navigation and the dev bar boundary.
+  - **Needs:** nothing.
+  - **Done when:** Sam sees only Data › Contacts, the admin sees every section that has pages, a record screen shows `Data › Contacts › Ada Lovelace`, and nothing navigates from the sidebar.
+
+### Activity (SYSTEM_DESIGN §4.8)
+
+- [ ] **P1b.02 Log queries**
+  - `dal.actions` (filter by actor, action name or prefix, status, dry run and time; newest first; cursor paging), `dal.action(id)` with its `audit_log` and `event_log` rows, `dal.changes` (by object, record, field via `after ? field`, actor and time) and `dal.events` (by type, action and time). Rows name their actor and origin user.
+  - Queries `actionLog.list`, `actionLog.get`, `auditLog.list` and `eventLog.list`, added by `defineSystem`. Each needs a permission on its own name; without it, `actionLog.list` and `actionLog.get` return only the caller's own actions (as actor or origin user) and the others are forbidden.
+  - **Needs:** nothing.
+  - **Done when:** tests cover each filter, paging, the own-actions rule and a forbidden caller, and an agent's action shows the agent as actor and its user as origin.
+
+- [ ] **P1b.03 Activity screens**
+  - Activity → Actions: a filterable list (filters in the URL, like the object lists) and an action screen with input, result or error, status, retry key, dry run, `config_sha`, actor and origin, and the changes and events it caused, each linking to its record.
+  - Activity → Changes and Activity → Events: filterable lists linking to their action and record.
+  - A record's History entries link to their action.
+  - **Needs:** P1b.01, P1b.02.
+  - **Done when:** in the browser, the admin finds an organisation created over MCP by filtering Actions by actor, opens it, and follows it to the record; Sarah sees only her own actions.
+
+### Access (SYSTEM_DESIGN §4.3)
+
+- [ ] **P1b.04 Identity queries**
+  - `actor.list` (by kind and status, with user email and roles), `actor.get` (with roles and keys), `apiKey.list` (by actor; label, created, last used, revoked; never the hash) and `role.list` (from `ConfigService`, with permissions).
+  - P2.07's actor picker uses `actor.list`.
+  - **Needs:** nothing.
+  - **Done when:** tests cover each query and its permission, and no query returns a key hash.
+
+- [ ] **P1b.05 Identity actions**
+  - `user.invite` (name, email, roles: makes the user and their staff actor), `actor.setRoles` (an agent's roles can only narrow its user's), `actor.disable` and `actor.enable` (a staff actor's user too). You can't disable yourself. Write a decision record.
+  - **Needs:** P1b.04.
+  - **Done when:** an invited user signs in with a code and has the invited roles, a disabled user can't sign in and a disabled actor's keys are refused, and each action leaves an `action_log` row.
+
+- [ ] **P1b.06 Access screens**
+  - Access → Users, Agents and Integrations: lists and an actor screen with roles (editable with `actor.setRoles`), keys (create, shown once; revoke) and a link to the actor's actions. Invite and create buttons use the actions' input schemas.
+  - Access → Roles: each role's permissions as a table of objects, verbs and actions.
+  - Account menu → My agents: your agents and their keys, and "Connect an agent", which makes an agent and a key and shows the `claude mcp add` command for this system.
+  - **Needs:** P1b.01, P1b.05.
+  - **Done when:** in the browser, the admin invites a user who then signs in, and Sarah connects an agent whose key works over MCP.
+
+### Data
+
+- [ ] **P1b.07 Archived records**
+  - A generated `<object>.restore` action that clears `archived_at` and emits `<object>.restored`, with the `archive` permission. Lists get a "Show archived" option; an archived record shows a banner with Restore.
+  - **Needs:** P1b.01.
+  - **Done when:** a record archived from the web can be found and restored, and history shows both.
+
+### Settings (SYSTEM_DESIGN §4.9)
+
+- [ ] **P1b.08 Reference and API & MCP**
+  - Settings → Reference from `system.describe`: objects and their fields, actions with their input and events, queries and events, each with its schema.
+  - Settings → API & MCP: the OpenAPI document, the MCP endpoint, how to authenticate, and a link to My agents.
+  - **Needs:** P1b.01.
+  - **Done when:** the admin can find `contact.moveToOrganisation`'s input and events in Reference, and Sam's Reference lists only what he can use.
+
+### Dev bar (`apps/web/src/dev`)
+
+- [ ] **P1b.09 Session tools**
+  - Locally only, the server keeps the last sign-in codes it printed in a dev outbox, at a route that doesn't exist in production. The dev bar's Session menu signs in as any seeded user through the normal code flow, and shows the outbox.
+  - **Needs:** nothing.
+  - **Done when:** switching between Admin, Sarah and Sam takes one menu choice each, and a production build has neither the route nor the menu.
+
+- [ ] **P1b.10 API and inspection tools**
+  - An API menu: recent calls with status, request id and action id (linking to Activity), "Send actions as dry runs", added latency, and "Fail the next call with…" for each typed error.
+  - An Inspect menu: TanStack Query and Router devtools on or off, and the raw `system.describe`.
+  - The Factory menu shows the change, branch and database the dev server runs on.
+  - **Needs:** P1b.03.
+  - **Done when:** with dry runs on, creating a record shows the dry-run result and changes nothing, and a forced `conflict` shows the form's conflict message.
+
+### Exit
+
+- [ ] **P1b.11 Phase exit demo**
+  - In `examples/crm`, create an organisation from the web, over MCP with an agent key made in My agents, and with `curl` and an integration key made in Access. Follow all three through Activity as the admin, and check Sarah and Sam see only what they should.
+  - Update SYSTEM_DESIGN §4.9, AGENTS.md's current state and the README status, set this phase to Done in `docs/plans/README.md`, and point phase 2's Resume here at P2.01.
+  - **Needs:** all of the above.
+  - **Done when:** the demo works end to end from a fresh worktree.
+
+## Log
+
+<!-- One line per finished task: YYYY-MM-DD · P1b.xx · PR link · notes for the next person -->
+
+- 2026-11-07 · plan written, from a review of phase 1's features against the web app.
