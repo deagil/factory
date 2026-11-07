@@ -9,7 +9,7 @@ Instructions for coding agents (Claude Code, Cursor and others) working in this 
 
 ## Current state
 
-Phase 0 is done: the workspace, local Postgres with the core tables, CI and `fx` all work. Phase 1 builds objects and actions, so most packages are still placeholders with a README describing their job. `apps/web` and `packages/ui` come from the shadcn TanStack Start template.
+Phases 0 and 1 are done. `defineObject` gives an object its table, generated actions and queries, history and logs; the action pipeline runs every change; the HTTP API, MCP server and generated web screens all come from the same registry; `defineSystem` and `createServer` run a system. `examples/crm` is the working example: `pnpm fx dev` runs it, and `pnpm fx describe` shows what it has. Phase 2 adds config over git, choice fields, approvals and workflows; `packages/config`, `events`, `workflows` and `sdk` are still placeholders with a README describing their job.
 
 **Work from the plans.** Before starting, open [docs/plans/](docs/plans/README.md), find the current phase, read its **Resume here** section and pick the next unticked task whose dependencies are done. Tick it off, log it and update **Resume here** in the same PR as the work. A change that isn't a plan task leaves the plan alone.
 

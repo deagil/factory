@@ -31,6 +31,12 @@ export const roles: Role[] = [
     ],
   },
   {
+    // For the website's sign-up form, through an integration key.
+    key: "website",
+    label: "Website",
+    permissions: [{ object: "organisation", can: ["create"], scope: "all" }],
+  },
+  {
     key: "support",
     label: "Support",
     permissions: [{ object: "contact", can: ["view", "update"], scope: "all" }],

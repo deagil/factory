@@ -48,6 +48,11 @@ if (seeded.agentKey) {
     `  Agent key for admin@example.com (shown once): ${seeded.agentKey}`
   );
 }
+if (seeded.integrationKey) {
+  console.info(
+    `  Website integration key (shown once): ${seeded.integrationKey}`
+  );
+}
 
 const stop = async () => {
   await listening.close();

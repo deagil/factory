@@ -68,6 +68,22 @@ describe("example CRM", () => {
     expect(output.records).toHaveLength(3);
   });
 
+  it("gives the Website integration a key that can only create organisations", async () => {
+    const as = (route: string, body: unknown) =>
+      server.app.request(route, {
+        method: "POST",
+        headers: bearer(seeded.integrationKey),
+        body: JSON.stringify(body),
+      });
+    const created = await as("/actions/organisation.create", {
+      name: "Signed up online",
+    });
+    const listed = await as("/queries/contact.list", {});
+    expect(seeded.integrationKey).toMatch(/^fx_/u);
+    expect(created.status).toBe(200);
+    expect(listed.status).toBe(403);
+  });
+
   /** Runs an action over HTTP as the seeded agent. */
   const call = async (name: string, input: unknown) => {
     const response = await server.app.request(`/actions/${name}`, {
