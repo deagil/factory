@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { FilterBar } from "../../components/filter-bar.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, runQuery } from "../../lib/api.ts";
+import { plural } from "../../lib/nav.ts";
 import {
   columnsOf,
   displayValue,
@@ -88,7 +89,7 @@ const ListScreen = () => {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={`${object.label}s`}
+        title={plural(object.label)}
         actions={
           canCreate ? (
             <Link
@@ -229,6 +230,7 @@ const ListScreen = () => {
 };
 
 export const Route = createFileRoute("/_app/o/$object/")({
+  staticData: { section: "data" },
   validateSearch: (search: Record<string, unknown>): ListSearch => ({
     sort: typeof search.sort === "string" ? search.sort : undefined,
     filter:

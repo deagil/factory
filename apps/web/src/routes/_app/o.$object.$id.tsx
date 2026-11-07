@@ -3,7 +3,7 @@
 // fields are shown, not edited); hand-written actions are buttons; the
 // History tab reads `record.history` (P1.21).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
 import { useState } from "react";
@@ -22,6 +22,7 @@ import {
   toFormValues,
 } from "../../lib/forms.ts";
 import type { ActionDescription, FormValues } from "../../lib/forms.ts";
+import { plural } from "../../lib/nav.ts";
 import {
   displayValue,
   expandable,
@@ -244,15 +245,12 @@ const RecordScreen = () => {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={titleOf(record.record, object)}
-        leading={
-          <Link
-            to="/o/$object"
-            params={{ object: name }}
-            className="shrink-0 text-sm text-muted-foreground hover:underline"
-          >
-            {`← ${object.label}s`}
-          </Link>
-        }
+        trail={[
+          {
+            label: plural(object.label),
+            link: { to: "/o/$object", params: { object: name } },
+          },
+        ]}
         actions={
           <>
             {customActions(described.data, name).map((action) => (
@@ -308,6 +306,7 @@ const RecordScreen = () => {
 };
 
 export const Route = createFileRoute("/_app/o/$object/$id")({
+  staticData: { section: "data" },
   validateSearch: (search: Record<string, unknown>): RecordSearch => ({
     tab: search.tab === "history" ? "history" : undefined,
   }),

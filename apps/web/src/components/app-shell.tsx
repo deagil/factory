@@ -1,11 +1,12 @@
 // Signed-in shell. The sidebar and the main pane share one canvas: drag
 // the seam to resize, move the sidebar to either side, or collapse it.
-// The main pane header is the navigation: a system row (menu and objects)
-// and a page row (title and primary actions) that screens fill in.
-import { Link } from "@tanstack/react-router";
+// The sidebar is kept for the agent chat (decision 0033). The main pane's
+// header is the navigation: sections and the account menu, then the
+// breadcrumb, then the page's title and primary actions.
+
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
-import { PanelLeft, PanelRight, X } from "lucide-react";
+import { PanelLeft, PanelRight, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
@@ -14,7 +15,7 @@ import type {
   RefObject,
 } from "react";
 
-import type { NavItem } from "../lib/nav.ts";
+import type { NavSection, SectionKey } from "../lib/nav.ts";
 import {
   DESKTOP_MIN_PX,
   canResizeSidebar,
@@ -32,6 +33,7 @@ import {
   writeSidebarWidthPercent,
 } from "../shell/sidebar.ts";
 import type { KeyValueStore, SidebarSide } from "../shell/sidebar.ts";
+import { AccountMenu, SectionMenu, SectionNav } from "./main-nav.tsx";
 import { PageSlotsProvider } from "./page-header.tsx";
 
 const HIGHLIGHT_DELAY_MS = 80;
@@ -70,26 +72,22 @@ const mainInsetClass = (side: SidebarSide, open: boolean) => {
 };
 
 const SidebarPanel = ({
-  email,
   side,
   revealed,
   onClose,
   onToggleSide,
-  onSignOut,
   panelRef,
 }: {
-  email: string;
   side: SidebarSide;
   revealed: boolean;
   onClose: () => void;
   onToggleSide: () => void;
-  onSignOut: () => void;
   panelRef: RefObject<HTMLDivElement | null>;
 }) => {
   const moveRight = side === "left";
   const sideLabel = moveRight
-    ? "Move sidebar to the right"
-    : "Move sidebar to the left";
+    ? "Move the agent to the right"
+    : "Move the agent to the left";
 
   return (
     <div
@@ -103,8 +101,8 @@ const SidebarPanel = ({
     >
       <div
         className={cn(
-          "relative z-40 flex items-center px-1 py-1 transition-opacity duration-250 ease-in-out motion-reduce:transition-none",
-          side === "left" ? "justify-start" : "justify-end",
+          "relative z-40 flex items-center gap-1 px-1 py-1 transition-opacity duration-250 ease-in-out motion-reduce:transition-none",
+          side === "right" && "flex-row-reverse",
           revealed ? "opacity-100" : "opacity-0"
         )}
       >
@@ -113,44 +111,32 @@ const SidebarPanel = ({
           variant="ghost"
           size="icon"
           className="opacity-50 hover:opacity-100"
-          aria-label="Close sidebar"
-          title="Close sidebar"
+          aria-label="Close the agent"
+          title="Close the agent"
           onClick={onClose}
         >
           <X />
         </Button>
-      </div>
-      <div className="min-h-0 flex-1" />
-      <div className="mt-auto flex flex-col gap-2 px-3 pt-3 pb-2 text-sm">
-        <span className="truncate text-muted-foreground">{email}</span>
-        <div
-          className={cn(
-            "flex items-center gap-1",
-            side === "right" && "flex-row-reverse"
-          )}
+        <span className="flex-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="opacity-50 hover:opacity-100"
+          aria-label={sideLabel}
+          title={sideLabel}
+          onClick={onToggleSide}
         >
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="min-w-0 flex-1"
-            onClick={onSignOut}
-          >
-            Sign out
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground opacity-50 hover:opacity-100"
-            aria-label={sideLabel}
-            title={sideLabel}
-            onClick={onToggleSide}
-          >
-            {moveRight ? <PanelRight /> : <PanelLeft />}
-          </Button>
-        </div>
+          {moveRight ? <PanelRight /> : <PanelLeft />}
+        </Button>
       </div>
+      <section
+        aria-label="Agent"
+        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground"
+      >
+        <Sparkles className="size-5" />
+        <p>The in-app agent will work here, with the same tools as MCP.</p>
+      </section>
     </div>
   );
 };
@@ -187,50 +173,42 @@ const MenuButton = ({
             ? "pointer-events-none opacity-0 delay-0 duration-150"
             : "delay-75 duration-200"
         )}
-        aria-label="Open sidebar"
-        title="Open sidebar"
+        aria-label="Open the agent"
+        title="Open the agent"
         onClick={onToggle}
       >
-        {side === "left" ? <PanelLeft /> : <PanelRight />}
-        <span className="hidden sm:inline">Menu</span>
+        <Sparkles />
+        <span className="hidden sm:inline">Agent</span>
       </Button>
     </div>
   </div>
 );
 
 const MainNav = ({
-  items,
+  sections,
+  current,
   pending,
   error,
 }: {
-  items: NavItem[];
+  sections: NavSection[];
+  current: SectionKey | null;
   pending: boolean;
   error: string | null;
 }) => (
-  <nav aria-label="Main" className="min-w-0 flex-1">
+  <div className="flex min-w-0 flex-1 items-center">
     {pending && <p className="px-2 text-sm text-muted-foreground">Loading…</p>}
     {error && (
       <p role="alert" className="truncate px-2 text-sm text-destructive">
         {`Couldn't load the system: ${error}`}
       </p>
     )}
-    {items.length > 0 && (
-      <ul className="flex items-center gap-0.5 overflow-x-auto">
-        {items.map((item) => (
-          <li key={item.object} className="shrink-0">
-            <Link
-              to="/o/$object"
-              params={{ object: item.object }}
-              activeOptions={{ exact: false, includeSearch: false }}
-              className="inline-flex h-9 items-center rounded-2xl px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
-            >
-              {item.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+    {sections.length > 0 && (
+      <>
+        <SectionMenu sections={sections} />
+        <SectionNav sections={sections} current={current} />
+      </>
     )}
-  </nav>
+  </div>
 );
 
 const ResizeHandle = ({
@@ -383,9 +361,12 @@ const ResizeHandle = ({
 const ShellHeader = ({
   side,
   sidebarOpen,
-  items,
+  sections,
+  currentSection,
+  user,
   navPending,
   navError,
+  onSignOut,
   onToggle,
   onNavigate,
   leadingRef,
@@ -394,9 +375,12 @@ const ShellHeader = ({
 }: {
   side: SidebarSide;
   sidebarOpen: boolean;
-  items: NavItem[];
+  sections: NavSection[];
+  currentSection: SectionKey | null;
+  user: { name: string; email: string };
   navPending: boolean;
   navError: string | null;
+  onSignOut: () => void;
   onToggle: () => void;
   onNavigate: () => void;
   leadingRef: (node: HTMLDivElement | null) => void;
@@ -431,7 +415,17 @@ const ShellHeader = ({
         {side === "left" ? (
           <MenuButton side={side} open={sidebarOpen} onToggle={onToggle} />
         ) : null}
-        <MainNav items={items} pending={navPending} error={navError} />
+        <MainNav
+          sections={sections}
+          current={currentSection}
+          pending={navPending}
+          error={navError}
+        />
+        <AccountMenu
+          name={user.name}
+          email={user.email}
+          onSignOut={onSignOut}
+        />
         {side === "right" ? (
           <MenuButton side={side} open={sidebarOpen} onToggle={onToggle} />
         ) : null}
@@ -453,15 +447,17 @@ const ShellHeader = ({
 };
 
 export const AppShell = ({
-  email,
-  items,
+  user,
+  sections,
+  currentSection,
   navPending = false,
   navError = null,
   onSignOut,
   children,
 }: {
-  email: string;
-  items: NavItem[];
+  user: { name: string; email: string };
+  sections: NavSection[];
+  currentSection: SectionKey | null;
   navPending?: boolean;
   navError?: string | null;
   onSignOut: () => void;
@@ -595,6 +591,10 @@ export const AppShell = ({
       title={titleSlot}
       actions={actionsSlot}
       supplement={supplementSlot}
+      section={
+        sections.find((section) => section.key === currentSection)?.label ??
+        null
+      }
     >
       <div
         data-slot="sidebar-wrapper"
@@ -621,12 +621,10 @@ export const AppShell = ({
           style={containerStyle}
         >
           <SidebarPanel
-            email={email}
             side={side}
             revealed={sidebarOpen}
             onClose={() => changeOpen(false)}
             onToggleSide={() => setSide((value) => toggleSidebarSide(value))}
-            onSignOut={onSignOut}
             panelRef={panelRef}
           />
           {canResizeSidebar({ open, viewportWidth }) ? (
@@ -672,9 +670,12 @@ export const AppShell = ({
           <ShellHeader
             side={side}
             sidebarOpen={sidebarOpen}
-            items={items}
+            sections={sections}
+            currentSection={currentSection}
+            user={user}
             navPending={navPending}
             navError={navError}
+            onSignOut={onSignOut}
             onToggle={() => changeOpen(!sidebarOpen)}
             onNavigate={() => setOpenMobile(false)}
             leadingRef={setLeadingSlot}

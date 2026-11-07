@@ -1,6 +1,6 @@
 // The generated create screen: a form for `<object>.create` (P1.21).
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { PageHeader } from "../../components/page-header.tsx";
@@ -13,6 +13,7 @@ import {
   toFormValues,
 } from "../../lib/forms.ts";
 import type { FormValues } from "../../lib/forms.ts";
+import { plural } from "../../lib/nav.ts";
 import { findObject } from "../../lib/records.ts";
 
 const CreateScreen = () => {
@@ -61,15 +62,12 @@ const CreateScreen = () => {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={`New ${object.label.toLowerCase()}`}
-        leading={
-          <Link
-            to="/o/$object"
-            params={{ object: name }}
-            className="shrink-0 text-sm text-muted-foreground hover:underline"
-          >
-            {`← ${object.label}s`}
-          </Link>
-        }
+        trail={[
+          {
+            label: plural(object.label),
+            link: { to: "/o/$object", params: { object: name } },
+          },
+        ]}
       />
       <RecordForm
         fields={fields}
@@ -85,5 +83,6 @@ const CreateScreen = () => {
 };
 
 export const Route = createFileRoute("/_app/o/$object/new")({
+  staticData: { section: "data" },
   component: CreateScreen,
 });

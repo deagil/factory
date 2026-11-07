@@ -10,8 +10,8 @@
 
 ## Resume here
 
-- **Status:** not started.
-- **Next task:** P1b.01, header navigation.
+- **Status:** in progress.
+- **Next task:** P1b.02, log queries. P1b.04 and P1b.09 need nothing either.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. The CRM's seeded users are Admin (`admin@example.com`, admin), Sarah (`sarah@example.com`, sales) and Sam (`sam@example.com`, support).
 
 ## Decisions for this phase
@@ -28,7 +28,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Shell (`apps/web`)
 
-- [ ] **P1b.01 Header navigation and breadcrumbs**
+- [x] **P1b.01 Header navigation and breadcrumbs**
   - Add shadcn's Navigation Menu to `packages/ui`. Sections and their pages are a typed list in `apps/web/src/lib/nav.ts`; each page names the query it needs, and `navFrom(description)` keeps the pages and sections the caller can use. Object pages take their description from `system.describe`.
   - Breadcrumbs come from route `staticData` (section and page), and the screen gives the last crumb through `PageHeader`. They replace the back links.
   - The account menu (email, sign out) moves to the header. The sidebar keeps its open, close, resize and side controls and holds an empty agent panel.
@@ -114,3 +114,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 <!-- One line per finished task: YYYY-MM-DD · P1b.xx · PR link · notes for the next person -->
 
 - 2026-11-07 · plan written, from a review of phase 1's features against the web app.
+- 2026-11-07 · P1b.01 · PR · Sections in the header, with decision 0033. `navFrom(description)` in `apps/web/src/lib/nav.ts` returns sections of pages (only Data so far); a new section is an entry there with its `SectionKey` and `NavLink` route. Routes set `staticData: { section }` (typed in `router.tsx`), and screens pass `trail` to `PageHeader` instead of a back link; the title is the breadcrumb's last step, so it isn't repeated. Navigation Menu and Breadcrumb are shadcn's, in `packages/ui` (the breadcrumb page's `role="link"` was dropped for lint). The account menu is in the header; the sidebar is the agent's placeholder. Checked in the browser: the admin's Data panel lists Organisations and Contacts with their descriptions, a contact reads `Data › Contacts` above its name, Sam's panel has only Contacts, and at phone width the sections are one Menu dropdown. To run a change's servers beside main's, I used ports 4100 and 3100 (`PORT`, `BETTER_AUTH_URL`, `API_URL`, `vite --port`).

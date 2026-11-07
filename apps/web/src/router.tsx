@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 
+import type { SectionKey } from "./lib/nav.ts";
 import { routeTree } from "./routeTree.gen";
 
 export const getRouter = () => {
@@ -24,5 +25,9 @@ export const getRouter = () => {
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof getRouter>;
+  }
+  interface StaticDataRouteOption {
+    /** The navigation section a screen belongs to, for the breadcrumb. */
+    section?: SectionKey;
   }
 }
