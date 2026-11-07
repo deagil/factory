@@ -4,7 +4,7 @@
 // adds Inbox, Automation and Config.
 import type { SystemDescription } from "./api.ts";
 
-export type SectionKey = "data" | "activity" | "access";
+export type SectionKey = "data" | "activity" | "access" | "settings";
 
 /** Where a page lives. Each section adds its own routes. */
 export type NavLink =
@@ -15,7 +15,9 @@ export type NavLink =
   | { to: "/access/users" }
   | { to: "/access/agents" }
   | { to: "/access/integrations" }
-  | { to: "/access/roles" };
+  | { to: "/access/roles" }
+  | { to: "/settings/reference" }
+  | { to: "/settings/api" };
 
 export interface NavPage {
   key: string;
@@ -142,6 +144,26 @@ const sections: {
       ]
         .filter(({ query }) => has(description, query))
         .map(({ page }) => page as NavPage),
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    // Everyone gets these: each shows only what the caller can use.
+    pages: () => [
+      {
+        key: "settings:reference",
+        label: "Reference",
+        description:
+          "Every object, action, query and event you can use, with schemas.",
+        link: { to: "/settings/reference" },
+      },
+      {
+        key: "settings:api",
+        label: "API & MCP",
+        description: "Reach this system from code or an AI agent.",
+        link: { to: "/settings/api" },
+      },
+    ],
   },
 ];
 

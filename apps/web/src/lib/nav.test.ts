@@ -22,7 +22,7 @@ describe(navFrom, () => {
         { name: "company", label: "Company", description: null },
       ])
     );
-    expect(nav).toStrictEqual([
+    expect(nav.filter((section) => section.key === "data")).toStrictEqual([
       {
         key: "data",
         label: "Data",
@@ -46,7 +46,10 @@ describe(navFrom, () => {
 
   it("puts the logs the caller can read in Activity", () => {
     const nav = navFrom(described([], ["actionLog.list", "eventLog.list"]));
-    expect(nav.map((section) => section.key)).toStrictEqual(["activity"]);
+    expect(nav.map((section) => section.key)).toStrictEqual([
+      "activity",
+      "settings",
+    ]);
     expect(nav[0]?.pages.map((page) => page.link)).toStrictEqual([
       { to: "/activity/actions" },
       { to: "/activity/events" },
@@ -58,7 +61,7 @@ describe(navFrom, () => {
     const admin = navFrom(
       described([], ["role.list"], ["user.invite", "actor.setRoles"])
     );
-    expect(own).toStrictEqual([]);
+    expect(own.map((section) => section.key)).toStrictEqual(["settings"]);
     expect(admin[0]?.pages.map((page) => page.label)).toStrictEqual([
       "Users",
       "Agents",
@@ -66,7 +69,9 @@ describe(navFrom, () => {
     ]);
   });
 
-  it("leaves out a section with no pages", () => {
-    expect(navFrom(described([]))).toStrictEqual([]);
+  it("leaves out a section with no pages, and always has Settings", () => {
+    expect(navFrom(described([])).map((section) => section.key)).toStrictEqual([
+      "settings",
+    ]);
   });
 });
