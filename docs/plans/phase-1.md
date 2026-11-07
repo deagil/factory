@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 to P1.08 are done.
-- **Next task:** P1.09, generated actions and queries, in `packages/actions`. Build `<object>.create`, `.update`, `.archive`, `.get` and `.list` from each object's `schemas`, `actions` options and `listInputSchema`, map repository statuses (`not_found`, `conflict`, `archived`) to typed errors, and emit `<object>.created`, `.updated` and `.archived`. Run them through `createPipeline` in tests.
+- **Status:** in progress. P1.01 to P1.09 are done.
+- **Next task:** P1.10, Better Auth sign-in in `packages/auth`. Its identify output feeds `pipeline.run(action, input, { actorId })`: resolve a session to the user's staff actor (find or create on sign-in). Ask before adding Better Auth's dependency only if it isn't already in the stack list (it is: AGENTS.md "Stack").
 - **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.07.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
@@ -98,7 +98,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - **Needs:** P1.07.
   - **Done when:** two concurrent calls with the same key run the handler once, and a dry run changes nothing except one `action_log` row marked `dry_run`.
 
-- [ ] **P1.09 Generated actions and queries**
+- [x] **P1.09 Generated actions and queries**
   - Each object gets `<object>.create`, `.update` and `.archive` actions and `<object>.get` and `.list` queries, built from its definition.
   - They emit `<object>.created`, `.updated` and `.archived`.
   - `readOnly` fields are removed from the update input. A hand-written action that owns a job (`actions: { create: 'booking.place' }`) switches the generated one off.
@@ -132,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0022 at the time of writing; 0012 is taken).
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0023 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -219,3 +219,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-07 · P1.06 · [#27](https://github.com/deagil/factory/pull/27) · `defineAction`, `defineQuery`, `createRegistry`, `createActionContext`/`createQueryContext` and typed errors in `packages/actions/src`, with decision 0019. Handlers return typed errors (`return ctx.notFound(…)`) as branded `ActionFailure`s; `isActionFailure` finds them, and the pipeline should treat a thrown one the same. `ctx.emit` is typed from `emits`; `@ts-expect-error` tests under `pnpm typecheck` prove undeclared events and wrong payloads fail. Queries get no `repo` or `emit`. `ConfigService` lives in `actions` (config depends on actions) and holds only `sha` until P1.11. Actions and queries share one namespace in the registry. "Only through ctx" is enforced by `checkHandlerBoundary` (`@workspace/actions/boundary`): files that call `defineAction`/`defineQuery` may not import db, config, auth, server, drizzle-orm or pg, build repositories, or read the system clock; a test runs it over the repo. Handlers may return a value or a promise, which keeps Oxlint's `require-await` quiet for trivial ones. SYSTEM_DESIGN's `deal.moveStage` example now uses the real API. P1.13's decision record is now 0020.
 - 2026-11-07 · P1.07 · [#28](https://github.com/deagil/factory/pull/28) · `createPipeline({ db, config, clock, permissions?, approvals? })` in `packages/actions/src/pipeline.ts`, with decision 0020. `run` and `query` return `{ ok, … }` and never throw for a failed action. No in-flight status: the `action_log` row goes in as `succeeded` inside the transaction and is only seen after commit; failures write a separate `failed` row after the rollback, and an approval match writes `pending_approval`. Unknown actors write nothing. Unexpected errors return `internal` with a generic message; the row has the real one. `permissions` and `approvals` are the seams for P1.11 and phase 2; they return a failure or rule key, or null (Oxlint's `no-useless-undefined` rewrites `() => undefined` into an empty function, which `no-empty-function` then refuses). The CRM fixture is now exported from `@workspace/objects/testing` for other packages' tests.
 - 2026-11-07 · P1.08 · [#29](https://github.com/deagil/factory/pull/29) · `run(action, input, caller, { retryKey, dryRun })`, with decision 0021 and a partial unique index `action_log_retry_key_unique` on `(actor_id, retry_key)` for succeeded, non-dry-run rows. A retry key replays the earlier success (`replayed: true`); concurrent calls collide on the index and the loser replays, so the handler runs once (tested with two calls in `Promise.all`). Only successes are remembered, so a key can be retried after a failure; reuse for a different action or input is a `conflict`. A dry run rolls back after record and returns `changes` (its `audit_log` rows) plus one `action_log` row with `dry_run`. To run tests against a schema edit before `fx ship`, I generated a throwaway migration into `packages/db/migrations` and deleted it before committing.
+- 2026-11-07 · P1.09 · [#30](https://github.com/deagil/factory/pull/30) · `generateDefinitions(object)` in `packages/actions/src/generated.ts`, with decision 0022. Inputs are flat (`update` is `{ id, version?, ...fields }`), outputs are `{ record }`, `get` gives `{ record, related }` and `list` the data access layer's page. `.updated` events carry `before` and `after`; a no-op update or a second archive succeeds with no event. Repository `not_found` maps to `not_found`; `conflict` and `archived` map to `conflict`. The generated file is held to the handler boundary like any action file.

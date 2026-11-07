@@ -57,3 +57,4 @@ export type {
   RunError,
   RunOptions,
 } from "./pipeline.ts";
+export { generateDefinitions } from "./generated.ts";
