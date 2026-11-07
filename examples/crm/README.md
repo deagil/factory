@@ -30,6 +30,14 @@ curl -X POST http://localhost:4000/actions/organisation.create -H "Authorization
 
 Seed data: `admin@example.com` (admin), `sarah@example.com` (sales), `sam@example.com` (support: contacts only), the Claude agent and the Website integration, three organisations and four contacts.
 
+## Look at the data
+
+```bash
+pnpm db:studio
+```
+
+Opens Drizzle Studio on the database in `.env` (the change's own, in a worktree) at <https://local.drizzle.studio>, showing the core tables, the `auth` tables and the CRM's. The CRM's tables and seed data appear once `pnpm fx dev` has run on that database. Use Chrome or Arc; Safari blocks the page from reaching the local server. It's for looking only: an edit there skips the action pipeline, so it leaves no `action_log` or `audit_log` row and history stops matching the data.
+
 ## Files
 
 - `src/objects.ts`: the objects, imported only from `@workspace/objects/define` so drizzle-kit can load it.

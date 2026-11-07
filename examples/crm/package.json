@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "drizzle-kit push --force && node --watch src/main.ts",
     "start": "node src/main.ts",
+    "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
     "lint": "ultracite check",
     "test": "vitest run"

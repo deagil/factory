@@ -103,6 +103,7 @@ pnpm fx ship                    # rebase, write the migration, run every check, 
 pnpm fx done                    # after the merge: remove the worktree, branches and database
 pnpm fx switch refunds          # where another open change's worktree is
 pnpm fx status                  # the current change and its last checks
+pnpm db:studio                  # Drizzle Studio on the change's database, to look at the data
 ```
 
 `main` takes only squash-merged PRs with green CI; see [docs/branch-protection.md](docs/branch-protection.md). Phase 3 adds `fx release`, which promotes a client repo's `main` to `production` on approval.
