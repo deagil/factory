@@ -11,9 +11,9 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 to P1.05a are done.
-- **Next task:** P1.06, the first code in `packages/actions` (still a placeholder; it needs `@workspace/objects` and `@workspace/db` as workspace dependencies). `ctx.repo` comes from `createRepository({ executor: tx, actionId, actorId, now })` and `ctx.dal` from `createDataAccess({ executor: tx, canRead })`, so `ctx` is built per run, inside the transaction, once the `action_log` row exists. Update results carry `before` and `after`, ready for events. `packages/objects/src/repository.test.ts` shows an action's shape: a transaction, an `action_log` row, then the repository.
-- **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.06.
+- **Status:** in progress. P1.01 to P1.06 are done.
+- **Next task:** P1.07, the pipeline, in `packages/actions`. Inside one transaction: insert the `action_log` row, build `createRepository({ executor: tx, actionId, actorId, now: clock.now })` and `createDataAccess({ executor: tx, canRead })`, pass them to `createActionContext(action, services)`, run the handler, then check `isActionFailure` on what it returned or threw. `events()` gives the emitted events for `event_log`. Decision 0019 has the shapes; `src/test-helpers.ts` has stand-in services for tests without a database.
+- **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.07.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
   - drizzle-kit 0.31 drops and re-adds `actor_roles`' composite primary key on every push. It's harmless on a change database, but it means a push is never "no changes".
@@ -73,7 +73,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Actions (`@workspace/actions`; SYSTEM_DESIGN §4.2)
 
-- [ ] **P1.06 `defineAction`, `defineQuery` and the registry**
+- [x] **P1.06 `defineAction`, `defineQuery` and the registry**
   - Name, description, input and output schemas, `emits` with a schema per event, and the handler.
   - The context `ctx` carries `repo`, `dal`, `config`, `clock`, `actor`, `emit` and the error helpers.
   - Typed error results: validation, permission, approval required, conflict, not found.
@@ -132,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0019 at the time of writing; 0012 is taken).
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0020 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -216,3 +216,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-06 · P1.05 · [#24](https://github.com/deagil/factory/pull/24) · `createRepository({ executor, actionId, actorId, now })` in `packages/objects/src/repository.ts`, with decision 0018. `audit_log` is now one row per record change with `before` and `after` JSONB, holding only changed fields (custom fields as `customFields.<key>`), plus a GIN index on `after`; the plan had a row per field, changed at the user's request. The migration only expands: `field` becomes nullable and the old columns stay until P1.05a drops them. `update` returns `updated`, `unchanged`, `not_found`, `archived` or `conflict`; with `lock` it reads `FOR UPDATE`, and it always writes `WHERE version = …`, so an unlocked race gives `conflict` rather than a lost update. Archiving writes no `audit_log` row. Values are compared with `isDeepStrictEqual`, so money and dates compare by value. The repository checks values with each field's input schema; read-only fields are the generated update action's job (P1.09), not the repository's.
 - 2026-11-06 · P1.05a · [#25](https://github.com/deagil/factory/pull/25) · Contract step for decision 0018: drops `audit_log`'s `field`, `old_value` and `new_value`, shipped with `fx ship --contract-step`. `audit_log` is now `id, object, record_id, before, after, action_id, actor_id, at`, as SYSTEM_DESIGN section 3 says.
 - 2026-11-06 · handover · [phase-1-handover.md](phase-1-handover.md) written after P1.05a. P1.07 now notes the `action_log` ordering and status question; P1.13's decision number fixed (0012 was taken); P1.21 notes the one-row-per-change history.
+- 2026-11-07 · P1.06 · [#27](https://github.com/deagil/factory/pull/27) · `defineAction`, `defineQuery`, `createRegistry`, `createActionContext`/`createQueryContext` and typed errors in `packages/actions/src`, with decision 0019. Handlers return typed errors (`return ctx.notFound(…)`) as branded `ActionFailure`s; `isActionFailure` finds them, and the pipeline should treat a thrown one the same. `ctx.emit` is typed from `emits`; `@ts-expect-error` tests under `pnpm typecheck` prove undeclared events and wrong payloads fail. Queries get no `repo` or `emit`. `ConfigService` lives in `actions` (config depends on actions) and holds only `sha` until P1.11. Actions and queries share one namespace in the registry. "Only through ctx" is enforced by `checkHandlerBoundary` (`@workspace/actions/boundary`): files that call `defineAction`/`defineQuery` may not import db, config, auth, server, drizzle-orm or pg, build repositories, or read the system clock; a test runs it over the repo. Handlers may return a value or a promise, which keeps Oxlint's `require-await` quiet for trivial ones. SYSTEM_DESIGN's `deal.moveStage` example now uses the real API. P1.13's decision record is now 0020.
