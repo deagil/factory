@@ -580,7 +580,7 @@ Plain TypeScript on boring, popular tools. Decision record: [0008](decisions/000
 
 | Layer | Choice | Notes |
 | --- | --- | --- |
-| Language and runtime | TypeScript on Node 24 LTS | Strict mode everywhere |
+| Language and runtime | TypeScript on Node 26 LTS | Strict mode everywhere |
 | HTTP | Hono | Routes are generated from the action registry |
 | Validation and contracts | Zod 4 | One schema per action drives validation, OpenAPI, MCP tools and forms |
 | API transport | Our own generator on Hono | Routes, OpenAPI and MCP tools from the registry; decision [0026](decisions/0026-api-transport-own-generator-on-hono.md) |

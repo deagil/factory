@@ -90,6 +90,15 @@ const assertNew = async (
 
 /** Runs `pnpm install` in the worktree. Its output is shown only if it fails. */
 const install = async (cwd: string): Promise<void> => {
+  // pnpm 12 can exit 0 in a directory with no manifest, which would leave
+  // the branch, worktree and database behind. There is nothing to install.
+  if (!existsSync(path.join(cwd, "package.json"))) {
+    throw new FxError(
+      "command_failed",
+      `pnpm install failed in ${cwd} (exit 1): no package.json`,
+      "Fix the install, then run `pnpm install` in the worktree."
+    );
+  }
   const result = await capture("pnpm", ["install", "--frozen-lockfile"], {
     cwd,
   });

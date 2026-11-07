@@ -63,10 +63,10 @@ factory/
 
 ## Getting started
 
-You need Node 24 or later (CI uses the version in `.nvmrc`), Docker, and pnpm through corepack.
+You need Node 26 (CI uses the version in `.nvmrc`), Docker, and pnpm 12.
 
 ```bash
-corepack enable           # pnpm at the version in package.json
+npm install -g pnpm@12    # pnpm 12 then runs the version in package.json
 pnpm install
 [ -f .env ] || cp .env.example .env   # local defaults work as they are
 pnpm db:up                # Postgres 18 in Docker; waits until it is healthy

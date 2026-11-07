@@ -98,7 +98,8 @@ describe("fx start", () => {
 
   it("undoes everything when a step fails", { timeout: 60_000 }, async () => {
     const { repo, repoName, parent } = tempRepo();
-    // No package.json, so pnpm install fails after the database exists.
+    // No package.json, so install fails after the database exists. pnpm 12
+    // itself can exit 0 there; fx start treats the missing manifest as failure.
     await expect(start(repo, "try it", quiet)).rejects.toMatchObject({
       code: "command_failed",
       message: expect.stringContaining("pnpm install failed"),

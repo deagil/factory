@@ -27,7 +27,7 @@ pnpm fx --help
 
 ## How it works
 
-- Node 24 runs `src/cli.ts` directly, with no build step. Arguments are parsed with `node:util`'s `parseArgs`, and fx has no dependencies.
+- Node 26 runs `src/cli.ts` directly, with no build step. Arguments are parsed with `node:util`'s `parseArgs`, and fx has no dependencies.
 - The state of open changes lives in `.fx/changes/<slug>.json` in the main checkout (gitignored). Each file holds the change's name, slug, branch, worktree, database and last check result. Commands run from a worktree find it through `git rev-parse --git-common-dir`.
 - The current change is the one whose worktree contains the directory fx runs from.
 - `fx start "<name>"` slugs the name (`deal-pipeline`) and creates:
