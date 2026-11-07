@@ -3,13 +3,20 @@
 // system has: the generated actions and queries for each object, the
 // identity actions, `record.history` and `system.describe`.
 import {
+  allGranted,
   createRegistry,
+  describeFor,
   describeQuery,
   generateDefinitions,
   historyQuery,
   roleSchema,
 } from "@workspace/actions";
-import type { AnyDefinition, Registry, Role } from "@workspace/actions";
+import type {
+  AnyDefinition,
+  Registry,
+  Role,
+  SystemDescription,
+} from "@workspace/actions";
 import { identityActions } from "@workspace/auth";
 import type { AnyObjectDefinition } from "@workspace/objects";
 import { z } from "zod";
@@ -32,6 +39,8 @@ export interface System {
   readonly registry: Registry;
   /** The object tables, for the schema check. */
   readonly tables: readonly AnyObjectDefinition["table"][];
+  /** Everything in the system, as `system.describe` shows it to an admin. */
+  readonly describe: () => SystemDescription;
 }
 
 export const defineSystem = (options: SystemOptions): System => {
@@ -52,5 +61,10 @@ export const defineSystem = (options: SystemOptions): System => {
     roles,
     registry,
     tables: options.objects.map((object) => object.table),
+    describe: () =>
+      describeFor(
+        { objects: options.objects, definitions: registry.list() },
+        allGranted
+      ),
   });
 };

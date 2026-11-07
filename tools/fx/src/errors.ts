@@ -12,6 +12,8 @@ export type FxErrorCode =
   | "nothing_to_ship"
   | "checks_failed"
   | "change_not_merged"
+  | "no_system"
+  | "not_found"
   | "command_failed";
 
 /**

@@ -52,6 +52,14 @@ export const commands = {
     options: { path: { type: "boolean", default: false } },
     positionals: { min: 1, max: 1 },
   },
+  describe: {
+    summary:
+      "Print the system's objects, actions, queries and events, with their schemas",
+    usage:
+      "fx describe [<object|action|query|event>] [--system <dir>] [--json]",
+    options: { system: { type: "string" } },
+    positionals: { min: 0, max: 1 },
+  },
   done: {
     summary:
       "Remove a merged change's worktree, branch and database, and its .fx entry",

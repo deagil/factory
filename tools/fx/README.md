@@ -16,6 +16,8 @@ pnpm fx switch refunds    # where another change's worktree is: cd "$(pnpm --sil
 pnpm fx done              # once merged: remove the worktree, branch, database and .fx entry
 pnpm fx status            # the current change, its branch, database and last checks
 pnpm fx status --json     # the same, as JSON on stdout, for agents
+pnpm fx describe          # the system's objects, actions, queries and events
+pnpm fx describe contact.moveToOrganisation   # one action, with its input and output schemas
 pnpm fx --help
 ```
 
@@ -56,6 +58,8 @@ pnpm fx --help
   Turbo's cache is shared between worktrees. A check whose inputs haven't changed replays its earlier output, including paths in the worktree that first ran it, even if that worktree is gone.
 
   `--contract-step "<why>"` makes the migration a contract step: it becomes the first line, `-- contract-step: <why>`, which the migration lint needs before it allows a destructive statement. Later ships keep it. If drizzle-kit would have to ask whether something was renamed, fx ship stops: renames aren't expand-safe, so add the new column in this change and drop the old one in a later contract step.
+
+- `fx describe [<name>]` imports the system file and prints `system.describe()`, which shows everything, as an admin would see it. It needs no database. A package declares its system in its package.json, `"factory": { "system": "./src/system.ts" }`, and the file's default export is the `defineSystem` result. With more than one system in the repo, pick one with `--system <dir>`. `<name>` narrows the output to an object (with its actions, queries and events) or to one action, query or event, shown with its JSON Schemas. `--json` prints the whole description.
 
 - `fx switch <name>` finds another change's worktree. A command can't change its shell's directory, so it prints the `cd`; `--path` prints only the path.
 - `fx done [<name>]` (the current change if no name is given) checks that the branch is merged into `origin/main`. Merged means one of: its commits are in main's history; merging it into main changes nothing, which is how a squash merge looks; or `gh` knows of a merged PR from it. Then it removes the worktree, the local branch, origin's branch, the database and the `.fx` entry. Last, it drops template databases that neither the main checkout nor an open change uses, since tests rebuild them on demand. It refuses an unmerged change or uncommitted work unless given `--force`, which leaves origin's branch alone.
