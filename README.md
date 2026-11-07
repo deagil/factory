@@ -70,8 +70,10 @@ corepack enable           # pnpm at the version in package.json
 pnpm install
 [ -f .env ] || cp .env.example .env   # local defaults work as they are
 pnpm db:up                # Postgres 18 in Docker; waits until it is healthy
-pnpm dev                  # runs the web surface (and the server, once it exists)
+pnpm dev                  # migrates the database in .env, then runs the CRM server and the web app
 ```
+
+In the main checkout, `pnpm dev` runs the example CRM on the main `factory` database, so you can look around without starting a change: sign in at <http://localhost:3000> as `admin@example.com` with the code printed in the console, and see the data with `pnpm db:studio`. In a change's worktree, use `pnpm fx dev` instead, which runs on the change's own database.
 
 Checks, which CI also runs:
 

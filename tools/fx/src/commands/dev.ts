@@ -263,7 +263,9 @@ export const dev = async (
     throw new FxError(
       "change_not_found",
       `${repo.worktreeRoot} isn't a change's worktree, so fx dev has no database to use.`,
-      'Start a change with `pnpm fx start "<name>"`, or cd into one; `pnpm fx status` lists them.'
+      repo.worktreeRoot === repo.mainRoot
+        ? 'To run the app on the main checkout\'s own database, use `pnpm dev`. To work on a change, start one with `pnpm fx start "<name>"`; `pnpm fx status` lists them.'
+        : 'Start a change with `pnpm fx start "<name>"`, or cd into one; `pnpm fx status` lists them.'
     );
   }
   if (!existsSync(schemaDir(change.worktree))) {
