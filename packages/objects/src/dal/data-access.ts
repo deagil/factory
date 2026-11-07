@@ -27,6 +27,7 @@ import type { AnyField } from "../fields/field.ts";
 import { filterWhere } from "../fields/filters.ts";
 import type { Filterable } from "../fields/filters.ts";
 import { getObject } from "../registry.ts";
+import { createIdentityReader } from "./identity.ts";
 import {
   decodeCursor,
   defaultPageSize,
@@ -363,9 +364,15 @@ export const createDataAccess = ({ executor, canRead }: DataAccessOptions) => {
     }));
   };
 
-  // The logs aren't records of an object, so the read hook doesn't apply;
-  // the queries that read them check their own permissions.
-  return { get, history, list, ...createLogReader(executor) };
+  // The logs and identities aren't records of an object, so the read hook
+  // doesn't apply; the queries that read them check their own permissions.
+  return {
+    get,
+    history,
+    list,
+    ...createLogReader(executor),
+    ...createIdentityReader(executor),
+  };
 };
 
 /** A data access layer, as actions get it through `ctx.dal`. */
