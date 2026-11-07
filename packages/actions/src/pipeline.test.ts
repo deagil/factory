@@ -81,7 +81,7 @@ describe("the action pipeline", () => {
     ({ userId } = actor);
     pipeline = createPipeline({
       db: crm.db,
-      config: { sha: null },
+      config: { sha: null, roles: [] },
       clock: { now: () => clock },
     });
   });
@@ -155,11 +155,14 @@ describe("the action pipeline", () => {
   it("authorises: a refusal changes nothing and leaves one failed row", async () => {
     const strict = createPipeline({
       db: crm.db,
-      config: { sha: null },
+      config: { sha: null, roles: [] },
       clock: { now: () => clock },
       permissions: {
-        authorise: (_actor, definition) => failures.forbidden(definition.name),
-        canRead: () => "all",
+        load: () =>
+          Promise.resolve({
+            authorise: (definition) => failures.forbidden(definition.name),
+            canRead: () => "all" as const,
+          }),
       },
     });
     const result = await strict.run(
@@ -178,7 +181,7 @@ describe("the action pipeline", () => {
   it("approves: a matching rule parks the action as pending_approval", async () => {
     const guarded = createPipeline({
       db: crm.db,
-      config: { sha: null },
+      config: { sha: null, roles: [] },
       clock: { now: () => clock },
       approvals: () => "big-customers",
     });

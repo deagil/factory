@@ -14,7 +14,6 @@ import {
 } from "@workspace/db";
 import type { Db, Tx } from "@workspace/db";
 import { createDataAccess, createRepository } from "@workspace/objects";
-import type { AnyObjectDefinition, ReadAccess } from "@workspace/objects";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -23,13 +22,14 @@ import type { EmittedEvent } from "./context.ts";
 import type {
   Actor,
   AnyActionDefinition,
-  AnyDefinition,
   AnyQueryDefinition,
   Clock,
   ConfigService,
 } from "./define-action.ts";
 import { failures, isActionFailure } from "./errors.ts";
 import type { ActionError, ActionFailure } from "./errors.ts";
+import { allowAll } from "./permissions.ts";
+import type { Granted, Permissions } from "./permissions.ts";
 
 /** Who is calling: an actor, and the person at the start of the chain. */
 export interface Caller {
@@ -90,18 +90,6 @@ export type QueryResult =
   | { ok: false; error: RunError };
 
 /**
- * Who may do what. P1.11 backs these with roles; until then everything is
- * allowed. `authorise` returns a failure (`failures.forbidden`) to refuse, or null.
- */
-export interface Permissions {
-  authorise: (
-    actor: Actor,
-    definition: AnyDefinition
-  ) => ActionFailure | null | Promise<ActionFailure | null>;
-  canRead: (actor: Actor, object: AnyObjectDefinition) => ReadAccess;
-}
-
-/**
  * Approval rules. Phase 2 plugs rules in; until then none match. Returns the
  * key of the rule that matched, or null.
  */
@@ -118,11 +106,6 @@ export interface PipelineOptions {
   permissions?: Permissions;
   approvals?: ApprovalRules;
 }
-
-export const allowAll: Permissions = {
-  authorise: () => null,
-  canRead: () => "all",
-};
 
 const noRules: ApprovalRules = () => null;
 
@@ -186,9 +169,13 @@ const errorFrom = (thrown: unknown): { error: RunError; logged: RunError } => {
   };
 };
 
+const dalFor = (executor: Db | Tx, granted: Granted) =>
+  createDataAccess({ executor, canRead: granted.canRead });
+
 /** One run's who, what and how. */
 interface RunState {
   action: AnyActionDefinition;
+  granted: Granted;
   input: unknown;
   actor: Actor;
   originUserId: string | null;
@@ -226,12 +213,6 @@ export const createPipeline = ({
     "actor.active",
     "The caller isn't a known, active actor"
   ).error;
-
-  const dalFor = (executor: Db | Tx, actor: Actor) =>
-    createDataAccess({
-      executor,
-      canRead: (object) => permissions.canRead(actor, object),
-    });
 
   /** The columns every action_log row for this run has. */
   const rowFor = (state: RunState) => ({
@@ -336,7 +317,7 @@ export const createPipeline = ({
           actorId: actor.id,
           now: clock.now,
         }),
-        dal: dalFor(tx, actor),
+        dal: dalFor(tx, state.granted),
         config,
         clock,
         actor,
@@ -430,7 +411,8 @@ export const createPipeline = ({
     if (!who) {
       return { ok: false, error: unknownActor, actionId: null };
     }
-    const state: RunState = { action, input, ...who, options };
+    const granted = await permissions.load(who.actor);
+    const state: RunState = { action, input, granted, ...who, options };
 
     // 2. Validate.
     const parsed = action.input.safeParse(input);
@@ -443,7 +425,7 @@ export const createPipeline = ({
       return earlier;
     }
     // 4. Authorise.
-    const denied = await permissions.authorise(state.actor, action);
+    const denied = granted.authorise(action);
     if (denied) {
       return fail(state, denied.error);
     }
@@ -478,13 +460,14 @@ export const createPipeline = ({
     if (!parsed.success) {
       return { ok: false, error: failures.invalidInput(parsed.error).error };
     }
-    const denied = await permissions.authorise(actor, definition);
+    const granted = await permissions.load(actor);
+    const denied = granted.authorise(definition);
     if (denied) {
       return { ok: false, error: denied.error };
     }
     try {
       const ctx = createQueryContext({
-        dal: dalFor(db, actor),
+        dal: dalFor(db, granted),
         config,
         clock,
         actor,

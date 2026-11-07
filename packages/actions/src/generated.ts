@@ -13,6 +13,7 @@ import type {
   AnyDefinition,
   AnyQueryDefinition,
   ObjectSchema,
+  ObjectVerb,
 } from "./define-action.ts";
 
 const changes = z.record(z.string(), z.unknown());
@@ -173,19 +174,33 @@ const listQuery = (object: AnyObjectDefinition) => {
  * gets no generated action. Read-only fields are already out of
  * `object.schemas.update`.
  */
+/** `definition`, marked with the object permission it needs. */
+const needs = <TDefinition extends AnyDefinition>(
+  definition: TDefinition,
+  object: AnyObjectDefinition,
+  can: ObjectVerb
+): TDefinition =>
+  Object.freeze({
+    ...definition,
+    objectPermission: { object: object.name, can },
+  });
+
 export const generateDefinitions = (
   object: AnyObjectDefinition
 ): AnyDefinition[] => {
   const actions: AnyActionDefinition[] = [];
   if (object.actions.create.generated) {
-    actions.push(createAction(object));
+    actions.push(needs(createAction(object), object, "create"));
   }
   if (object.actions.update.generated) {
-    actions.push(updateAction(object));
+    actions.push(needs(updateAction(object), object, "update"));
   }
   if (object.actions.archive.generated) {
-    actions.push(archiveAction(object));
+    actions.push(needs(archiveAction(object), object, "archive"));
   }
-  const queries: AnyQueryDefinition[] = [getQuery(object), listQuery(object)];
+  const queries: AnyQueryDefinition[] = [
+    needs(getQuery(object), object, "view"),
+    needs(listQuery(object), object, "view"),
+  ];
   return [...actions, ...queries];
 };

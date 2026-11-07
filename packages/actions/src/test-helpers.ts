@@ -23,7 +23,7 @@ export const services = (
 ): ActionServices => ({
   repo: unused("repo") as Repository,
   dal: unused("dal") as DataAccess,
-  config: { sha: null },
+  config: { sha: null, roles: [] },
   clock: { now: () => new Date("2026-11-07T09:00:00Z") },
   actor: {
     id: "00000000-0000-7000-8000-000000000001",
