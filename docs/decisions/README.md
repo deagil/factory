@@ -33,6 +33,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0027 | [The HTTP API's shape](0027-http-api-shape.md) | Accepted |
 | 0028 | [MCP tools](0028-mcp-tools.md) | Accepted |
 | 0029 | [`system.describe`](0029-system-describe.md) | Accepted |
+| 0030 | [Contract tests across surfaces](0030-contract-tests-across-surfaces.md) | Accepted |
 
 ## Template
 

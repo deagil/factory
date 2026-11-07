@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createTestApi, registry } from "./test-api.ts";
-import type { TestApi } from "./test-api.ts";
+import { createTestApi, registry } from "./testing/test-api.ts";
+import type { TestApi } from "./testing/test-api.ts";
 
 interface Tool {
   name: string;
   title: string;
+  inputSchema: { properties?: Record<string, unknown> };
   annotations: { readOnlyHint: boolean };
 }
 
@@ -84,6 +85,14 @@ describe("MCP server", () => {
       originUserId: test.actors.sarahUser,
       status: "succeeded",
     });
+  });
+
+  it("advertises each tool's input schema", async () => {
+    const { body } = await rpc("tools/list");
+    const tool = (body.result.tools as Tool[]).find(
+      (each) => each.name === "organisation_create"
+    );
+    expect(tool?.inputSchema.properties).toHaveProperty("name");
   });
 
   it("returns a typed error as a tool error", async () => {
