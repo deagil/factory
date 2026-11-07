@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from "node:timers/promises";
+
 import { actionLog, auditLog, eventLog } from "@workspace/db";
 import {
   createCrmDatabase,
@@ -40,6 +42,24 @@ const createOrg = (
       return then === "badOutput" ? ({ id: 42 } as never) : { id: org.id };
     },
   });
+
+/** An action that counts its runs and takes a moment over each. */
+const slowCreate = (name: string) => {
+  const counter = { runs: 0 };
+  const action = defineAction({
+    name,
+    description: "Create an organisation slowly",
+    input: z.object({ name: z.string() }),
+    output: z.object({ id: z.string() }),
+    handler: async (ctx, input) => {
+      counter.runs += 1;
+      const org = await ctx.repo.create(organisation, input);
+      await sleep(100);
+      return { id: org.id };
+    },
+  });
+  return { action, counter };
+};
 
 describe("the action pipeline", () => {
   let crm: CrmDatabase;
@@ -220,5 +240,80 @@ describe("the action pipeline", () => {
     const result = await pipeline.query(count, {}, caller);
     expect(result).toStrictEqual({ ok: true, output: { count: 1 } });
     await expect(logRows("org.count")).resolves.toHaveLength(0);
+  });
+
+  describe("retry keys", () => {
+    it("return the earlier result without running again", async () => {
+      const { action, counter } = slowCreate("org.retried");
+      const options = { retryKey: "k1" };
+      const first = await pipeline.run(
+        action,
+        { name: "Once" },
+        caller,
+        options
+      );
+      const second = await pipeline.run(
+        action,
+        { name: "Once" },
+        caller,
+        options
+      );
+      expect(counter.runs).toBe(1);
+      expect(second).toStrictEqual({
+        ...first,
+        events: [],
+        replayed: true,
+      });
+      await expect(orgsNamed("Once")).resolves.toHaveLength(1);
+    });
+
+    it("run the handler once for two concurrent calls", async () => {
+      const { action, counter } = slowCreate("org.raced");
+      const options = { retryKey: "k2" };
+      const [a, b] = await Promise.all([
+        pipeline.run(action, { name: "Raced" }, caller, options),
+        pipeline.run(action, { name: "Raced" }, caller, options),
+      ]);
+      expect(counter.runs).toBe(1);
+      expect(a?.ok && b?.ok && a.output).toStrictEqual(b?.ok && b.output);
+      await expect(orgsNamed("Raced")).resolves.toHaveLength(1);
+    });
+
+    it("refuse a key reused for a different input", async () => {
+      const { action } = slowCreate("org.reused");
+      const options = { retryKey: "k3" };
+      await pipeline.run(action, { name: "First" }, caller, options);
+      const result = await pipeline.run(
+        action,
+        { name: "Other" },
+        caller,
+        options
+      );
+      expect(result).toMatchObject({ ok: false, error: { code: "conflict" } });
+    });
+  });
+
+  it("dry runs report what would happen and change nothing but one row", async () => {
+    const result = await pipeline.run(
+      createOrg("org.dry"),
+      { name: "Dry" },
+      caller,
+      { dryRun: true }
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      dryRun: true,
+      events: [{ type: "organisation.created" }],
+      changes: [{ object: "organisation", before: {}, after: { name: "Dry" } }],
+    });
+    await expect(orgsNamed("Dry")).resolves.toHaveLength(0);
+    await expect(logRows("org.dry")).resolves.toMatchObject([
+      { dryRun: true, status: "succeeded" },
+    ]);
+    const events = await crm.db
+      .select()
+      .from(eventLog)
+      .where(eq(eventLog.actionId, result.actionId ?? ""));
+    expect(events).toStrictEqual([]);
   });
 });

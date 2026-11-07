@@ -1,13 +1,21 @@
 // The action pipeline: every action, whoever calls it, runs identify,
 // validate, authorise, approve, run, record and commit in one transaction.
 // Queries run identify, validate, authorise and run. See
-// docs/SYSTEM_DESIGN.md section 4.2 and decision 0020.
+// docs/SYSTEM_DESIGN.md section 4.2 and decisions 0020 and 0021.
 
-import { actionLog, actors, eventLog, withTransaction } from "@workspace/db";
+import { isDeepStrictEqual } from "node:util";
+
+import {
+  actionLog,
+  actors,
+  auditLog,
+  eventLog,
+  withTransaction,
+} from "@workspace/db";
 import type { Db, Tx } from "@workspace/db";
 import { createDataAccess, createRepository } from "@workspace/objects";
 import type { AnyObjectDefinition, ReadAccess } from "@workspace/objects";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { createActionContext, createQueryContext } from "./context.ts";
@@ -41,6 +49,24 @@ export interface InternalError {
 
 export type RunError = ActionError | InternalError;
 
+export interface RunOptions {
+  /**
+   * A key the caller chooses. A second run by the same actor with the same
+   * key returns the first successful run's result without running again.
+   */
+  retryKey?: string;
+  /** Run every stage, then roll back and report what would have happened. */
+  dryRun?: boolean;
+}
+
+/** One record change, as its audit_log row has it. */
+export interface RecordChange {
+  object: string;
+  recordId: string;
+  before: unknown;
+  after: unknown;
+}
+
 export type ActionResult =
   | {
       ok: true;
@@ -48,9 +74,16 @@ export type ActionResult =
       /** The action_log row. */
       actionId: string;
       events: EmittedEvent[];
+      /** True when a retry key matched an earlier run, which isn't run again. */
+      replayed: boolean;
+      dryRun: boolean;
+      /** Dry runs only: the record changes that were rolled back. */
+      changes?: RecordChange[];
     }
   /** `actionId` is null when the caller couldn't be identified. */
   | { ok: false; error: RunError; actionId: string | null };
+
+type Success = Extract<ActionResult, { ok: true }>;
 
 export type QueryResult =
   | { ok: true; output: unknown }
@@ -93,15 +126,43 @@ export const allowAll: Permissions = {
 
 const noRules: ApprovalRules = () => null;
 
-/** Carries a typed failure out of the transaction, rolling it back. */
+/**
+ * Rolls the run's transaction back, carrying out either the typed failure
+ * the handler gave or, for a dry run, what would have happened.
+ */
 class RollbackError extends Error {
-  readonly failure: ActionFailure;
-  constructor(failure: ActionFailure) {
-    super(failure.error.message);
+  readonly failure: ActionFailure | undefined;
+  readonly dryRun: Success | undefined;
+  constructor(carried: { failure: ActionFailure } | { dryRun: Success }) {
+    super("failure" in carried ? carried.failure.error.message : "dry run");
     this.name = "RollbackError";
-    this.failure = failure;
+    this.failure = "failure" in carried ? carried.failure : undefined;
+    this.dryRun = "dryRun" in carried ? carried.dryRun : undefined;
   }
 }
+
+const retryKeyIndex = "action_log_retry_key_unique";
+
+/** Whether `thrown` is Postgres refusing a second success for a retry key. */
+const isRetryKeyClash = (thrown: unknown): boolean => {
+  let current: unknown = thrown;
+  while (current instanceof Error) {
+    const { code, constraint } = current as Error & {
+      code?: string;
+      constraint?: string;
+    };
+    if (code === "23505" && constraint === retryKeyIndex) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+};
+
+/** A value as it comes back from a jsonb column. */
+const asStored = (value: unknown): unknown =>
+  // oxlint-disable-next-line unicorn/prefer-structured-clone -- the JSON round trip is the point
+  JSON.parse(JSON.stringify(value ?? null));
 
 const internal = (message: string): InternalError => ({
   code: "internal",
@@ -110,7 +171,7 @@ const internal = (message: string): InternalError => ({
 
 /** The error to record and return for whatever a run threw. */
 const errorFrom = (thrown: unknown): { error: RunError; logged: RunError } => {
-  if (thrown instanceof RollbackError) {
+  if (thrown instanceof RollbackError && thrown.failure) {
     return { error: thrown.failure.error, logged: thrown.failure.error };
   }
   if (isActionFailure(thrown)) {
@@ -124,6 +185,15 @@ const errorFrom = (thrown: unknown): { error: RunError; logged: RunError } => {
     logged: internal(message),
   };
 };
+
+/** One run's who, what and how. */
+interface RunState {
+  action: AnyActionDefinition;
+  input: unknown;
+  actor: Actor;
+  originUserId: string | null;
+  options: RunOptions;
+}
 
 export const createPipeline = ({
   db,
@@ -163,26 +233,30 @@ export const createPipeline = ({
       canRead: (object) => permissions.canRead(actor, object),
     });
 
-  /** Writes a failed action's action_log row, in its own transaction. */
-  const logFailure = async (
-    action: AnyActionDefinition,
-    actor: Actor,
-    originUserId: string | null,
-    input: unknown,
-    error: RunError,
-    status: "failed" | "pending_approval" = "failed"
+  /** The columns every action_log row for this run has. */
+  const rowFor = (state: RunState) => ({
+    name: state.action.name,
+    actorId: state.actor.id,
+    originUserId: state.originUserId,
+    input: state.input ?? null,
+    retryKey: state.options.retryKey ?? null,
+    dryRun: state.options.dryRun ?? false,
+    configSha: config.sha,
+  });
+
+  /** Writes a finished row outside the run's (rolled-back) transaction. */
+  const writeRow = async (
+    state: RunState,
+    outcome:
+      | { status: "failed" | "pending_approval"; error: RunError }
+      | { status: "succeeded"; result: unknown }
   ) => {
     const now = clock.now();
     const [row] = await db
       .insert(actionLog)
       .values({
-        name: action.name,
-        actorId: actor.id,
-        originUserId,
-        input: input ?? null,
-        error,
-        status,
-        configSha: config.sha,
+        ...rowFor(state),
+        ...outcome,
         createdAt: now,
         completedAt: now,
       })
@@ -190,122 +264,202 @@ export const createPipeline = ({
     return row?.id ?? null;
   };
 
+  const fail = async (
+    state: RunState,
+    error: RunError,
+    status: "failed" | "pending_approval" = "failed"
+  ) => ({
+    ok: false as const,
+    error,
+    actionId: await writeRow(state, { status, error }),
+  });
+
+  /** 3. Retry key: the earlier success with this key, if there is one. */
+  const replay = async (state: RunState): Promise<ActionResult | null> => {
+    const { retryKey, dryRun } = state.options;
+    if (retryKey === undefined || dryRun) {
+      return null;
+    }
+    const [earlier] = await db
+      .select()
+      .from(actionLog)
+      .where(
+        and(
+          eq(actionLog.actorId, state.actor.id),
+          eq(actionLog.retryKey, retryKey),
+          eq(actionLog.status, "succeeded"),
+          eq(actionLog.dryRun, false)
+        )
+      );
+    if (!earlier) {
+      return null;
+    }
+    if (
+      earlier.name !== state.action.name ||
+      !isDeepStrictEqual(earlier.input, asStored(state.input))
+    ) {
+      return fail(
+        state,
+        failures.conflict(
+          "This retry key was already used for a different call. Use a new key."
+        ).error
+      );
+    }
+    return {
+      ok: true,
+      output: earlier.result,
+      actionId: earlier.id,
+      events: [],
+      replayed: true,
+      dryRun: false,
+    };
+  };
+
+  /** 6–8. Run, record and commit, together or not at all. */
+  const execute = (state: RunState, input: unknown): Promise<Success> =>
+    withTransaction(db, async (tx) => {
+      const { action, actor, originUserId } = state;
+      const dryRun = state.options.dryRun ?? false;
+      const [logged] = await tx
+        .insert(actionLog)
+        .values({
+          ...rowFor(state),
+          status: "succeeded",
+          createdAt: clock.now(),
+        })
+        .returning({ id: actionLog.id });
+      const actionId = logged?.id ?? "";
+      const { ctx, events } = createActionContext(action, {
+        repo: createRepository({
+          executor: tx,
+          actionId,
+          actorId: actor.id,
+          now: clock.now,
+        }),
+        dal: dalFor(tx, actor),
+        config,
+        clock,
+        actor,
+        originUserId,
+      });
+
+      const returned = await action.handler(ctx, input);
+      if (isActionFailure(returned)) {
+        throw new RollbackError({ failure: returned });
+      }
+      const output = action.output.safeParse(returned);
+      if (!output.success) {
+        throw new Error(
+          `${action.name} returned output that doesn't fit its schema:\n${z.prettifyError(output.error)}`
+        );
+      }
+
+      // 7. Record.
+      const emitted = events();
+      if (emitted.length > 0) {
+        await tx.insert(eventLog).values(
+          emitted.map((event) => ({
+            type: event.type,
+            payload: event.payload,
+            actionId,
+            originUserId,
+            depth: 0,
+            createdAt: clock.now(),
+          }))
+        );
+      }
+      await tx
+        .update(actionLog)
+        .set({ result: output.data, completedAt: clock.now() })
+        .where(eq(actionLog.id, actionId));
+      const result: Success = {
+        ok: true,
+        output: output.data,
+        actionId,
+        events: emitted,
+        replayed: false,
+        dryRun,
+      };
+      if (dryRun) {
+        const changes = await tx
+          .select({
+            object: auditLog.object,
+            recordId: auditLog.recordId,
+            before: auditLog.before,
+            after: auditLog.after,
+          })
+          .from(auditLog)
+          .where(eq(auditLog.actionId, actionId));
+        throw new RollbackError({ dryRun: { ...result, changes } });
+      }
+      return result;
+    });
+
+  /** What a run that threw comes to: a dry run's report, a replay or a failure. */
+  const settle = async (
+    state: RunState,
+    thrown: unknown
+  ): Promise<ActionResult> => {
+    if (thrown instanceof RollbackError && thrown.dryRun) {
+      const actionId = await writeRow(state, {
+        status: "succeeded",
+        result: thrown.dryRun.output,
+      });
+      return { ...thrown.dryRun, actionId: actionId ?? "" };
+    }
+    if (isRetryKeyClash(thrown)) {
+      // Another run with this key committed first; return its result.
+      const earlier = await replay(state);
+      if (earlier) {
+        return earlier;
+      }
+    }
+    const { error, logged } = errorFrom(thrown);
+    const actionId = await writeRow(state, { status: "failed", error: logged });
+    return { ok: false, error, actionId };
+  };
+
   /** Runs `action` for `caller`. Never throws for a failed action. */
   const run = async (
     action: AnyActionDefinition,
     input: unknown,
-    caller: Caller
+    caller: Caller,
+    options: RunOptions = {}
   ): Promise<ActionResult> => {
     const who = await identify(caller);
     if (!who) {
       return { ok: false, error: unknownActor, actionId: null };
     }
-    const { actor, originUserId } = who;
-    const fail = async (error: RunError, status?: "pending_approval") => ({
-      ok: false as const,
-      error,
-      actionId: await logFailure(
-        action,
-        actor,
-        originUserId,
-        input,
-        error,
-        status
-      ),
-    });
+    const state: RunState = { action, input, ...who, options };
 
     // 2. Validate.
     const parsed = action.input.safeParse(input);
     if (!parsed.success) {
-      return fail(failures.invalidInput(parsed.error).error);
+      return fail(state, failures.invalidInput(parsed.error).error);
+    }
+    // 3. Retry key.
+    const earlier = await replay(state);
+    if (earlier) {
+      return earlier;
     }
     // 4. Authorise.
-    const denied = await permissions.authorise(actor, action);
+    const denied = await permissions.authorise(state.actor, action);
     if (denied) {
-      return fail(denied.error);
+      return fail(state, denied.error);
     }
     // 5. Approve: phase 2 parks the action; until then no rule matches.
-    const rule = await approvals(action, parsed.data, actor);
+    const rule = await approvals(action, parsed.data, state.actor);
     if (rule) {
-      return fail(failures.needsApproval(rule).error, "pending_approval");
-    }
-
-    // 6–8. Run, record and commit, together or not at all.
-    try {
-      return await withTransaction(db, async (tx) => {
-        const [logged] = await tx
-          .insert(actionLog)
-          .values({
-            name: action.name,
-            actorId: actor.id,
-            originUserId,
-            input: input ?? null,
-            status: "succeeded",
-            configSha: config.sha,
-            createdAt: clock.now(),
-          })
-          .returning({ id: actionLog.id });
-        const actionId = logged?.id ?? "";
-        const { ctx, events } = createActionContext(action, {
-          repo: createRepository({
-            executor: tx,
-            actionId,
-            actorId: actor.id,
-            now: clock.now,
-          }),
-          dal: dalFor(tx, actor),
-          config,
-          clock,
-          actor,
-          originUserId,
-        });
-
-        const returned = await action.handler(ctx, parsed.data);
-        if (isActionFailure(returned)) {
-          throw new RollbackError(returned);
-        }
-        const output = action.output.safeParse(returned);
-        if (!output.success) {
-          throw new Error(
-            `${action.name} returned output that doesn't fit its schema:\n${z.prettifyError(output.error)}`
-          );
-        }
-
-        // 7. Record.
-        const emitted = events();
-        if (emitted.length > 0) {
-          await tx.insert(eventLog).values(
-            emitted.map((event) => ({
-              type: event.type,
-              payload: event.payload,
-              actionId,
-              originUserId,
-              depth: 0,
-              createdAt: clock.now(),
-            }))
-          );
-        }
-        await tx
-          .update(actionLog)
-          .set({ result: output.data, completedAt: clock.now() })
-          .where(eq(actionLog.id, actionId));
-        return {
-          ok: true as const,
-          output: output.data,
-          actionId,
-          events: emitted,
-        };
-      });
-    } catch (error_) {
-      const { error, logged } = errorFrom(error_);
-      const actionId = await logFailure(
-        action,
-        actor,
-        originUserId,
-        input,
-        logged
+      return fail(
+        state,
+        failures.needsApproval(rule).error,
+        "pending_approval"
       );
-      return { ok: false, error, actionId };
+    }
+    try {
+      return await execute(state, parsed.data);
+    } catch (error) {
+      return settle(state, error);
     }
   };
 

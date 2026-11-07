@@ -53,5 +53,7 @@ export type {
   Pipeline,
   PipelineOptions,
   QueryResult,
+  RecordChange,
   RunError,
+  RunOptions,
 } from "./pipeline.ts";

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "action_log_retry_key_unique" ON "action_log" USING btree ("actor_id","retry_key") WHERE "action_log"."retry_key" is not null and "action_log"."status" = 'succeeded' and not "action_log"."dry_run";

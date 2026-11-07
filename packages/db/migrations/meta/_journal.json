@@ -22,6 +22,13 @@
       "when": 1794006149799,
       "tag": "0002_p1_05a_drop_audit_log_old_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794048956953,
+      "tag": "0003_p1_08_retry_keys_dry_run",
+      "breakpoints": true
     }
   ]
 }

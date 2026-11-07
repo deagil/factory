@@ -24,6 +24,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0018 | [One `audit_log` row per record change](0018-audit-log-row-per-change.md) | Accepted |
 | 0019 | [`defineAction`, the handler context and typed errors](0019-define-action-context-and-errors.md) | Accepted |
 | 0020 | [How the action pipeline runs and records](0020-action-pipeline.md) | Accepted |
+| 0021 | [Retry keys and dry runs](0021-retry-keys-and-dry-runs.md) | Accepted |
 
 ## Template
 
