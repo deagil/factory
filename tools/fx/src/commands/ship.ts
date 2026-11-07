@@ -377,6 +377,16 @@ const commitMessages = async (
 };
 
 /**
+ * The branch's commit messages for its pull request, oldest first. They are
+ * counted from `origin/<base>`, which ship has just rebased on: a local
+ * `main` that lags or has diverged would pull other changes' commits in.
+ */
+export const pullRequestMessages = (
+  worktree: string,
+  base: string
+): Promise<string[]> => commitMessages(worktree, `origin/${base}`);
+
+/**
  * The pull request title is the first commit's subject, which is what a
  * squash onto main keeps. The body is every commit, so a later ship can
  * refresh it.
@@ -397,7 +407,7 @@ export const openWithGh: OpenPullRequest = async (worktree, branch, base) => {
   if (!(await ghInstalled(worktree))) {
     return;
   }
-  const copy = pullRequestCopy(await commitMessages(worktree, base));
+  const copy = pullRequestCopy(await pullRequestMessages(worktree, base));
   const bodyFile = path.join(tmpdir(), `fx-pr-${randomUUID()}.md`);
   await writeFile(bodyFile, copy.body);
   try {
