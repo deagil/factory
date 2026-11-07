@@ -1,7 +1,7 @@
 // `defineSystem` (P1.18, decision 0031): one client's system, from its
 // objects, hand-written actions and queries, and roles. It adds what every
 // system has: the generated actions and queries for each object, the
-// identity actions, `record.history` and `system.describe`.
+// identity actions, `record.history`, the log queries and `system.describe`.
 import {
   allGranted,
   createRegistry,
@@ -9,6 +9,7 @@ import {
   describeQuery,
   generateDefinitions,
   historyQuery,
+  logQueries,
   roleSchema,
 } from "@workspace/actions";
 import type {
@@ -49,6 +50,7 @@ export const defineSystem = (options: SystemOptions): System => {
     ...options.objects.flatMap((object) => generateDefinitions(object)),
     ...identityActions,
     historyQuery(options.objects),
+    ...logQueries,
     ...(options.actions ?? []),
   ];
   const registry = createRegistry([
