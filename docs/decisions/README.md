@@ -35,6 +35,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0029 | [`system.describe`](0029-system-describe.md) | Accepted |
 | 0030 | [Contract tests across surfaces](0030-contract-tests-across-surfaces.md) | Accepted |
 | 0031 | [`defineSystem`, `createServer` and running a system](0031-define-system-and-create-server.md) | Accepted |
+| 0032 | [How the web app reaches the API](0032-web-app-reaches-the-api.md) | Accepted |
 
 ## Template
 
