@@ -224,9 +224,9 @@ const stopSignals = ["SIGINT", "SIGTERM"] as const;
 const stopGraceMs = 10_000;
 
 /**
- * The worktree's own `turbo dev`, run directly rather than through
- * `pnpm dev`: pnpm's launcher adds processes that don't always pass
- * signals on.
+ * The worktree's own `turbo run dev db:studio` (the dev servers and Drizzle
+ * Studio), run directly rather than through `pnpm dev`: pnpm's launcher
+ * adds processes that don't always pass signals on.
  */
 const devServersCommand = (worktree: string): [string, ...string[]] => {
   const turbo = path.join(worktree, "node_modules", ".bin", "turbo");
@@ -237,7 +237,7 @@ const devServersCommand = (worktree: string): [string, ...string[]] => {
       "Run `pnpm install` in the worktree."
     );
   }
-  return [turbo, "dev", "--ui=stream"];
+  return [turbo, "run", "dev", "db:studio", "--ui=stream"];
 };
 
 /**

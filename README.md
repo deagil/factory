@@ -70,10 +70,10 @@ corepack enable           # pnpm at the version in package.json
 pnpm install
 [ -f .env ] || cp .env.example .env   # local defaults work as they are
 pnpm db:up                # Postgres 18 in Docker; waits until it is healthy
-pnpm dev                  # migrates the database in .env, then runs the CRM server and the web app
+pnpm dev                  # migrates the database in .env, then runs the CRM server, the web app and Drizzle Studio
 ```
 
-In the main checkout, `pnpm dev` runs the example CRM on the main `factory` database, so you can look around without starting a change: sign in at <http://localhost:3000> as `admin@example.com` with the code printed in the console, and see the data with `pnpm db:studio`. In a change's worktree, use `pnpm fx dev` instead, which runs on the change's own database.
+In the main checkout, `pnpm dev` runs the example CRM on the main `factory` database, so you can look around without starting a change: sign in at <http://localhost:3000> as `admin@example.com` with the code printed in the console, and see the data in Drizzle Studio at <https://local.drizzle.studio>. Each process gets its own tab in Turbo's terminal UI. In a change's worktree, use `pnpm fx dev` instead, which runs on the change's own database.
 
 Checks, which CI also runs:
 
@@ -105,7 +105,7 @@ pnpm fx ship                    # rebase, write the migration, run every check, 
 pnpm fx done                    # after the merge: remove the worktree, branches and database
 pnpm fx switch refunds          # where another open change's worktree is
 pnpm fx status                  # the current change and its last checks
-pnpm db:studio                  # Drizzle Studio on the change's database, to look at the data
+pnpm db:studio                  # Drizzle Studio on its own, when the dev servers aren't running
 ```
 
 `main` takes only squash-merged PRs with green CI; see [docs/branch-protection.md](docs/branch-protection.md). Phase 3 adds `fx release`, which promotes a client repo's `main` to `production` on approval.
