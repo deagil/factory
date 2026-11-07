@@ -1,7 +1,14 @@
 import { createTestDatabase } from "@workspace/testing";
 import type { TestDatabase } from "@workspace/testing";
 import { sql } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import type { PgColumnBuilderBase } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -27,7 +34,10 @@ const usersColumns = () => ({
   name: text("name").notNull(),
   email: text("email").notNull(),
   status: text("status").notNull(),
+  emailVerified: boolean("email_verified").notNull(),
+  image: text("image"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });
 
 describe("the schema check", () => {

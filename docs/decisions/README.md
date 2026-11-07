@@ -26,6 +26,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0020 | [How the action pipeline runs and records](0020-action-pipeline.md) | Accepted |
 | 0021 | [Retry keys and dry runs](0021-retry-keys-and-dry-runs.md) | Accepted |
 | 0022 | [The shape of generated actions and queries](0022-generated-actions.md) | Accepted |
+| 0023 | [Sign-in with Better Auth, and where its tables live](0023-sign-in-with-better-auth.md) | Accepted |
 
 ## Template
 

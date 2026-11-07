@@ -45,6 +45,7 @@ const generate = (out: string): string => {
       dialect: "postgresql",
       schema: [relative(coreSchema), relative(fixtureSchema)],
       out: relative(out),
+      schemaFilter: ["public", "auth"],
     })};\n`
   );
   const result = spawnSync(

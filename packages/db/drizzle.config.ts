@@ -12,6 +12,8 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/schema/core.ts",
   out: "./migrations",
+  // Better Auth's tables are in `auth` (decision 0023).
+  schemaFilter: ["public", "auth"],
   dbCredentials: { url: process.env.DATABASE_URL ?? "" },
   strict: true,
   verbose: true,

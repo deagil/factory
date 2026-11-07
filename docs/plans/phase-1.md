@@ -11,8 +11,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P1.01 to P1.09 are done.
-- **Next task:** P1.10, Better Auth sign-in in `packages/auth`. Its identify output feeds `pipeline.run(action, input, { actorId })`: resolve a session to the user's staff actor (find or create on sign-in). Ask before adding Better Auth's dependency only if it isn't already in the stack list (it is: AGENTS.md "Stack").
+- **Status:** in progress. P1.01 to P1.10 are done.
+- **Next task:** P1.11, roles and permissions. Extend `ConfigService` in `packages/actions/src/define-action.ts` with roles, read `actor_roles`, and implement the pipeline's `Permissions` seam (`authorise`, `canRead`) in `packages/actions/src/pipeline.ts`.
 - **Handover:** [phase-1-handover.md](phase-1-handover.md) has the state of the code, the conventions and the traps found so far. Read it before P1.07.
 - **Known issues:**
   - drizzle-kit can't tell a rename from a drop and an add without asking, and it can't ask without a terminal. `fx dev` points to `fx dev --reset`. `fx ship` stops with the expand/contract way: add the new column, copy the data, and drop the old one in a later contract step.
@@ -107,7 +107,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Identity and permissions (`@workspace/auth`; SYSTEM_DESIGN §4.3)
 
-- [ ] **P1.10 Users, actors and sign-in**
+- [x] **P1.10 Users, actors and sign-in**
   - Better Auth with an email code or magic link (console delivery locally), sessions, and its tables in a migration.
   - Signing in finds or creates the user's staff actor.
   - The pipeline's identify stage resolves a session to an actor.
@@ -132,7 +132,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - [ ] **P1.13 Transport prototype and decision**
   - Expose one action over HTTP with OpenAPI, and as an MCP tool, twice: once with our own generator on Hono and once with oRPC.
-  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0023 at the time of writing; 0012 is taken).
+  - Keep whichever needs less code and fewer special cases, delete the other, and record the choice as the next decision record (0024 at the time of writing; 0012 is taken).
   - **Needs:** P1.09.
   - **Done when:** the decision record is merged and only one approach is left in the code.
 
@@ -220,3 +220,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-07 · P1.07 · [#28](https://github.com/deagil/factory/pull/28) · `createPipeline({ db, config, clock, permissions?, approvals? })` in `packages/actions/src/pipeline.ts`, with decision 0020. `run` and `query` return `{ ok, … }` and never throw for a failed action. No in-flight status: the `action_log` row goes in as `succeeded` inside the transaction and is only seen after commit; failures write a separate `failed` row after the rollback, and an approval match writes `pending_approval`. Unknown actors write nothing. Unexpected errors return `internal` with a generic message; the row has the real one. `permissions` and `approvals` are the seams for P1.11 and phase 2; they return a failure or rule key, or null (Oxlint's `no-useless-undefined` rewrites `() => undefined` into an empty function, which `no-empty-function` then refuses). The CRM fixture is now exported from `@workspace/objects/testing` for other packages' tests.
 - 2026-11-07 · P1.08 · [#29](https://github.com/deagil/factory/pull/29) · `run(action, input, caller, { retryKey, dryRun })`, with decision 0021 and a partial unique index `action_log_retry_key_unique` on `(actor_id, retry_key)` for succeeded, non-dry-run rows. A retry key replays the earlier success (`replayed: true`); concurrent calls collide on the index and the loser replays, so the handler runs once (tested with two calls in `Promise.all`). Only successes are remembered, so a key can be retried after a failure; reuse for a different action or input is a `conflict`. A dry run rolls back after record and returns `changes` (its `audit_log` rows) plus one `action_log` row with `dry_run`. To run tests against a schema edit before `fx ship`, I generated a throwaway migration into `packages/db/migrations` and deleted it before committing.
 - 2026-11-07 · P1.09 · [#30](https://github.com/deagil/factory/pull/30) · `generateDefinitions(object)` in `packages/actions/src/generated.ts`, with decision 0022. Inputs are flat (`update` is `{ id, version?, ...fields }`), outputs are `{ record }`, `get` gives `{ record, related }` and `list` the data access layer's page. `.updated` events carry `before` and `after`; a no-op update or a second archive succeeds with no event. Repository `not_found` maps to `not_found`; `conflict` and `archived` map to `conflict`. The generated file is held to the handler boundary like any action file.
+- 2026-11-07 · P1.10 · [#31](https://github.com/deagil/factory/pull/31) · `createAuth({ db, secret, baseURL, sendCode })` in `packages/auth`, with decision 0023 and Better Auth 1.7 (the email OTP and bearer plugins). Better Auth's user is our `users` table (three new columns); its sessions, accounts and verifications are in an `auth` Postgres schema, so drizzle-kit's `schemaFilter` is now `public` and `auth` (the objects fixture generator too). Sign-up is off; disabled users are refused. Signing in finds or creates the staff actor (`staffActorFor` in `@workspace/db`, with a partial unique index on staff actors per user). `callerFrom(headers)` gives the pipeline's caller. Traps: Better Auth's verification ids aren't uuids, so that `id` is text; and Better Auth's `kysely` dependency gives the auth package a second drizzle-orm copy whose types clash, so auth imports no drizzle and its queries live in `@workspace/db`.
