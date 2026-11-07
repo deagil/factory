@@ -12,7 +12,7 @@ import type {
 import { equalityOperators, isNullOperator } from "./filters.ts";
 
 type RefColumns<TRequired extends boolean> = MainColumn<
-  RequiredColumn<PgUUIDBuilderInitial<string>, TRequired>
+  RequiredColumn<PgUUIDBuilderInitial<`${string}_id`>, TRequired>
 >;
 
 const refFilters = {
