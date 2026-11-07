@@ -11,7 +11,7 @@
 ## Resume here
 
 - **Status:** in progress.
-- **Next task:** P1b.02, log queries. P1b.04 and P1b.09 need nothing either.
+- **Next task:** P1b.03, Activity screens. P1b.04 and P1b.09 need nothing either.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. The CRM's seeded users are Admin (`admin@example.com`, admin), Sarah (`sarah@example.com`, sales) and Sam (`sam@example.com`, support).
 
 ## Decisions for this phase
@@ -39,7 +39,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Activity (SYSTEM_DESIGN §4.8)
 
-- [ ] **P1b.02 Log queries**
+- [x] **P1b.02 Log queries**
   - `dal.actions` (filter by actor, action name or prefix, status, dry run and time; newest first; cursor paging), `dal.action(id)` with its `audit_log` and `event_log` rows, `dal.changes` (by object, record, field via `after ? field`, actor and time) and `dal.events` (by type, action and time). Rows name their actor and origin user.
   - Queries `actionLog.list`, `actionLog.get`, `auditLog.list` and `eventLog.list`, added by `defineSystem`. Each needs a permission on its own name; without it, `actionLog.list` and `actionLog.get` return only the caller's own actions (as actor or origin user) and the others are forbidden.
   - **Needs:** nothing.
@@ -114,4 +114,5 @@ These fill gaps until later phases replace them. Don't build further than this.
 <!-- One line per finished task: YYYY-MM-DD · P1b.xx · PR link · notes for the next person -->
 
 - 2026-11-07 · plan written, from a review of phase 1's features against the web app.
-- 2026-11-07 · P1b.01 · PR · Sections in the header, with decision 0033. `navFrom(description)` in `apps/web/src/lib/nav.ts` returns sections of pages (only Data so far); a new section is an entry there with its `SectionKey` and `NavLink` route. Routes set `staticData: { section }` (typed in `router.tsx`), and screens pass `trail` to `PageHeader` instead of a back link; the title is the breadcrumb's last step, so it isn't repeated. Navigation Menu and Breadcrumb are shadcn's, in `packages/ui` (the breadcrumb page's `role="link"` was dropped for lint). The account menu is in the header; the sidebar is the agent's placeholder. Checked in the browser: the admin's Data panel lists Organisations and Contacts with their descriptions, a contact reads `Data › Contacts` above its name, Sam's panel has only Contacts, and at phone width the sections are one Menu dropdown. To run a change's servers beside main's, I used ports 4100 and 3100 (`PORT`, `BETTER_AUTH_URL`, `API_URL`, `vite --port`).
+- 2026-11-07 · P1b.01 · [#54](https://github.com/deagil/factory/pull/54) · Sections in the header, with decision 0033. `navFrom(description)` in `apps/web/src/lib/nav.ts` returns sections of pages (only Data so far); a new section is an entry there with its `SectionKey` and `NavLink` route. Routes set `staticData: { section }` (typed in `router.tsx`), and screens pass `trail` to `PageHeader` instead of a back link; the title is the breadcrumb's last step, so it isn't repeated. Navigation Menu and Breadcrumb are shadcn's, in `packages/ui` (the breadcrumb page's `role="link"` was dropped for lint). The account menu is in the header; the sidebar is the agent's placeholder. Checked in the browser: the admin's Data panel lists Organisations and Contacts with their descriptions, a contact reads `Data › Contacts` above its name, Sam's panel has only Contacts, and at phone width the sections are one Menu dropdown. To run a change's servers beside main's, I used ports 4100 and 3100 (`PORT`, `BETTER_AUTH_URL`, `API_URL`, `vite --port`).
+- 2026-11-07 · P1b.02 · PR · `dal.actions`, `dal.action`, `dal.changes` and `dal.events` in `packages/objects/src/dal/logs.ts`, returned by `createDataAccess` alongside `get`, `list` and `history`. Entries are JSON-safe with ISO times, name their `actor` and `origin` user, and page by an opaque `(at, id)` cursor, newest first. The field filter is `after ? field` through `jsonbHasKey` in `@workspace/db`, so it uses `audit_log`'s GIN index. The queries are in `packages/actions/src/logs.ts`, with their output schemas in `log-schemas.ts` (they need the core's action statuses, and query files may not import `@workspace/db`). `actionLog.list` and `actionLog.get` are `everyone: true` and narrow to the caller's own actions (as actor, or as origin user, so a person sees their agents' actions) unless the caller holds the permission named after the query; the other two need their permission. `defineSystem` registers all four, so the CRM's admin (`action: "*"`) has them and Sarah and Sam have only their own actions.
