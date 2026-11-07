@@ -16,6 +16,7 @@
     "db:migrate": "pnpm --filter @workspace/db db:migrate",
     "db:lint-migrations": "pnpm --filter @workspace/db db:lint-migrations",
     "db:check-migrations": "pnpm --filter @workspace/db db:check-migrations",
+    "db:studio": "pnpm --filter @workspace/example-crm db:studio",
     "fx": "node tools/fx/src/cli.ts"
   },
   "devDependencies": {
