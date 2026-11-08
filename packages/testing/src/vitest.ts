@@ -25,5 +25,10 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     globalSetup: [path.resolve(import.meta.dirname, "global-setup.ts")],
     restoreMocks: true,
+    // Every package's tests run at once, each making databases from
+    // migrations on one Postgres, so on CI a hook that takes 1s alone can
+    // take over 10s. Tests that are slow on purpose still set their own.
+    hookTimeout: 30_000,
+    testTimeout: 15_000,
   },
 });
