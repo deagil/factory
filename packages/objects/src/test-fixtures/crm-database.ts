@@ -84,8 +84,8 @@ export interface CrmDatabase {
 
 /**
  * A fresh test database with the core tables and the objects in `schema`, a
- * file drizzle-kit can load on its own that exports their tables. Systems'
- * tests use it until fx writes systems' own migrations.
+ * file drizzle-kit can load on its own that exports their tables. Systems
+ * have committed migrations and use `createSystemDatabase` instead.
  */
 export const createObjectsDatabase = async (
   schema: string,

@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "drizzle-kit push --force && FACTORY_DEV=1 node --watch src/main.ts",
     "start": "node src/main.ts",
-    "db:studio": "drizzle-kit studio",
+    "db:studio": "drizzle-kit studio --config drizzle.studio.config.ts",
+    "db:lint-migrations": "node node_modules/@workspace/db/src/bin/lint-migrations.ts migrations",
+    "db:check-migrations": "node node_modules/@workspace/db/src/bin/check-migrations.ts .",
     "typecheck": "tsc --noEmit",
     "lint": "ultracite check",
     "test": "vitest run"
@@ -19,6 +21,7 @@
     "@workspace/db": "workspace:*",
     "@workspace/objects": "workspace:*",
     "@workspace/server": "workspace:*",
+    "drizzle-orm": "^0.45.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -10,11 +10,10 @@
 
 ## Resume here
 
-- **Status:** not started. [Phase 1b](phase-1b.md) is done: its screens are where this phase's approvals inbox, config editors and run inspector go.
-- **Next task:** P2.01, system migrations. It closes phase 1's known gap, and choice fields (P2.06) add columns to object tables, so it comes first.
+- **Status:** in progress. P2.01 is done: systems have their own migrations (decision 0036). [Phase 1b](phase-1b.md)'s screens are where this phase's approvals inbox, config editors and run inspector go.
+- **Next task:** P2.02, action ids agents can see. P2.03 (config types) has no dependencies either and starts the config track.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has.
 - **Carried over from phase 1:**
-  - Systems have no committed migrations; `fx ship` writes only the core's (decision 0031). P2.01.
   - MCP results carry `actionId` only in `_meta`, which Claude Code doesn't show the model (found in P1.23). P2.02.
   - Refs to actors have no list query, so the web app shows a plain id input for them (P1.21). P2.07 adds an actor picker.
   - drizzle-kit can't tell a rename from a drop and an add without a terminal, and 0.31 re-adds `actor_roles`' primary key on every push. See [phase-1-handover.md](phase-1-handover.md) for these and the other traps.
@@ -33,7 +32,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Carry-overs
 
-- [ ] **P2.01 System migrations**
+- [x] **P2.01 System migrations**
   - `fx ship` writes one migration for each system package that changed (the core's stays in `packages/db/migrations`), committed in the system package. A system's `start` and its tests apply its migrations after the core's.
   - `db:check-migrations` and the schema check cover systems too.
   - **Needs:** nothing.
@@ -151,3 +150,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 ## Log
 
 - 2026-11-07 · plan · Written at the end of phase 1 (P1.23).
+- 2026-11-08 · P2.01 · Each system keeps its own drizzle journal in `<package>/migrations`, applied after the core's and recorded in `drizzle.__drizzle_migrations_system` (decision 0036). `fx ship` generates in `packages/db` and every system package with a drizzle config, in one migration commit. The CRM's drizzle config now lists only its objects, with a `tablesFilter`, so Studio gets its own config to show the core tables too. drizzle-kit writes foreign keys to `actors` without the core schema loaded. The CRM's tests and `db:check-migrations` build its database from migrations alone.

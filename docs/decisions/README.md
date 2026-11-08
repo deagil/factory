@@ -39,6 +39,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0033 | [Web navigation by section, and what the dev bar is for](0033-web-navigation-and-dev-bar.md) | Accepted |
 | 0034 | [Inviting people, setting roles, and disabling actors](0034-inviting-and-disabling-people.md) | Accepted |
 | 0035 | [Restoring archived records, and archiving in the audit log](0035-restore-and-audited-archiving.md) | Accepted |
+| 0036 | [System migrations](0036-system-migrations.md) | Accepted |
 
 ## Template
 
