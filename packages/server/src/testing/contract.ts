@@ -77,7 +77,10 @@ export const mcpSurface =
     };
     const actionId = result._meta?.actionId ?? null;
     if (!result.isError) {
-      return { ok: true, body: result.structuredContent, actionId };
+      // MCP adds the action id to an action's output; HTTP has it beside.
+      const { actionId: _, ...body } = (result.structuredContent ??
+        {}) as Record<string, unknown>;
+      return { ok: true, body, actionId };
     }
     const text = result.content[0]?.text ?? "";
     const json = text.slice(text.indexOf("\n") + 1);

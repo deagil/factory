@@ -10,11 +10,10 @@
 
 ## Resume here
 
-- **Status:** in progress. P2.01 is done: systems have their own migrations (decision 0036). [Phase 1b](phase-1b.md)'s screens are where this phase's approvals inbox, config editors and run inspector go.
-- **Next task:** P2.02, action ids agents can see. P2.03 (config types) has no dependencies either and starts the config track.
+- **Status:** in progress. P2.01 and P2.02 are done: systems have their own migrations (decision 0036), and agents see action ids. [Phase 1b](phase-1b.md)'s screens are where this phase's approvals inbox, config editors and run inspector go.
+- **Next task:** P2.03, config types and the file format. It starts the config track; settle YAML or JSON in a decision record first.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has.
 - **Carried over from phase 1:**
-  - MCP results carry `actionId` only in `_meta`, which Claude Code doesn't show the model (found in P1.23). P2.02.
   - Refs to actors have no list query, so the web app shows a plain id input for them (P1.21). P2.07 adds an actor picker.
   - drizzle-kit can't tell a rename from a drop and an add without a terminal, and 0.31 re-adds `actor_roles`' primary key on every push. See [phase-1-handover.md](phase-1-handover.md) for these and the other traps.
 
@@ -38,7 +37,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   - **Needs:** nothing.
   - **Done when:** adding a field to a CRM object and running `fx ship` commits a CRM migration, and CI builds the CRM database from migrations alone.
 
-- [ ] **P2.02 Action ids agents can see**
+- [x] **P2.02 Action ids agents can see**
   - MCP tool results show the `actionId` to the model (in the structured content or the text), as well as in `_meta`, so an agent can quote or look up what it did.
   - **Needs:** nothing.
   - **Done when:** Claude Code, asked to create an organisation over MCP, reports the action id, and the contract tests still pass.
@@ -151,3 +150,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 - 2026-11-07 · plan · Written at the end of phase 1 (P1.23).
 - 2026-11-08 · P2.01 · Each system keeps its own drizzle journal in `<package>/migrations`, applied after the core's and recorded in `drizzle.__drizzle_migrations_system` (decision 0036). `fx ship` generates in `packages/db` and every system package with a drizzle config, in one migration commit. The CRM's drizzle config now lists only its objects, with a `tablesFilter`, so Studio gets its own config to show the core tables too. drizzle-kit writes foreign keys to `actors` without the core schema loaded. The CRM's tests and `db:check-migrations` build its database from migrations alone. Surprise: `pnpm format` rewrote the generated snapshot JSON, so oxfmt now ignores every package's `migrations/`, as it did the core's.
+- 2026-11-08 · P2.02 · Surprise: a text block alone wasn't enough. Claude Code shows the model `structuredContent` when a result has one, and ignores the other text blocks, so its first try said the id was missing. An action's `structuredContent` now has `actionId`, and each action tool's output schema has it too. The `actionId: <id>` text block stays for clients that read text, and on errors, which have no structured content. Checked with `claude -p` against the CRM: it reports the action id.

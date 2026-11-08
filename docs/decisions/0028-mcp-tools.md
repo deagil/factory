@@ -11,7 +11,7 @@ P1.15 serves every action and query as an MCP tool (decision 0026). Agents such 
 
 - **Tool names** are the definition name with `_` for the dot (`organisation_create`). Names have exactly one dot and no underscores, so the mapping is one to one. The tool's `title` is the real name.
 - **Each tool** carries the definition's description, input schema and output schema. Queries are marked `readOnlyHint: true`; no tool is marked destructive, since archiving is reversible.
-- **Results:** a success returns the output as `structuredContent` and as JSON text. A typed error returns `isError: true` with the text `<code>: <message>` and the error as JSON, so the model sees why.
+- **Results:** a success returns the output as `structuredContent` and as JSON text. A typed error returns `isError: true` with the text `<code>: <message>` and the error as JSON, so the model sees why. An action's result also carries its action id so an agent can quote or look up what it did (added in P2.02): in `structuredContent.actionId` on success (each action tool's output schema has it), in a second text block `actionId: <id>` on success or error, and in `_meta.actionId`. Claude Code shows the model `structuredContent` when there is one, and never `_meta`.
 - **Sessions:** none. Each request builds a server for its caller, so tool calls need no `initialize` first, and any instance can serve any request.
 - **Callers** are checked by the HTTP API before MCP sees the request; an invalid key gets the API's 401.
 - The server's `instructions` explain actions, queries, tool names and error codes.
