@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   columnsOf,
   displayValue,
+  filterText,
   nextSort,
   titleOf,
   withoutFilter,
@@ -46,6 +47,28 @@ describe("record helpers", () => {
       nextSort(undefined, "name"),
       nextSort("name", "name"),
     ]).toStrictEqual(["name", "-name"]);
+  });
+
+  it("turns a stored filter back into the text its chip edits", () => {
+    const [name] = organisation.fields;
+    if (name === undefined) {
+      throw new Error("organisation has no name field");
+    }
+    const value = {
+      key: "value",
+      type: "money",
+    } as unknown as ObjectDescription["fields"][number];
+    expect(filterText(name, "contains", "acme")).toBe("acme");
+    expect(filterText(name, "isNull", true)).toBe("");
+    expect(
+      filterText(value, "gte", { amount: 1_500_000, currency: "GBP" })
+    ).toBe("15000");
+    expect(filterText(value, "eq", { amount: 1234, currency: "GBP" })).toBe(
+      "12.34"
+    );
+    expect(filterText(name, "where", { category: "open" })).toBe(
+      '{"category":"open"}'
+    );
   });
 
   it("removes one filter, and the field once it has none", () => {
