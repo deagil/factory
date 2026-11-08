@@ -90,7 +90,12 @@ const fakeGenerate: Generate = (worktree, name) => {
   return Promise.resolve(
     recorded.includes(`-- schema: ${schema}\n`)
       ? []
-      : [path.join(migrationsPath, `${addMigration(worktree, name, schema)}.sql`)]
+      : [
+          path.join(
+            migrationsPath,
+            `${addMigration(worktree, name, schema)}.sql`
+          ),
+        ]
   );
 };
 

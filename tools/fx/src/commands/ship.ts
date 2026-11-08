@@ -608,9 +608,8 @@ const updateHistory = async (
   log(`Rebasing ${change.branch} on ${base}…`);
   await rebaseOn(worktree, base);
 
-  const folders = (await migrationTargets(worktree)).map(
-    (target) => target.migrations
-  );
+  const targets = await migrationTargets(worktree);
+  const folders = targets.map((target) => target.migrations);
   const edited = await editedMigrations(worktree, base, folders);
   if (edited.length > 0) {
     throw new FxError(
