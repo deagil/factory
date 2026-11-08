@@ -17,6 +17,7 @@ import {
   actors,
   apiKeys,
   auditLog,
+  configVersions,
   eventLog,
   users,
 } from "./schema/core.ts";
@@ -30,6 +31,7 @@ export const coreTables: readonly PgTable[] = [
   actionLog,
   auditLog,
   eventLog,
+  configVersions,
 ];
 
 /** One way the database differs from the code. */

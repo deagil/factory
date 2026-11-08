@@ -48,6 +48,8 @@ const server = await createServer(crm, {
   trustedOrigins: [`http://localhost:${port}`],
   // `pnpm dev` sets FACTORY_DEV, so the dev bar can sign in as anyone.
   devOutbox: dev && process.env.NODE_ENV !== "production",
+  // Locally, config/ is read from the working tree and reloaded on save.
+  watchConfig: dev,
 });
 const seeded = await seed(crm, server.db, server.pipeline);
 const listening = server.listen(port);

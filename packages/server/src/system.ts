@@ -1,5 +1,6 @@
 // `defineSystem` (P1.18, decision 0031): one client's system, from its
-// objects, hand-written actions and queries, and roles. It adds what every
+// objects, hand-written actions and queries, and its `config/` folder,
+// where its roles live (P2.05). It adds what every
 // system has: the generated actions and queries for each object, the
 // identity actions and queries, `record.history`, the log queries and
 // `system.describe`.
@@ -12,21 +13,19 @@ import {
   historyQuery,
   identityQueries,
   logQueries,
-  roleSchema,
 } from "@workspace/actions";
 import type {
   AnyDefinition,
   Registry,
-  Role,
   SystemDescription,
 } from "@workspace/actions";
 import { identityActions } from "@workspace/auth";
 import { coreConfigTypes, validateConfig } from "@workspace/config";
 import type { ConfigCatalog, ConfigRead } from "@workspace/config";
 import type { AnyObjectDefinition } from "@workspace/objects";
-import { z } from "zod";
 
-import { catalogOf, configValidateQuery } from "./config.ts";
+import { catalogOf } from "./catalog.ts";
+import { configValidateQuery } from "./config.ts";
 
 export interface SystemOptions {
   /** The system's name, such as `acme-crm`. */
@@ -34,8 +33,6 @@ export interface SystemOptions {
   objects: readonly AnyObjectDefinition[];
   /** Hand-written actions and queries. */
   actions?: readonly AnyDefinition[];
-  /** Roles, until phase 2 loads them from config. */
-  roles: readonly Role[];
   /**
    * The system's migrations folder, absolute, which `fx ship` writes from
    * its objects. Applied after the core's (decision 0036).
@@ -51,13 +48,14 @@ export interface SystemOptions {
 export interface System {
   readonly name: string;
   readonly objects: readonly AnyObjectDefinition[];
-  readonly roles: readonly Role[];
   /** Every action and query, generated and hand-written. */
   readonly registry: Registry;
   /** The system's migrations folder, if it has one. */
   readonly migrations: string | undefined;
   /** The system's `config/` folder, if it has one. */
   readonly config: string | undefined;
+  /** What config can refer to: the system's objects, actions and events. */
+  readonly catalog: () => ConfigCatalog;
   /** Checks `config/` against the config types and this system (P2.04). */
   readonly validateConfig: () => ConfigRead;
   /** The object tables, for the schema check. */
@@ -67,7 +65,6 @@ export interface System {
 }
 
 export const defineSystem = (options: SystemOptions): System => {
-  const roles = z.array(roleSchema).parse(options.roles);
   const definitions = [
     ...options.objects.flatMap((object) => generateDefinitions(object)),
     ...identityActions,
@@ -85,9 +82,7 @@ export const defineSystem = (options: SystemOptions): System => {
     }
     return built.catalog;
   };
-  const configQueries = options.config
-    ? [configValidateQuery(options.config, catalogNow)]
-    : [];
+  const configQueries = options.config ? [configValidateQuery] : [];
   const registry = createRegistry([
     ...definitions,
     ...configQueries,
@@ -100,10 +95,10 @@ export const defineSystem = (options: SystemOptions): System => {
   return Object.freeze({
     name: options.name,
     objects: options.objects,
-    roles,
     registry,
     migrations: options.migrations,
     config: options.config,
+    catalog: catalogNow,
     validateConfig: () =>
       options.config
         ? validateConfig(options.config, coreConfigTypes, catalogNow())
