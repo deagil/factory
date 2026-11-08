@@ -78,17 +78,23 @@ const git = async (args: readonly string[], options: RunOptions = {}) => {
       GIT_CONFIG_GLOBAL: "/dev/null",
       ...options.env,
     },
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
   });
   let stdout = "";
   let stderr = "";
-  child.stdout.on("data", (chunk: Buffer) => {
+  child.stdout?.on("data", (chunk: Buffer) => {
     stdout += chunk.toString();
   });
-  child.stderr.on("data", (chunk: Buffer) => {
+  child.stderr?.on("data", (chunk: Buffer) => {
     stderr += chunk.toString();
   });
-  child.stdin.end(options.input ?? "");
+  if (options.input !== undefined) {
+    // git can exit before it reads everything; its exit code says why.
+    child.stdin?.on("error", (error) => {
+      stderr += `\n${error.message}`;
+    });
+    child.stdin?.end(options.input);
+  }
   const [code] = (await once(child, "close")) as [number | null];
   if (code !== 0) {
     throw new GitError(args, code, stderr);
