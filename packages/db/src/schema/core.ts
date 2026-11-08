@@ -1,6 +1,6 @@
 // Core tables: the same in every instance. Columns follow
-// docs/SYSTEM_DESIGN.md section 3. Approval and workflow tables arrive with
-// the phases that use them.
+// docs/SYSTEM_DESIGN.md section 3. Workflow tables arrive with the phase
+// that uses them.
 //
 // Status and kind columns are text with TypeScript enums, not database
 // enums or check constraints, so adding a value later is not a destructive
@@ -276,6 +276,44 @@ export const drafts = pgTable(
   (t) => [
     uniqueIndex("drafts_branch_unique").on(t.branch),
     index("drafts_status_idx").on(t.status),
+  ]
+);
+
+export const approvalSubjects = ["action", "draft"] as const;
+export const approvalStatuses = [
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+] as const;
+
+/**
+ * Sign-offs an approval rule asked for (P2.09, decision 0042): one row per
+ * rule that matched an action (its pending `action_log` row) or covers a
+ * draft. `approver_role` is copied from the rule, so a later edit to the
+ * rule doesn't change who may decide. A save to a draft cancels its rows.
+ * Only the pipeline and the approval and draft actions write it.
+ */
+export const approvals = pgTable(
+  "approvals",
+  {
+    id: id(),
+    subject: text("subject", { enum: approvalSubjects }).notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    ruleKey: text("rule_key").notNull(),
+    approverRole: text("approver_role").notNull(),
+    status: text("status", { enum: approvalStatuses }).notNull(),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => actors.id),
+    decidedBy: uuid("decided_by").references(() => actors.id),
+    comment: text("comment"),
+    createdAt: createdAt(),
+    decidedAt: timestamptz("decided_at"),
+  },
+  (t) => [
+    index("approvals_subject_idx").on(t.subject, t.subjectId),
+    index("approvals_status_idx").on(t.status, t.createdAt),
   ]
 );
 

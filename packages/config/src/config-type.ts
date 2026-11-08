@@ -9,6 +9,10 @@ export const referenceKinds = [
   "field",
   "choice",
   "action",
+  // Any action, generated ones included, as an approval rule names it.
+  "anyAction",
+  // A config type, as an approval rule covering drafts names it.
+  "configType",
   "event",
   "template",
   "role",

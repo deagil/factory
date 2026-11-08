@@ -406,12 +406,15 @@ export const identitySamples = (
 };
 
 /**
- * Samples for the draft actions a system with config has (P2.08). Without
- * a config remote each is refused the same way on every surface.
+ * Samples for the draft and approval actions a system with config has (P2.08,
+ * P2.09). Without a config remote each draft action is refused the same way
+ * on every surface, and there is no approval with the sample id.
  */
-export const draftSamples = (): Record<string, () => Promise<unknown>> => {
+export const configSamples = (): Record<string, () => Promise<unknown>> => {
   const id = "00000000-0000-7000-8000-00000000d4af";
   return {
+    "approval.approve": () => Promise.resolve({ id }),
+    "approval.reject": () => Promise.resolve({ id, comment: "Not now" }),
     "draft.open": () => Promise.resolve({ title: "Sample draft" }),
     "draft.save": () =>
       Promise.resolve({

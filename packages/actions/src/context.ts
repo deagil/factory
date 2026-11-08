@@ -9,6 +9,7 @@ import { z } from "zod";
 import type {
   ActionContext,
   Actor,
+  ApprovalService,
   AnyActionDefinition,
   Clock,
   ConfigService,
@@ -34,6 +35,7 @@ export interface ActionServices extends QueryServices {
   repo: Repository;
   identity: IdentityStore;
   drafts: DraftStore;
+  approvals: ApprovalService;
   dryRun: boolean;
 }
 
@@ -87,6 +89,7 @@ export const createActionContext = <TEmits extends EventSchemas>(
     repo: services.repo,
     identity: services.identity,
     drafts: services.drafts,
+    approvals: services.approvals,
     dryRun: services.dryRun,
     emit,
   }) as ActionContext<TEmits>;

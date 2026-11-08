@@ -2,7 +2,7 @@
 // surfaces. Import from `@workspace/server/testing` in tests only.
 export {
   httpSurface,
-  draftSamples,
+  configSamples,
   identitySamples,
   mcpSurface,
   runContract,

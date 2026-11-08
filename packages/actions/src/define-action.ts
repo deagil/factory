@@ -3,7 +3,7 @@
 // Handlers reach services only through `ctx`. See docs/SYSTEM_DESIGN.md
 // section 4.2 and decision 0019.
 
-import type { DraftStore, IdentityStore } from "@workspace/db";
+import type { ApprovalStore, DraftStore, IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
 import type {
   AnyChoiceList,
@@ -14,7 +14,8 @@ import type {
 } from "@workspace/objects";
 import type { z } from "zod";
 
-import type { ActionFailure, ErrorHelpers } from "./errors.ts";
+import type { ApprovalRule } from "./approval-rules.ts";
+import type { ActionError, ActionFailure, ErrorHelpers } from "./errors.ts";
 import type { Granted, Role } from "./permissions.ts";
 
 /** Time, from the context, so tests and dry runs control it. */
@@ -55,8 +56,34 @@ export interface ConfigService {
   readonly choice?: <TList extends AnyChoiceList>(
     list: TList
   ) => ChoiceListAccess<OptionOf<TList>>;
+  /** Every approval rule (P2.09). None when absent. */
+  readonly approvals?: readonly ApprovalRule[];
   /** Checks `config/` on disk against its schemas and the running code. */
   readonly validate?: () => ConfigCheck;
+}
+
+/** What running an approved action came to (P2.09). */
+export type ResumeResult =
+  | { readonly ok: true; readonly output: unknown }
+  | {
+      readonly ok: false;
+      readonly error: ActionError | { code: "internal"; message: string };
+    };
+
+/**
+ * Approvals, for the approval and draft actions (P2.09): the rows, bound to
+ * the run's transaction, and what the pipeline does to a pending action
+ * once it's decided.
+ */
+export interface ApprovalService extends ApprovalStore {
+  /**
+   * Runs a pending action whose approvals are all approved, as the actor
+   * who asked, in this run's transaction. Its action_log row becomes
+   * succeeded or failed; a second call finds nothing pending and throws.
+   */
+  readonly resume: (actionId: string) => Promise<ResumeResult>;
+  /** Marks a pending action rejected; it never runs. */
+  readonly close: (actionId: string) => Promise<void>;
 }
 
 /** One choice list: `get` returns the option that can be chosen now. */
@@ -206,6 +233,8 @@ export interface ActionContext<
   readonly identity: IdentityStore;
   /** Draft rows, for the core's draft actions (P2.08). */
   readonly drafts: DraftStore;
+  /** Approvals, for the approval and draft actions (P2.09). */
+  readonly approvals: ApprovalService;
   /**
    * Whether this run is a dry run, which is rolled back at the end. Actions
    * whose effects are outside the database check it and don't make them.
@@ -241,6 +270,11 @@ export interface ActionOptions<
    * gets them once; action_log stores "[redacted]".
    */
   redact?: readonly string[];
+  /**
+   * Open to every actor: the pipeline doesn't check a permission, so the
+   * handler must, such as `approval.approve` checking the approver's role.
+   */
+  everyone?: boolean;
   handler: (
     ctx: ActionContext<TEmits>,
     input: z.output<TInput>
@@ -296,6 +330,7 @@ export interface AnyActionDefinition {
   readonly output: ObjectSchema;
   readonly emits: EventSchemas;
   readonly redact: readonly string[];
+  readonly everyone?: boolean;
   readonly handler: (ctx: any, input: any) => unknown;
   readonly objectPermission?: ObjectPermission;
 }
@@ -361,6 +396,7 @@ export const defineAction = <
     output: options.output,
     emits: Object.freeze({ ...options.emits }) as TEmits,
     redact: Object.freeze([...(options.redact ?? [])]),
+    everyone: options.everyone ?? false,
     handler: options.handler,
   });
 };

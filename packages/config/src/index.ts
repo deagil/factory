@@ -20,6 +20,7 @@ export {
 } from "./read.ts";
 export type { ConfigFile, ConfigProblem, ConfigRead } from "./read.ts";
 export { roleConfigType, roleReferences } from "./roles.ts";
+export { approvalConfigType, approvalReferences } from "./approvals.ts";
 export {
   choiceConfigType,
   choiceListSchema,

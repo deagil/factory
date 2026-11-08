@@ -131,6 +131,10 @@ export const createServer = async (system: System, options: ServerOptions) => {
     git,
     clock: { now: () => new Date() },
     permissions: rolePermissions({ db, config }),
+    actions: (name) => {
+      const definition = system.registry.get(name);
+      return definition?.kind === "action" ? definition : undefined;
+    },
   });
   const outbox = options.devOutbox ? createDevOutbox() : null;
   const auth = createAuth({

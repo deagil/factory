@@ -1,0 +1,5 @@
+key: archive-organisations
+label: Archiving an organisation
+description: An organisation's contacts and deals go with it, so an admin checks first.
+action: organisation.archive
+approver: admin

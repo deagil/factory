@@ -68,6 +68,8 @@ export interface Granted {
   /** A permission failure naming what's missing, or null. */
   authorise: (definition: AnyDefinition) => ActionFailure | null;
   canRead: (object: AnyObjectDefinition) => ReadAccess;
+  /** Whether the actor holds the role `key`, as approvers must (P2.09). */
+  holds: (key: string) => boolean;
 }
 
 /** What `permissions` holds: whoever loads an actor's granted set. */
@@ -92,7 +94,7 @@ export const grantedBy = (roles: readonly Role[]): Granted => {
     );
   return {
     authorise: (definition) => {
-      if (definition.kind === "query" && definition.everyone) {
+      if (definition.everyone) {
         return null;
       }
       const needed = definition.objectPermission;
@@ -102,6 +104,7 @@ export const grantedBy = (roles: readonly Role[]): Granted => {
       return allowed ? null : failures.forbidden(permissionNameOf(definition));
     },
     canRead: (object) => (canDo(object.name, "view") ? "all" : "none"),
+    holds: (key) => roles.some((role) => role.key === key),
   };
 };
 
@@ -110,6 +113,7 @@ export const intersect = (a: Granted, b: Granted): Granted => ({
   authorise: (definition) => a.authorise(definition) ?? b.authorise(definition),
   canRead: (object) =>
     a.canRead(object) === "all" && b.canRead(object) === "all" ? "all" : "none",
+  holds: (key) => a.holds(key) && b.holds(key),
 });
 
 const nothing = grantedBy([]);

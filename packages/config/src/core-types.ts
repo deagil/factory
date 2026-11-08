@@ -1,3 +1,4 @@
+import { approvalConfigType } from "./approvals.ts";
 import { choiceConfigType } from "./choices.ts";
 import type { AnyConfigType } from "./config-type.ts";
 import { roleConfigType } from "./roles.ts";
@@ -6,4 +7,5 @@ import { roleConfigType } from "./roles.ts";
 export const coreConfigTypes: readonly AnyConfigType[] = [
   choiceConfigType,
   roleConfigType,
+  approvalConfigType,
 ];

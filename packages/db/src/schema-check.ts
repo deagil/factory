@@ -16,6 +16,7 @@ import {
   actorRoles,
   actors,
   apiKeys,
+  approvals,
   auditLog,
   configVersions,
   drafts,
@@ -34,6 +35,7 @@ export const coreTables: readonly PgTable[] = [
   eventLog,
   configVersions,
   drafts,
+  approvals,
 ];
 
 /** One way the database differs from the code. */

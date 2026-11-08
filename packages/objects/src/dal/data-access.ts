@@ -28,6 +28,7 @@ import type { AnyField, FilterContext } from "../fields/field.ts";
 import { filterWhere } from "../fields/filters.ts";
 import type { Filterable } from "../fields/filters.ts";
 import { getObject } from "../registry.ts";
+import { createApprovalReader } from "./approvals.ts";
 import { createDraftReader } from "./drafts.ts";
 import { createIdentityReader } from "./identity.ts";
 import {
@@ -382,6 +383,7 @@ export const createDataAccess = ({
     ...createLogReader(executor),
     ...createIdentityReader(executor),
     ...createDraftReader(executor),
+    ...createApprovalReader(executor),
   };
 };
 

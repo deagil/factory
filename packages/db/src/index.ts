@@ -48,6 +48,9 @@ export {
   actors,
   actorStatuses,
   apiKeys,
+  approvals,
+  approvalStatuses,
+  approvalSubjects,
   auditLog,
   configVersions,
   configVersionStatuses,
@@ -61,6 +64,14 @@ export {
   verifications,
 } from "./schema/core.ts";
 export { listConfigVersions, recordConfigVersion } from "./config-versions.ts";
+export { createApprovalStore } from "./approvals.ts";
+export type {
+  ApprovalRequest,
+  ApprovalRow,
+  ApprovalStatus,
+  ApprovalStore,
+  ApprovalSubject,
+} from "./approvals.ts";
 export { createDraftStore } from "./drafts.ts";
 export type { DraftChanges, DraftStatus, DraftStore } from "./drafts.ts";
 export type {

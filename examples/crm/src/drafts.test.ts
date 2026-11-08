@@ -1,12 +1,16 @@
 // Drafts over git (P2.08): against a bare test remote, a draft that edits two
 // files publishes in one commit, the loader picks it up, and main has the
-// same changes.
+// same changes. A draft the config-changes rule covers waits for an admin's
+// approval (P2.09).
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { AnyActionDefinition } from "@workspace/actions";
+import type {
+  AnyActionDefinition,
+  AnyQueryDefinition,
+} from "@workspace/actions";
 import { bootstrapStaff } from "@workspace/db";
 import { createServer, defineSystem } from "@workspace/server";
 import type { Server } from "@workspace/server";
@@ -91,23 +95,19 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     await database?.close();
   });
 
-  const open = async (title: string) => {
+  const open = async (title: string, by = admin) => {
     const opened = await server.pipeline.run(
       action("draft.open"),
       { title },
-      admin
+      by
     );
     if (!opened.ok) {
       throw new Error(JSON.stringify(opened.error));
     }
     return (opened.output as { draft: { id: string } }).draft.id;
   };
-  const save = (id: string, file: string, content: string) =>
-    server.pipeline.run(
-      action("draft.save"),
-      { id, path: file, content },
-      admin
-    );
+  const save = (id: string, file: string, content: string, by = admin) =>
+    server.pipeline.run(action("draft.save"), { id, path: file, content }, by);
 
   it("publishes two files in one commit, which the loader and main pick up", async () => {
     const id = await open("Add a negotiation stage");
@@ -201,5 +201,64 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     await expect(
       server.pipeline.run(action("draft.publish"), { id }, admin)
     ).resolves.toMatchObject({ ok: false, error: { code: "validation" } });
+  });
+
+  it("waits for an admin to approve a draft an agent submits", async () => {
+    // Ada's agent acts for her, but agents always need a person's approval.
+    const created = await server.pipeline.run(
+      action("actor.createAgent"),
+      { name: "Ada's agent" },
+      admin
+    );
+    const agent = {
+      actorId: (created as { output: { actorId: string } }).output.actorId,
+    };
+    const id = await open("Add an auditor role", agent);
+    await save(
+      id,
+      "config/roles/auditor.yaml",
+      "key: auditor\nlabel: Auditor\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n",
+      agent
+    );
+    const submitted = await server.pipeline.run(
+      action("draft.submit"),
+      { id },
+      agent
+    );
+    const early = await server.pipeline.run(
+      action("draft.publish"),
+      { id },
+      agent
+    );
+    const listed = await server.pipeline.query(
+      system.registry.get("approval.list") as AnyQueryDefinition,
+      { status: "pending" },
+      admin
+    );
+    const approval = (
+      listed as { output: { approvals: { id: string; subjectId: string }[] } }
+    ).output.approvals.find((each) => each.subjectId === id);
+    const approved = await server.pipeline.run(
+      action("approval.approve"),
+      { id: approval?.id },
+      admin
+    );
+    const published = await server.pipeline.run(
+      action("draft.publish"),
+      { id },
+      agent
+    );
+    expect({ submitted, early, approved, published }).toMatchObject({
+      submitted: {
+        ok: true,
+        output: { draft: { status: "awaiting_approval" } },
+      },
+      early: {
+        ok: false,
+        error: { code: "approval_required", rule: "config-changes" },
+      },
+      approved: { ok: true, output: { approval: { status: "approved" } } },
+      published: { ok: true, output: { draft: { status: "published" } } },
+    });
   });
 });

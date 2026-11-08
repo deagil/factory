@@ -5,6 +5,7 @@ import type { DraftStore, IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";
 
 import type { ActionServices } from "./context.ts";
+import type { ApprovalService } from "./define-action.ts";
 import type { Granted } from "./permissions.ts";
 
 const unused = (name: string) =>
@@ -28,6 +29,7 @@ export const services = (
   granted: unused("granted") as Granted,
   identity: unused("identity") as IdentityStore,
   drafts: unused("drafts") as DraftStore,
+  approvals: unused("approvals") as ApprovalService,
   dryRun: false,
   config: { sha: null, roles: [] },
   git: undefined,

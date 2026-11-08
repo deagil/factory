@@ -75,11 +75,36 @@ const unresolvedChoice = (
     : null;
 };
 
+/** Why an action or config type a file names doesn't resolve, or null. */
+const unresolvedTarget = (
+  kind: "action" | "anyAction" | "configType",
+  name: string,
+  catalog: ConfigCatalog,
+  types: readonly string[]
+): string | null => {
+  if (kind === "configType") {
+    return types.includes(name)
+      ? null
+      : `There is no config type "${name}". Types: ${listed(types)}.`;
+  }
+  if (catalog.actions.has(name)) {
+    return null;
+  }
+  const generated = catalog.objectActions.get(name);
+  if (kind === "anyAction") {
+    return generated ? null : `There is no action "${name}".`;
+  }
+  return generated
+    ? `${name} is generated for ${generated.object}, so grant it as an object permission: object: ${generated.object}, can: [${generated.can}].`
+    : `There is no action or query "${name}".`;
+};
+
 /** Why `reference` doesn't resolve, or null when it does. */
 const unresolved = (
   reference: Reference,
   catalog: ConfigCatalog,
-  files: readonly ConfigFile[]
+  files: readonly ConfigFile[],
+  types: readonly string[]
 ): string | null => {
   const { kind, name } = reference;
   switch (kind) {
@@ -98,14 +123,10 @@ const unresolved = (
         ? null
         : `${object} has no field "${field}". Fields: ${listed(fields)}.`;
     }
-    case "action": {
-      if (catalog.actions.has(name)) {
-        return null;
-      }
-      const generated = catalog.objectActions.get(name);
-      return generated
-        ? `${name} is generated for ${generated.object}, so grant it as an object permission: object: ${generated.object}, can: [${generated.can}].`
-        : `There is no action or query "${name}".`;
+    case "action":
+    case "anyAction":
+    case "configType": {
+      return unresolvedTarget(kind, name, catalog, types);
     }
     case "event": {
       return catalog.events.has(name)
@@ -237,10 +258,11 @@ export const checkReferences = (
   catalog: ConfigCatalog
 ): ConfigProblem[] => {
   const byType = new Map(types.map((each) => [each.type, each]));
+  const typeNames = [...byType.keys()];
   return files.flatMap((file) => {
     const references = byType.get(file.type)?.references(file.value) ?? [];
     return references.flatMap((reference): ConfigProblem[] => {
-      const message = unresolved(reference, catalog, files);
+      const message = unresolved(reference, catalog, files, typeNames);
       const at: ConfigPath = reference.path;
       return message
         ? [{ file: file.file, path: at, line: file.lineOf(at), message }]

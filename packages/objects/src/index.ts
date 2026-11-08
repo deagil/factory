@@ -21,6 +21,7 @@ export type {
   UpdateInput,
 } from "./define-object.ts";
 export { f } from "./fields/index.ts";
+export type { ApprovalEntry } from "./dal/approvals.ts";
 export type { DraftEntry } from "./dal/drafts.ts";
 export type { BooleanField } from "./fields/boolean.ts";
 export {

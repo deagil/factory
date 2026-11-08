@@ -1,7 +1,9 @@
 // The action pipeline: every action, whoever calls it, runs identify,
 // validate, authorise, approve, run, record and commit in one transaction.
-// Queries run identify, validate, authorise and run. See
-// docs/SYSTEM_DESIGN.md section 4.2 and decisions 0020 and 0021.
+// Queries run identify, validate, authorise and run. An action an approval
+// rule matches is parked as pending_approval, and runs once it's approved
+// (P2.09). See docs/SYSTEM_DESIGN.md section 4.2 and decisions 0020, 0021
+// and 0042.
 
 import { isDeepStrictEqual } from "node:util";
 
@@ -9,6 +11,7 @@ import {
   actionLog,
   actors,
   auditLog,
+  createApprovalStore,
   createDraftStore,
   createIdentityStore,
   eventLog,
@@ -24,6 +27,7 @@ import type { AnyChoiceList } from "@workspace/objects";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { rulesForAction, signOffsFor } from "./approval-rules.ts";
 import { createActionContext, createQueryContext } from "./context.ts";
 import type { EmittedEvent } from "./context.ts";
 import { choiceList } from "./define-action.ts";
@@ -31,9 +35,11 @@ import type {
   Actor,
   AnyActionDefinition,
   AnyQueryDefinition,
+  ApprovalService,
   Clock,
   ConfigService,
   GitService,
+  ResumeResult,
 } from "./define-action.ts";
 import { failures, isActionFailure } from "./errors.ts";
 import type { ActionError, ActionFailure } from "./errors.ts";
@@ -98,16 +104,6 @@ export type QueryResult =
   | { ok: true; output: unknown }
   | { ok: false; error: RunError };
 
-/**
- * Approval rules. Phase 2 plugs rules in; until then none match. Returns the
- * key of the rule that matched, or null.
- */
-export type ApprovalRules = (
-  action: AnyActionDefinition,
-  input: unknown,
-  actor: Actor
-) => string | null | Promise<string | null>;
-
 export interface PipelineOptions {
   db: Db;
   config: ConfigService;
@@ -115,10 +111,12 @@ export interface PipelineOptions {
   git?: GitService;
   clock: Clock;
   permissions?: Permissions;
-  approvals?: ApprovalRules;
+  /**
+   * Finds an action by name, to run a pending one once it's approved
+   * (P2.09). Without it, an approved action fails as no longer known.
+   */
+  actions?: (name: string) => AnyActionDefinition | undefined;
 }
-
-const noRules: ApprovalRules = () => null;
 
 /**
  * Rolls the run's transaction back, carrying out either the typed failure
@@ -238,6 +236,7 @@ const pin = (config: ConfigService): ConfigService => {
             choiceList(choices, list),
         }
       : {}),
+    ...(config.approvals ? { approvals: config.approvals } : {}),
     ...(config.validate ? { validate: config.validate } : {}),
   };
 };
@@ -259,7 +258,7 @@ export const createPipeline = ({
   clock,
   git,
   permissions = allowAll,
-  approvals = noRules,
+  actions,
 }: PipelineOptions) => {
   /** 1. Identify: the actor, if it exists and is active. */
   const identify = async (caller: Caller) => {
@@ -290,7 +289,7 @@ export const createPipeline = ({
   const writeRow = async (
     state: RunState,
     outcome:
-      | { status: "failed" | "pending_approval"; error: RunError }
+      | { status: "failed"; error: RunError }
       | { status: "succeeded"; result: unknown }
   ) => {
     const now = clock.now();
@@ -306,14 +305,10 @@ export const createPipeline = ({
     return row?.id ?? null;
   };
 
-  const fail = async (
-    state: RunState,
-    error: RunError,
-    status: "failed" | "pending_approval" = "failed"
-  ) => ({
+  const fail = async (state: RunState, error: RunError) => ({
     ok: false as const,
     error,
-    actionId: await writeRow(state, { status, error }),
+    actionId: await writeRow(state, { status: "failed", error }),
   });
 
   /** 3. Retry key: the earlier success with this key, if there is one. */
@@ -357,11 +352,174 @@ export const createPipeline = ({
     };
   };
 
+  /**
+   * 6–7. Runs the handler in `tx` and records what it did against the
+   * action_log row `actionId`. A typed failure throws, to roll `tx` back.
+   */
+  const perform = async (
+    tx: Tx,
+    state: RunState,
+    input: unknown,
+    actionId: string,
+    approvals: ApprovalService
+  ): Promise<Success> => {
+    const { action, actor, originUserId } = state;
+    const dryRun = state.options.dryRun ?? false;
+    const { ctx, events } = createActionContext(action, {
+      repo: createRepository({
+        executor: tx,
+        actionId,
+        actorId: actor.id,
+        now: clock.now,
+        choices: state.config.choices,
+      }),
+      identity: createIdentityStore(tx),
+      drafts: createDraftStore(tx),
+      approvals,
+      dryRun,
+      dal: dalFor(tx, state.granted, state.config),
+      granted: state.granted,
+      config: state.config,
+      git,
+      clock,
+      actor,
+      originUserId,
+    });
+
+    const returned = await action.handler(ctx, input);
+    if (isActionFailure(returned)) {
+      throw new RollbackError({ failure: returned });
+    }
+    const output = action.output.safeParse(returned);
+    if (!output.success) {
+      throw new Error(
+        `${action.name} returned output that doesn't fit its schema:\n${z.prettifyError(output.error)}`
+      );
+    }
+
+    // 7. Record.
+    const emitted = events();
+    if (emitted.length > 0) {
+      await tx.insert(eventLog).values(
+        emitted.map((event) => ({
+          type: event.type,
+          payload: event.payload,
+          actionId,
+          originUserId,
+          depth: 0,
+          createdAt: clock.now(),
+        }))
+      );
+    }
+    await tx
+      .update(actionLog)
+      .set({
+        status: "succeeded",
+        result: redacted(action, output.data),
+        error: null,
+        configSha: state.config.sha,
+        completedAt: clock.now(),
+      })
+      .where(eq(actionLog.id, actionId));
+    return {
+      ok: true,
+      output: output.data,
+      actionId,
+      events: emitted,
+      replayed: false,
+      dryRun,
+    };
+  };
+
+  /**
+   * Runs the pending action `actionId` inside `tx`, the approving run's
+   * transaction, as the actor who asked (P2.09). Its permissions and input
+   * are checked again, since either may have changed while it waited. A
+   * failure rolls back only its own savepoint and marks the row failed.
+   */
+  const resume = async (
+    tx: Tx,
+    actionId: string,
+    dryRun: boolean,
+    approvals: ApprovalService
+  ): Promise<ResumeResult> => {
+    const [row] = await tx
+      .select()
+      .from(actionLog)
+      .where(eq(actionLog.id, actionId))
+      .for("update");
+    if (!row || row.status !== "pending_approval") {
+      throw new Error(`Action ${actionId} isn't waiting for approval.`);
+    }
+    const failed = async (logged: RunError, error: RunError = logged) => {
+      await tx
+        .update(actionLog)
+        .set({ status: "failed", error: logged, completedAt: clock.now() })
+        .where(eq(actionLog.id, actionId));
+      return { ok: false as const, error };
+    };
+    const action = actions?.(row.name);
+    if (!action) {
+      return failed(internal(`This system no longer has ${row.name}.`));
+    }
+    const who = await identify({
+      actorId: row.actorId,
+      originUserId: row.originUserId,
+    });
+    if (!who) {
+      return failed(unknownActor);
+    }
+    const granted = await permissions.load(who.actor);
+    const parsed = action.input.safeParse(row.input);
+    if (!parsed.success) {
+      return failed(failures.invalidInput(parsed.error).error);
+    }
+    const denied = granted.authorise(action);
+    if (denied) {
+      return failed(denied.error);
+    }
+    const state: RunState = {
+      action,
+      input: row.input,
+      granted,
+      ...who,
+      options: { dryRun },
+      config: pin(config),
+    };
+    try {
+      const done = await withTransaction(tx, (savepoint) =>
+        perform(savepoint, state, parsed.data, actionId, approvals)
+      );
+      return { ok: true, output: done.output };
+    } catch (error_) {
+      const { error, logged } = errorFrom(error_);
+      return failed(logged, error);
+    }
+  };
+
+  /** `ctx.approvals` for a run in `tx`. */
+  const approvalsIn = (tx: Tx, dryRun: boolean): ApprovalService => {
+    const service: ApprovalService = {
+      ...createApprovalStore(tx),
+      resume: (actionId) => resume(tx, actionId, dryRun, service),
+      close: async (actionId) => {
+        await tx
+          .update(actionLog)
+          .set({ status: "rejected", completedAt: clock.now() })
+          .where(
+            and(
+              eq(actionLog.id, actionId),
+              eq(actionLog.status, "pending_approval")
+            )
+          );
+      },
+    };
+    return service;
+  };
+
   /** 6–8. Run, record and commit, together or not at all. */
   const execute = (state: RunState, input: unknown): Promise<Success> =>
     withTransaction(db, async (tx) => {
-      const { action, actor, originUserId } = state;
-      const dryRun = state.options.dryRun ?? false;
       const [logged] = await tx
         .insert(actionLog)
         .values({
@@ -371,67 +529,14 @@ export const createPipeline = ({
         })
         .returning({ id: actionLog.id });
       const actionId = logged?.id ?? "";
-      const { ctx, events } = createActionContext(action, {
-        repo: createRepository({
-          executor: tx,
-          actionId,
-          actorId: actor.id,
-          now: clock.now,
-          choices: state.config.choices,
-        }),
-        identity: createIdentityStore(tx),
-        drafts: createDraftStore(tx),
-        dryRun,
-        dal: dalFor(tx, state.granted, state.config),
-        granted: state.granted,
-        config: state.config,
-        git,
-        clock,
-        actor,
-        originUserId,
-      });
-
-      const returned = await action.handler(ctx, input);
-      if (isActionFailure(returned)) {
-        throw new RollbackError({ failure: returned });
-      }
-      const output = action.output.safeParse(returned);
-      if (!output.success) {
-        throw new Error(
-          `${action.name} returned output that doesn't fit its schema:\n${z.prettifyError(output.error)}`
-        );
-      }
-
-      // 7. Record.
-      const emitted = events();
-      if (emitted.length > 0) {
-        await tx.insert(eventLog).values(
-          emitted.map((event) => ({
-            type: event.type,
-            payload: event.payload,
-            actionId,
-            originUserId,
-            depth: 0,
-            createdAt: clock.now(),
-          }))
-        );
-      }
-      await tx
-        .update(actionLog)
-        .set({
-          result: redacted(action, output.data),
-          completedAt: clock.now(),
-        })
-        .where(eq(actionLog.id, actionId));
-      const result: Success = {
-        ok: true,
-        output: output.data,
+      const result = await perform(
+        tx,
+        state,
+        input,
         actionId,
-        events: emitted,
-        replayed: false,
-        dryRun,
-      };
-      if (dryRun) {
+        approvalsIn(tx, state.options.dryRun ?? false)
+      );
+      if (result.dryRun) {
         const changes = await tx
           .select({
             object: auditLog.object,
@@ -445,6 +550,47 @@ export const createPipeline = ({
       }
       return result;
     });
+
+  /**
+   * 5. Parks the run: its pending_approval row and one approval per rule,
+   * together. A dry run only reports that it would wait.
+   */
+  const park = async (
+    state: RunState,
+    signOffs: { ruleKey: string; approverRole: string }[]
+  ): Promise<ActionResult> => {
+    const roles = [...new Set(signOffs.map((each) => each.approverRole))];
+    const [first] = signOffs;
+    const { error } = failures.needsApproval(
+      first?.ruleKey ?? "",
+      `This waits for approval from ${roles.join(" and ")} (${signOffs.length === 1 ? "rule" : "rules"} ${signOffs.map((each) => each.ruleKey).join(", ")}). It runs once approved.`
+    );
+    if (state.options.dryRun) {
+      return fail(state, error);
+    }
+    const actionId = await withTransaction(db, async (tx) => {
+      const [row] = await tx
+        .insert(actionLog)
+        .values({
+          ...rowFor(state),
+          status: "pending_approval",
+          error,
+          createdAt: clock.now(),
+        })
+        .returning({ id: actionLog.id });
+      if (!row) {
+        throw new Error("insert returned no action_log row");
+      }
+      await createApprovalStore(tx).request(
+        "action",
+        row.id,
+        signOffs,
+        state.actor.id
+      );
+      return row.id;
+    });
+    return { ok: false, error, actionId };
+  };
 
   /** What a run that threw comes to: a dry run's report, a replay or a failure. */
   const settle = async (
@@ -506,14 +652,14 @@ export const createPipeline = ({
     if (denied) {
       return fail(state, denied.error);
     }
-    // 5. Approve: phase 2 parks the action; until then no rule matches.
-    const rule = await approvals(action, parsed.data, state.actor);
-    if (rule) {
-      return fail(
-        state,
-        failures.needsApproval(rule).error,
-        "pending_approval"
-      );
+    // 5. Approve: a matching rule parks the action until it's decided.
+    const signOffs = signOffsFor(
+      rulesForAction(state.config.approvals ?? [], action.name, parsed.data),
+      state.actor,
+      granted
+    );
+    if (signOffs.length > 0) {
+      return park(state, signOffs);
     }
     try {
       return await execute(state, parsed.data);

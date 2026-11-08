@@ -10,8 +10,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { watch } from "node:fs/promises";
 import path from "node:path";
 
-import type { ConfigService, Role } from "@workspace/actions";
+import type { ApprovalRule, ConfigService, Role } from "@workspace/actions";
 
+import { approvalConfigType } from "./approvals.ts";
 import { choiceConfigType, choiceLookup } from "./choices.ts";
 import type { AnyConfigType, Keyed, ConfigType } from "./config-type.ts";
 import { formatProblem } from "./read.ts";
@@ -190,6 +191,9 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     },
     get roles(): readonly Role[] {
       return live?.values(roleConfigType) ?? [];
+    },
+    get approvals(): readonly ApprovalRule[] {
+      return live?.values(approvalConfigType) ?? [];
     },
     // Reading `choices` captures the live version, so a run that pinned it
     // keeps its options when a newer version goes live.

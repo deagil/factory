@@ -230,6 +230,7 @@ describe("types", () => {
       | "repo"
       | "identity"
       | "drafts"
+      | "approvals"
       | "dryRun"
       | "dal"
       | "granted"

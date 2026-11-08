@@ -2,7 +2,7 @@ key: sales
 label: Sales
 permissions:
   - object: organisation
-    can: [view, create, update]
+    can: [view, create, update, archive]
     scope: all
   - object: contact
     can: [view, create, update]

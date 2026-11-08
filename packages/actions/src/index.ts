@@ -17,6 +17,7 @@ export type {
   AnyActionDefinition,
   AnyDefinition,
   AnyQueryDefinition,
+  ApprovalService,
   Clock,
   ConfigAuthor,
   ConfigCheck,
@@ -35,7 +36,25 @@ export type {
   QueryContext,
   QueryDefinition,
   QueryOptions,
+  ResumeResult,
 } from "./define-action.ts";
+export {
+  approvalRuleSchema,
+  conditionHolds,
+  conditionOperators,
+  conditionSchema,
+  rulesForAction,
+  rulesForFiles,
+  signOffsFor,
+} from "./approval-rules.ts";
+export type { ApprovalRule, Condition } from "./approval-rules.ts";
+export {
+  approvalApprove,
+  approvalDefinitions,
+  approvalEntrySchema,
+  approvalList,
+  approvalReject,
+} from "./approvals.ts";
 export {
   actionErrorCodes,
   failures,
@@ -59,7 +78,6 @@ export type { RegisteredEvent, Registry } from "./registry.ts";
 export { createPipeline } from "./pipeline.ts";
 export type {
   ActionResult,
-  ApprovalRules,
   Caller,
   InternalError,
   Pipeline,
