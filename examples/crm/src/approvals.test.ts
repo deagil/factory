@@ -111,7 +111,8 @@ describe("approval rules", () => {
       archive: [[sales.actorId, "succeeded"]],
       approve: expect.any(String),
       changes: expect.arrayContaining([pendingId]),
-      record: { output: { record: { archivedAt: expect.any(String) } } },
+      // Archived records are hidden.
+      record: { ok: false, error: { code: "not_found" } },
     });
     const [approveRow] = await database.db
       .select()

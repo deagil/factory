@@ -53,7 +53,8 @@ export const httpSurface =
       error?: unknown;
       actionId: string | null;
     };
-    return response.ok
+    // approval_required is a 202: accepted, but not run, so it's an error.
+    return response.ok && body.error === undefined
       ? { ok: true, body: body.output, actionId: body.actionId }
       : { ok: false, body: body.error, actionId: body.actionId };
   };

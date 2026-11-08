@@ -123,8 +123,8 @@ action_log         id, name, actor_id, origin_user_id, run_id, input jsonb, resu
 audit_log          id, object, record_id, before jsonb, after jsonb,  -- changed fields only
                    action_id, actor_id, at
 approvals          id, subject (action | draft), subject_id, rule_key, approver_role,
-                   required, status
-approval_decisions approval_id, actor_id, decision, comment, at
+                   status (pending | approved | rejected | cancelled),
+                   requested_by, decided_by, comment, created_at, decided_at
 
 -- Events and workflows (DBOS keeps its own execution state alongside these)
 event_log          id, type, payload jsonb, action_id, origin_user_id, depth,
@@ -258,7 +258,8 @@ Every action, whoever calls it, runs the same pipeline in one database transacti
 2. Validate       input against the Zod schema
 3. Retry key    same key seen before? return the earlier result
 4. Authorise      check the actor's permissions for this action
-5. Approve?       if an approval rule matches, park as pending_approval and stop
+5. Approve?       if an approval rule matches, park as pending_approval and stop;
+                  the last approval runs it, once, as the actor who asked
 6. Run            the handler, using repositories (dry run rolls back here)
 7. Record         field history for every changed record, the action_log row, event_log rows
 8. Commit         all of the above together, or none of it
@@ -297,6 +298,18 @@ permissions:
 
 Every permission carries a `scope`. Version one supports only `all`, which works as plain role permissions. Later scopes (`own`, `assigned`, `team`) are added in the data access layer without changing existing permissions.
 
+Approval rules are config too (decision 0042):
+
+```yaml
+# config/approvals/archive-organisations.yaml
+key: archive-organisations
+label: Archiving an organisation
+action: organisation.archive
+approver: admin
+```
+
+A rule names an action, optionally with conditions on its input that must all hold (`when: [{ field: amount, operator: gt, value: 10000 }]`), or the config types (`config: [roles, choices]`) a draft can't publish without sign-off. It doesn't apply to staff who hold the approver role; agents always need a person. Staff with the role decide through `approval.approve` and `approval.reject`, never on their own request.
+
 **Connects to.** The pipeline (authorise step), the data access layer (filters), approvals, and config (roles are files).
 
 ### 4.4 Config (`@workspace/config`)
@@ -317,7 +330,7 @@ Every permission carries a `scope`. Version one supports only `all`, which works
 1. Staff open a draft in the web surface (or an agent calls draft.open over MCP)
 2. The config service makes a short-lived branch from production and commits each edited file
 3. Every save is validated against the running code; problems show in the form
-4. Submit: if an approval rule covers any file in the set, approvers see a plain-English diff
+4. Submit: if an approval rule covers any file in the set, it waits until approvers approve
 5. Publish: the draft's files go onto production in one commit; a bot copies them back to main
 6. The loader sees the commit, validates, swaps the index; new runs use it in seconds
 ```

@@ -45,6 +45,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0039 | [Choice fields](0039-choice-fields.md) | Accepted |
 | 0040 | [Choice lists define their columns](0040-choice-lists-define-their-columns.md) | Accepted |
 | 0041 | [Drafts over git](0041-drafts-over-git.md) | Accepted |
+| 0042 | [Approval rules](0042-approval-rules.md) | Accepted |
 
 ## Template
 
