@@ -1,0 +1,36 @@
+# Sales managers: what sales can do, and changes to config in drafts, which
+# an admin approves (config/approvals/config-changes.yaml).
+key: manager
+label: Manager
+permissions:
+  - object: organisation
+    can: [view, create, update, archive]
+    scope: all
+  - object: contact
+    can: [view, create, update]
+    scope: all
+  - action: contact.moveToOrganisation
+    scope: all
+  - object: deal
+    can: [view, update]
+    scope: all
+  - action: deal.create
+    scope: all
+  - action: deal.moveStage
+    scope: all
+  - action: draft.open
+    scope: all
+  - action: draft.save
+    scope: all
+  - action: draft.submit
+    scope: all
+  - action: draft.publish
+    scope: all
+  - action: draft.list
+    scope: all
+  - action: draft.get
+    scope: all
+  - action: draft.files
+    scope: all
+  - action: role.list
+    scope: all

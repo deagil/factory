@@ -47,6 +47,8 @@ const fieldSchema = z.object({
    * choice or its list has none.
    */
   optionColumns: jsonSchema.nullable(),
+  /** A choice field's list: `config/choices/<list>.yaml`. Null otherwise. */
+  list: z.string().nullable(),
   schema: jsonSchema,
 });
 
@@ -129,6 +131,8 @@ const describeField = (
   filters: Object.keys(field.filters),
   options: choiceOptions(field, choices),
   optionColumns: optionColumns(field),
+  list:
+    field.kind === "choice" ? (field as unknown as ChoiceField).list.key : null,
   schema: toJson(field.input, "input"),
 });
 

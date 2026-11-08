@@ -466,6 +466,27 @@ export const createGitConfigService = (options: GitConfigOptions) => {
         );
       }),
 
+    files: (ref) =>
+      serial(async () => {
+        await fetch();
+        const listed = await inRepo([
+          "ls-tree",
+          "-r",
+          "--name-only",
+          "-z",
+          ref,
+          "--",
+          configPath,
+        ]);
+        const paths = listed.split("\0").filter((each) => each.length > 0);
+        return Promise.all(
+          paths.map(async (file) => ({
+            path: file,
+            content: (await contentAt(ref, file)) ?? "",
+          }))
+        );
+      }),
+
     check: (ref) =>
       serial(async () => {
         await fetch();
@@ -513,3 +534,50 @@ export const createGitConfigService = (options: GitConfigOptions) => {
 };
 
 export type GitConfigService = ReturnType<typeof createGitConfigService>;
+
+/**
+ * Makes a bare repository at `remote` whose main and production hold the
+ * files under `configDir` as `config/`, unless it exists. For trying drafts
+ * locally (P2.10): the dev server can run against it instead of the working
+ * tree. Returns whether it made one.
+ */
+export const ensureLocalRemote = async (
+  remote: string,
+  configDir: string
+): Promise<boolean> => {
+  if (existsSync(remote)) {
+    return false;
+  }
+  mkdirSync(remote, { recursive: true });
+  await git(["init", "--quiet", "--bare", "--initial-branch=main", remote]);
+  const inRemote = (args: readonly string[], run: RunOptions = {}) =>
+    git(["--git-dir", remote, ...args], run);
+  const tree = await withIndex(async (env) => {
+    await inRemote(
+      [
+        "--work-tree",
+        path.dirname(configDir),
+        "add",
+        "--",
+        path.basename(configDir),
+      ],
+      { env }
+    );
+    const written = await inRemote(["write-tree"], { env });
+    return written.trim();
+  });
+  const committed = await inRemote(
+    [
+      "commit-tree",
+      "--no-gpg-sign",
+      tree,
+      "-m",
+      "Config from the working tree",
+    ],
+    { env: authorEnv(committer) }
+  );
+  const sha = committed.trim();
+  await inRemote(["update-ref", "refs/heads/main", sha]);
+  await inRemote(["update-ref", "refs/heads/production", sha]);
+  return true;
+};

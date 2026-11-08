@@ -140,6 +140,7 @@ export {
   logQueries,
 } from "./logs.ts";
 export type { HistoryEntry } from "./history.ts";
+export type { ApprovalEntry } from "./approvals.ts";
 export type {
   ActionLogDetail,
   ActionLogEntry,

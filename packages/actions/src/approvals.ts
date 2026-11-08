@@ -28,6 +28,9 @@ export const approvalEntrySchema = z.object({
   draft: z.object({ title: z.string(), files: z.array(z.string()) }).nullable(),
 });
 
+/** One approval, as `approval.list` and `draft.get` return it. */
+export type ApprovalEntry = z.infer<typeof approvalEntrySchema>;
+
 const decisionInput = z.strictObject({
   id: z.uuid(),
   comment: z.string().max(2000).optional(),
@@ -171,6 +174,8 @@ export const approvalList = defineQuery({
     "Approvals, newest first, optionally in one status: what each is for (a pending action or a draft), the rule, the role that decides, and who asked and decided.",
   input: z.strictObject({
     status: statusSchema.optional(),
+    /** Only the approvals on this pending action or draft. */
+    subjectId: z.uuid().optional(),
     limit: z.number().int().min(1).max(200).optional(),
   }),
   output: z.object({ approvals: z.array(approvalEntrySchema) }),

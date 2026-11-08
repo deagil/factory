@@ -45,10 +45,11 @@ export type {
   ConfigLoaderSource,
   LoadResult,
 } from "./loader.ts";
-export { createGitConfigService } from "./git.ts";
+export { createGitConfigService, ensureLocalRemote } from "./git.ts";
 export type { GitConfigOptions, GitConfigService } from "./git.ts";
 export {
   draftDefinitions,
+  draftFiles,
   draftGet,
   draftList,
   draftOpen,

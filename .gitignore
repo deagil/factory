@@ -22,5 +22,8 @@ todos.json
 # fx: state of open changes
 .fx/
 
+# A local config remote and its cache, for trying drafts (CONFIG_REMOTE=local)
+.factory/
+
 #cursor config
 .cursor
