@@ -1,7 +1,7 @@
 // Stand-in services for tests that run handlers without a database. The
 // pipeline's tests (P1.07) use real ones, bound to a transaction.
 
-import type { IdentityStore } from "@workspace/db";
+import type { DraftStore, IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";
 
 import type { ActionServices } from "./context.ts";
@@ -27,7 +27,10 @@ export const services = (
   dal: unused("dal") as DataAccess,
   granted: unused("granted") as Granted,
   identity: unused("identity") as IdentityStore,
+  drafts: unused("drafts") as DraftStore,
+  dryRun: false,
   config: { sha: null, roles: [] },
+  git: undefined,
   clock: { now: () => new Date("2026-11-07T09:00:00Z") },
   actor: {
     id: "00000000-0000-7000-8000-000000000001",

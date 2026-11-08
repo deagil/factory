@@ -2,7 +2,7 @@
 // these inside the run's transaction, once the action_log row exists, so the
 // repository and data access layer are bound to that run. See decision 0019.
 
-import type { IdentityStore } from "@workspace/db";
+import type { DraftStore, IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";
 import { z } from "zod";
 
@@ -13,6 +13,7 @@ import type {
   Clock,
   ConfigService,
   EventSchemas,
+  GitService,
   QueryContext,
 } from "./define-action.ts";
 import { failures } from "./errors.ts";
@@ -23,6 +24,7 @@ export interface QueryServices {
   dal: DataAccess;
   granted: Granted;
   config: ConfigService;
+  git: GitService | undefined;
   clock: Clock;
   actor: Actor;
   originUserId: string | null;
@@ -31,6 +33,8 @@ export interface QueryServices {
 export interface ActionServices extends QueryServices {
   repo: Repository;
   identity: IdentityStore;
+  drafts: DraftStore;
+  dryRun: boolean;
 }
 
 /** An event an action emitted, its payload checked against its schema. */
@@ -46,6 +50,7 @@ export const createQueryContext = (services: QueryServices): QueryContext =>
     dal: services.dal,
     granted: services.granted,
     config: services.config,
+    git: services.git,
     clock: services.clock,
     actor: services.actor,
     originUserId: services.originUserId,
@@ -81,6 +86,8 @@ export const createActionContext = <TEmits extends EventSchemas>(
     ...createQueryContext(services),
     repo: services.repo,
     identity: services.identity,
+    drafts: services.drafts,
+    dryRun: services.dryRun,
     emit,
   }) as ActionContext<TEmits>;
   return { ctx, events: () => [...emitted] };

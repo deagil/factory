@@ -9,6 +9,7 @@ import {
   actionLog,
   actors,
   auditLog,
+  createDraftStore,
   createIdentityStore,
   eventLog,
   withTransaction,
@@ -32,6 +33,7 @@ import type {
   AnyQueryDefinition,
   Clock,
   ConfigService,
+  GitService,
 } from "./define-action.ts";
 import { failures, isActionFailure } from "./errors.ts";
 import type { ActionError, ActionFailure } from "./errors.ts";
@@ -109,6 +111,8 @@ export type ApprovalRules = (
 export interface PipelineOptions {
   db: Db;
   config: ConfigService;
+  /** The config remote, for drafts (P2.08); absent when config is local. */
+  git?: GitService;
   clock: Clock;
   permissions?: Permissions;
   approvals?: ApprovalRules;
@@ -253,6 +257,7 @@ export const createPipeline = ({
   db,
   config,
   clock,
+  git,
   permissions = allowAll,
   approvals = noRules,
 }: PipelineOptions) => {
@@ -375,9 +380,12 @@ export const createPipeline = ({
           choices: state.config.choices,
         }),
         identity: createIdentityStore(tx),
+        drafts: createDraftStore(tx),
+        dryRun,
         dal: dalFor(tx, state.granted, state.config),
         granted: state.granted,
         config: state.config,
+        git,
         clock,
         actor,
         originUserId,
@@ -540,6 +548,7 @@ export const createPipeline = ({
         dal: dalFor(db, granted, pinned),
         granted,
         config: pinned,
+        git,
         clock,
         actor,
         originUserId,

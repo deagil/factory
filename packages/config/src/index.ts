@@ -1,5 +1,5 @@
-// Config types and reading `config/` (P2.03, decision 0037). validateConfig,
-// the loader, the git config service and drafts follow in phase 2.
+// Config types and reading `config/` (P2.03, decision 0037), validateConfig
+// (P2.04), the loader (P2.05), and the git config service and drafts (P2.08).
 // See docs/SYSTEM_DESIGN.md, section 4.4 Config.
 export { defineConfigType, referenceKinds } from "./config-type.ts";
 export type {
@@ -41,5 +41,17 @@ export type {
   ConfigIndex,
   ConfigLoader,
   ConfigLoaderOptions,
+  ConfigLoaderSource,
   LoadResult,
 } from "./loader.ts";
+export { createGitConfigService } from "./git.ts";
+export type { GitConfigOptions, GitConfigService } from "./git.ts";
+export {
+  draftDefinitions,
+  draftGet,
+  draftList,
+  draftOpen,
+  draftPublish,
+  draftSave,
+  draftSubmit,
+} from "./drafts.ts";

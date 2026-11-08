@@ -51,6 +51,8 @@ export {
   auditLog,
   configVersions,
   configVersionStatuses,
+  drafts,
+  draftStatuses,
   authSchema,
   eventLog,
   sessions,
@@ -59,6 +61,8 @@ export {
   verifications,
 } from "./schema/core.ts";
 export { listConfigVersions, recordConfigVersion } from "./config-versions.ts";
+export { createDraftStore } from "./drafts.ts";
+export type { DraftChanges, DraftStatus, DraftStore } from "./drafts.ts";
 export type {
   ConfigVersionRow,
   ConfigVersionStatus,
