@@ -298,17 +298,24 @@ permissions:
 
 Every permission carries a `scope`. Version one supports only `all`, which works as plain role permissions. Later scopes (`own`, `assigned`, `team`) are added in the data access layer without changing existing permissions.
 
-Approval rules are config too (decision 0042):
+Approval rules are config too (decisions 0042 and 0043):
 
 ```yaml
-# config/approvals/archive-organisations.yaml
-key: archive-organisations
-label: Archiving an organisation
-action: organisation.archive
-approver: admin
+# config/approvals/large-payments-senior.yaml
+key: large-payments-senior
+label: Large payments, senior sign-off
+action: payment.release
+record: { object: payment, id: input.id } # conditions can read the record
+when: # every condition must hold
+  - { field: record.amount.currency, operator: eq, value: GBP }
+  - { field: record.amount.amount, operator: gt, value: 100000 } # minor units
+approver: senior
+approvals: 1 # how many different people
+requester: [junior, manager] # optional: whom it asks
+exempt: [senior] # optional: who skips it; the approver role by default
 ```
 
-A rule names an action, optionally with conditions on its input that must all hold (`when: [{ field: amount, operator: gt, value: 10000 }]`), or the config types (`config: [roles, choices]`) a draft can't publish without sign-off. It doesn't apply to staff who hold the approver role; agents always need a person. Staff with the role decide through `approval.approve` and `approval.reject`, never on their own request.
+A rule names an action, with conditions on its input (`input.…`) or its record (`record.…`), or the config types (`config: [roles, choices]`) a draft can't publish without sign-off. Tiers are several rules: a large payment can match a manager rule and a senior rule, and waits for both. Agents always need a person. Staff with the role decide through `approval.approve` and `approval.reject`; nobody decides their own request or their agent's, and each approval on one subject is by a different person. Before an approved action runs, the rules are checked again, so one that came to need more approval while it waited doesn't run.
 
 **Connects to.** The pipeline (authorise step), the data access layer (filters), approvals, and config (roles are files).
 

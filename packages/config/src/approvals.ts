@@ -6,16 +6,59 @@ import type { ApprovalRule } from "@workspace/actions";
 import { defineConfigType } from "./config-type.ts";
 import type { Reference } from "./config-type.ts";
 
-/** The action or config types a rule covers, and the role that approves. */
+const roleRefs = (names: readonly string[] | undefined, field: string) =>
+  (names ?? []).map((name, index) => ({
+    kind: "role" as const,
+    name,
+    path: [field, index],
+  }));
+
+/** What a rule's action, record or config types are, as references. */
+const targetReferences = (rule: ApprovalRule): Reference[] => {
+  if ("config" in rule) {
+    return rule.config.map((type, index) => ({
+      kind: "configType" as const,
+      name: type,
+      path: ["config", index],
+    }));
+  }
+  const { record } = rule;
+  return [
+    { kind: "anyAction", name: rule.action, path: ["action"] },
+    ...(record
+      ? [
+          {
+            kind: "object" as const,
+            name: record.object,
+            path: ["record", "object"],
+          },
+          // `record.amount.amount` names the field `amount`.
+          ...(rule.when ?? []).flatMap((condition, index) => {
+            const [root, field] = condition.field.split(".");
+            return root === "record" && field
+              ? [
+                  {
+                    kind: "field" as const,
+                    name: `${record.object}.${field}`,
+                    path: ["when", index, "field"],
+                  },
+                ]
+              : [];
+          }),
+        ]
+      : []),
+  ];
+};
+
+/**
+ * What a rule points to: its action and record, or the config types it
+ * covers, and every role it names.
+ */
 export const approvalReferences = (rule: ApprovalRule): Reference[] => [
-  ...("action" in rule
-    ? [{ kind: "anyAction" as const, name: rule.action, path: ["action"] }]
-    : rule.config.map((type, index) => ({
-        kind: "configType" as const,
-        name: type,
-        path: ["config", index],
-      }))),
+  ...targetReferences(rule),
   { kind: "role", name: rule.approver, path: ["approver"] },
+  ...roleRefs(rule.requester, "requester"),
+  ...roleRefs(rule.exempt, "exempt"),
 ];
 
 export const approvalConfigType = defineConfigType<ApprovalRule>({

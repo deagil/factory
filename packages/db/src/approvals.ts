@@ -4,18 +4,37 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
-import { actionLog, approvals, drafts } from "./schema/core.ts";
+import { actionLog, actors, approvals, drafts } from "./schema/core.ts";
 import type { approvalStatuses, approvalSubjects } from "./schema/core.ts";
 
 export type ApprovalSubject = (typeof approvalSubjects)[number];
 export type ApprovalStatus = (typeof approvalStatuses)[number];
 export type ApprovalRow = typeof approvals.$inferSelect;
 
-/** One sign-off to ask for: the rule that asked and the role that decides. */
+/**
+ * One sign-off to ask for: the rule that asked, the role that decides and
+ * how many different people must approve. Each gets its own row.
+ */
 export interface ApprovalRequest {
   ruleKey: string;
   approverRole: string;
+  count: number;
 }
+
+/** A locked approval, and the people who may not decide it. */
+export interface LockedApproval {
+  approval: ApprovalRow;
+  /**
+   * Who asked and who it's for: the requesting actor and its user, the
+   * action's origin user, and a draft's creator and their user.
+   */
+  barred: { actorIds: string[]; userIds: string[] };
+}
+
+/** The ids that are there, once each. */
+const known = (ids: (string | null | undefined)[]) => [
+  ...new Set(ids.filter((each): each is string => Boolean(each))),
+];
 
 export const createApprovalStore = (executor: Executor) => {
   const cancel = async (
@@ -50,13 +69,15 @@ export const createApprovalStore = (executor: Executor) => {
       const rows = await executor
         .insert(approvals)
         .values(
-          requests.map((each) => ({
-            ...each,
-            subject,
-            subjectId,
-            requestedBy,
-            status: "pending" as const,
-          }))
+          requests.flatMap(({ count, ...each }) =>
+            Array.from({ length: count }, () => ({
+              ...each,
+              subject,
+              subjectId,
+              requestedBy,
+              status: "pending" as const,
+            }))
+          )
         )
         .returning();
       return rows;
@@ -66,7 +87,7 @@ export const createApprovalStore = (executor: Executor) => {
      * The approval, with its subject's row locked for the rest of the
      * transaction, so decisions on one subject happen one at a time.
      */
-    lock: async (id: string): Promise<ApprovalRow | null> => {
+    lock: async (id: string): Promise<LockedApproval | null> => {
       const [found] = await executor
         .select({ subject: approvals.subject, subjectId: approvals.subjectId })
         .from(approvals)
@@ -74,18 +95,40 @@ export const createApprovalStore = (executor: Executor) => {
       if (!found) {
         return null;
       }
-      const table = found.subject === "action" ? actionLog : drafts;
-      await executor
-        .select({ id: table.id })
-        .from(table)
-        .where(eq(table.id, found.subjectId))
-        .for("update");
+      // Who the subject is by or for: an action's actor and origin user, a
+      // draft's creator.
+      const [subject] =
+        found.subject === "action"
+          ? await executor
+              .select({
+                actorId: actionLog.actorId,
+                userId: actionLog.originUserId,
+              })
+              .from(actionLog)
+              .where(eq(actionLog.id, found.subjectId))
+              .for("update")
+          : await executor
+              .select({ actorId: drafts.createdBy, userId: actors.userId })
+              .from(drafts)
+              .leftJoin(actors, eq(actors.id, drafts.createdBy))
+              .where(eq(drafts.id, found.subjectId))
+              .for("update", { of: drafts });
       const [row] = await executor
-        .select()
+        .select({ approval: approvals, requesterUserId: actors.userId })
         .from(approvals)
+        .leftJoin(actors, eq(actors.id, approvals.requestedBy))
         .where(eq(approvals.id, id))
-        .for("update");
-      return row ?? null;
+        .for("update", { of: approvals });
+      if (!row) {
+        return null;
+      }
+      return {
+        approval: row.approval,
+        barred: {
+          actorIds: known([row.approval.requestedBy, subject?.actorId]),
+          userIds: known([row.requesterUserId, subject?.userId]),
+        },
+      };
     },
 
     /** Every approval for a subject, oldest first. */

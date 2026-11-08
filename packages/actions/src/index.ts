@@ -43,11 +43,19 @@ export {
   conditionHolds,
   conditionOperators,
   conditionSchema,
+  describeSignOffs,
   rulesForAction,
   rulesForFiles,
   signOffsFor,
+  unmetSignOff,
 } from "./approval-rules.ts";
-export type { ApprovalRule, Condition } from "./approval-rules.ts";
+export type {
+  ApprovalRule,
+  Condition,
+  RecordLoader,
+  RuleValues,
+  SignOff,
+} from "./approval-rules.ts";
 export {
   approvalApprove,
   approvalDefinitions,
