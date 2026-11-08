@@ -1,7 +1,11 @@
 // `system.describe`: the objects, fields, actions, queries and events a
 // caller may use, with their schemas. The web app builds screens from it and
 // agents read it to understand the system (P1.16, decision 0029).
-import type { AnyField, AnyObjectDefinition } from "@workspace/objects";
+import type {
+  AnyField,
+  AnyObjectDefinition,
+  ChoiceOptions,
+} from "@workspace/objects";
 import { z } from "zod";
 
 import { defineQuery } from "./define-action.ts";
@@ -21,6 +25,20 @@ const fieldSchema = z.object({
   /** The object a `ref` field points at. */
   target: z.string().nullable(),
   filters: z.array(z.string()),
+  /**
+   * A choice field's options, archived ones included so history can still
+   * name them. Null when the field isn't a choice.
+   */
+  options: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        category: z.string().nullable(),
+        archived: z.boolean(),
+      })
+    )
+    .nullable(),
   schema: jsonSchema,
 });
 
@@ -57,10 +75,25 @@ const toJson = (schema: z.ZodType, io: "input" | "output" = "output") => {
   return rest;
 };
 
+/** A choice field's options, or null when `field` isn't a choice. */
+const choiceOptions = (field: AnyField, choices: ChoiceOptions | undefined) => {
+  if (field.kind !== "choice" || !("list" in field)) {
+    return null;
+  }
+  const list = choices?.(String(field.list));
+  return (list ?? []).map((option) => ({
+    key: option.key,
+    label: option.label,
+    category: option.category ?? null,
+    archived: option.archived === true,
+  }));
+};
+
 const describeField = (
   object: AnyObjectDefinition,
   key: string,
-  field: AnyField
+  field: AnyField,
+  choices: ChoiceOptions | undefined
 ) => ({
   key,
   label: object.fieldLabels[key] ?? key,
@@ -70,6 +103,7 @@ const describeField = (
   readOnly: object.actions.update.readOnly.includes(key),
   target: "target" in field ? String(field.target) : null,
   filters: Object.keys(field.filters),
+  options: choiceOptions(field, choices),
   schema: toJson(field.input, "input"),
 });
 
@@ -84,6 +118,8 @@ export interface DescribeOptions {
   objects: readonly AnyObjectDefinition[];
   /** Every other definition in the system; `system.describe` adds itself. */
   definitions: readonly AnyDefinition[];
+  /** Loaded choice lists, so a choice field can name its options (P2.07). */
+  choices?: ChoiceOptions | undefined;
 }
 
 /** Grants everything: for describing a whole system, as `fx describe` does. */
@@ -94,7 +130,7 @@ export const allGranted: Granted = {
 
 /** What of `objects` and `definitions` a caller granted `granted` may use. */
 export const describeFor = (
-  { objects, definitions }: DescribeOptions,
+  { objects, definitions, choices }: DescribeOptions,
   granted: Granted
 ): SystemDescription => {
   const usable = definitions.filter(
@@ -115,7 +151,7 @@ export const describeFor = (
         label: object.label,
         description: object.description ?? null,
         fields: Object.entries(object.fields).map(([key, field]) =>
-          describeField(object, key, field as AnyField)
+          describeField(object, key, field as AnyField, choices)
         ),
         list: [...object.list],
         customFields: object.customFields,
@@ -145,7 +181,10 @@ export const describeQuery = ({ objects, definitions }: DescribeOptions) => {
     output: describeOutput,
     everyone: true,
     handler: (ctx): SystemDescription =>
-      describeFor({ objects, definitions: all }, ctx.granted),
+      describeFor(
+        { objects, definitions: all, choices: ctx.config.choices },
+        ctx.granted
+      ),
   });
   all.push(query);
   return query;

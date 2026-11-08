@@ -29,7 +29,11 @@ describe("the CRM's config", () => {
     objects: crm.objects,
     actions: crm.registry
       .list()
-      .filter((definition) => definition.name === "contact.moveToOrganisation"),
+      .filter(
+        (definition) =>
+          definition.name === "contact.moveToOrganisation" ||
+          definition.name === "deal.moveStage"
+      ),
     migrations: crm.migrations,
     config,
   });

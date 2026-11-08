@@ -86,6 +86,13 @@ export const seed = async (
     });
     ids.push((result.output as { record: { id: string } }).record.id);
   }
+  await run("deal.create", {
+    name: "Acme renewal",
+    organisation: ids[0],
+    value: { amount: 1_200_000, currency: "GBP" },
+    owner: sarah.id,
+    stage: "lead",
+  });
   for (const { at, ...values } of contacts) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- as above.
     await run("contact.create", {

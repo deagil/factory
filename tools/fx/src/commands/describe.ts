@@ -27,6 +27,13 @@ export interface Description {
       required: boolean;
       readOnly: boolean;
       target: string | null;
+      options:
+        | {
+            key: string;
+            label: string;
+            archived: boolean;
+          }[]
+        | null;
       schema: JsonSchema;
     }[];
   }[];
@@ -216,7 +223,12 @@ const fieldText = (field: Description["objects"][number]["fields"][number]) => {
     field.required ? "required" : "",
     field.readOnly ? "read-only" : "",
   ].filter(Boolean);
-  return `    ${field.key.padEnd(16)} ${type.padEnd(22)} ${notes.join(", ")}`.trimEnd();
+  const labels = (field.options ?? [])
+    .filter((option) => !option.archived)
+    .map((option) => option.label);
+  const line =
+    `    ${field.key.padEnd(16)} ${type.padEnd(22)} ${notes.join(", ")}`.trimEnd();
+  return labels.length > 0 ? `${line}  ${labels.join(", ")}` : line;
 };
 
 /** The human-readable form: a summary, or schemas when one definition matched. */

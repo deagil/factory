@@ -4,7 +4,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { useState } from "react";
 
-import { filterValue, withoutFilter } from "../lib/records.ts";
+import { displayValue, filterValue, withoutFilter } from "../lib/records.ts";
 import type { FieldDescription, Filter } from "../lib/records.ts";
 
 const selectClass =
@@ -21,6 +21,89 @@ const words: Record<string, string> = {
   lt: "is less than",
   lte: "is at most",
   isNull: "is empty",
+  category: "is in",
+};
+
+const shownFilterValue = (
+  field: FieldDescription | undefined,
+  value: unknown
+) => {
+  if (field?.type !== "choice") {
+    return JSON.stringify(value);
+  }
+  return displayValue(field, { [field.key]: value }, {}, undefined);
+};
+
+/** The value control for one field and operator. */
+const FilterValue = ({
+  field,
+  operator,
+  value,
+  onChange,
+}: {
+  field: FieldDescription | undefined;
+  operator: string;
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  if (field?.type === "boolean") {
+    return (
+      <select
+        aria-label="Value"
+        className={selectClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Choose…</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    );
+  }
+  if (field?.type === "choice") {
+    const live = (field.options ?? []).filter((option) => !option.archived);
+    const byCategory = operator === "category";
+    const keys = byCategory
+      ? [
+          ...new Set(
+            live.flatMap((option) => (option.category ? [option.category] : []))
+          ),
+        ]
+      : live.map((option) => option.key);
+    const labelOf = (key: string) =>
+      byCategory
+        ? key
+        : (live.find((option) => option.key === key)?.label ?? key);
+    return (
+      <select
+        aria-label="Value"
+        className={selectClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Choose…</option>
+        {keys.map((key) => (
+          <option key={key} value={key}>
+            {labelOf(key)}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <Input
+      aria-label="Value"
+      className="w-48"
+      type={field?.type === "date" ? "date" : "text"}
+      inputMode={
+        field?.type === "number" || field?.type === "money"
+          ? "decimal"
+          : undefined
+      }
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
 };
 
 export const FilterBar = ({
@@ -92,32 +175,14 @@ export const FilterBar = ({
               </option>
             ))}
         </select>
-        {operator !== "isNull" &&
-          (field?.type === "boolean" ? (
-            <select
-              aria-label="Value"
-              className={selectClass}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-            >
-              <option value="">Choose…</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          ) : (
-            <Input
-              aria-label="Value"
-              className="w-48"
-              type={field?.type === "date" ? "date" : "text"}
-              inputMode={
-                field?.type === "number" || field?.type === "money"
-                  ? "decimal"
-                  : undefined
-              }
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-            />
-          ))}
+        {operator !== "isNull" && (
+          <FilterValue
+            field={field}
+            operator={operator}
+            value={text}
+            onChange={setText}
+          />
+        )}
         <Button type="submit" variant="outline" size="sm">
           Add filter
         </Button>
@@ -131,7 +196,12 @@ export const FilterBar = ({
                 className="flex items-center gap-1 rounded-full bg-muted py-0.5 pr-1 pl-3 text-xs"
               >
                 {labelOf(fieldKey)} {words[op] ?? op}{" "}
-                {op === "isNull" ? "" : JSON.stringify(value)}
+                {op === "isNull"
+                  ? ""
+                  : shownFilterValue(
+                      fields.find((each) => each.key === fieldKey),
+                      value
+                    )}
                 <Button
                   variant="ghost"
                   size="icon-xs"

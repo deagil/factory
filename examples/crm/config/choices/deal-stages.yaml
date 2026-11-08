@@ -1,0 +1,19 @@
+# deal.stage. A mapped choice: staff add, rename, reorder and archive
+# stages, and each one is open, won or lost. Code acts on the category.
+key: deal-stages
+options:
+  - key: lead
+    label: Lead
+    category: open
+  - key: qualified
+    label: Qualified
+    category: open
+  - key: proposal
+    label: Proposal sent
+    category: open
+  - key: won
+    label: Won
+    category: won
+  - key: lost
+    label: Lost
+    category: lost

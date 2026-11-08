@@ -58,6 +58,7 @@ describe("forms from action inputs", () => {
         type: "ref",
         target: "organisation",
         required: true,
+        options: null,
       },
     ]);
   });

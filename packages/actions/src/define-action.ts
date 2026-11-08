@@ -5,7 +5,12 @@
 
 import type { IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
-import type { ChoiceOptions, DataAccess, Repository } from "@workspace/objects";
+import type {
+  ChoiceOption,
+  ChoiceOptions,
+  DataAccess,
+  Repository,
+} from "@workspace/objects";
 import type { z } from "zod";
 
 import type { ActionFailure, ErrorHelpers } from "./errors.ts";
@@ -41,9 +46,34 @@ export interface ConfigService {
   readonly roles: readonly Role[];
   /** The options of each choice list, by list key (P2.06). */
   readonly choices?: ChoiceOptions;
+  /**
+   * One choice list as this run sees it (P2.07). The pipeline adds it from
+   * `choices` when a run starts, so `get` reads the pinned version.
+   */
+  readonly choice?: (list: string) => ChoiceListAccess;
   /** Checks `config/` on disk against its schemas and the running code. */
   readonly validate?: () => ConfigCheck;
 }
+
+/** One choice list: `get` returns the option that can be chosen now. */
+export interface ChoiceListAccess {
+  /**
+   * The option with `key`, when it exists and isn't archived. An archived
+   * option stays valid on a record that already has it, but can't be chosen.
+   */
+  readonly get: (key: string) => ChoiceOption | undefined;
+}
+
+/** `ctx.config.choice(list)`, from the options pinned for a run. */
+export const choiceList = (
+  choices: ChoiceOptions | undefined,
+  list: string
+): ChoiceListAccess => ({
+  get: (key) =>
+    choices?.(list)?.find(
+      (option) => option.key === key && option.archived !== true
+    ),
+});
 
 /** What a permission on an object lets an actor do. */
 export const objectVerbs = ["view", "create", "update", "archive"] as const;
