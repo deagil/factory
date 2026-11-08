@@ -33,7 +33,8 @@ const git = (cwd: string, ...args: string[]) =>
     stdio: "pipe",
   }).trim();
 
-describe("drafts over git", () => {
+// Each test runs dozens of git commands, slow when every suite runs at once.
+describe("drafts over git", { timeout: 30_000 }, () => {
   const configDir = path.resolve(import.meta.dirname, "../config");
   // A bare remote whose main and production have the CRM's config.
   const root = mkdtempSync(path.join(tmpdir(), "crm-drafts-"));

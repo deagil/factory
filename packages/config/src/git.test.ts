@@ -69,7 +69,8 @@ const remote = () => {
 
 const author = { name: "Sarah", email: "sarah@example.com" };
 
-describe(createGitConfigService, () => {
+// Each test runs dozens of git commands, slow when every suite runs at once.
+describe(createGitConfigService, { timeout: 30_000 }, () => {
   it("publishes a two-file draft as one commit, which the loader and main pick up", async () => {
     const { bare, service, show } = remote();
     const base = await service.branch("draft/one");
