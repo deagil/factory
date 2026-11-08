@@ -20,8 +20,15 @@ import type {
   SystemDescription,
 } from "@workspace/actions";
 import { identityActions } from "@workspace/auth";
-import { coreConfigTypes, readConfig, validateConfig } from "@workspace/config";
-import type { ChoiceList, ConfigCatalog, ConfigRead } from "@workspace/config";
+import {
+  choiceConfigType,
+  choiceLookup,
+  coreConfigTypes,
+  readConfig,
+  validateConfig,
+  valuesOf,
+} from "@workspace/config";
+import type { ConfigCatalog, ConfigRead } from "@workspace/config";
 import type { AnyObjectDefinition, ChoiceOptions } from "@workspace/objects";
 
 import { catalogOf } from "./catalog.ts";
@@ -71,15 +78,12 @@ export interface System {
  */
 const choiceOptions = (
   configDir: string | undefined
-): ChoiceOptions | undefined => {
-  if (!configDir) {
-    return undefined;
-  }
-  const lists = readConfig(configDir, coreConfigTypes).files.flatMap((file) =>
-    file.type === "choices" ? [file.value as ChoiceList] : []
-  );
-  return (list) => lists.find((each) => each.key === list)?.options;
-};
+): ChoiceOptions | undefined =>
+  configDir
+    ? choiceLookup(
+        valuesOf(readConfig(configDir, coreConfigTypes).files, choiceConfigType)
+      )
+    : undefined;
 
 export const defineSystem = (options: SystemOptions): System => {
   const definitions = [

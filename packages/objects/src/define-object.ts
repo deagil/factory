@@ -453,6 +453,7 @@ export const defineObject = <
   // Columns: housekeeping, then each field's, then custom fields.
   const columns: Record<string, PgColumnBuilderBase> = housekeepingColumns();
   const refColumns: string[] = [];
+  const choiceColumns: string[] = [];
   for (const key of keys) {
     const field = fields[key] as AnyField;
     const builders = field.columns(snakeCase(key));
@@ -462,6 +463,9 @@ export const defineObject = <
         () => refTarget(name, target).id
       );
       refColumns.push(key);
+    }
+    if (field.kind === "choice") {
+      choiceColumns.push(key);
     }
     for (const [suffix, builder] of Object.entries(builders)) {
       columns[`${key}${suffix}`] = builder;
@@ -477,6 +481,10 @@ export const defineObject = <
       // Refs are joined and filtered on, so each gets an index.
       ...refColumns.map((key) =>
         index(`${tableName}_${snakeCase(key)}_id_idx`).on(built(key))
+      ),
+      // So are choices, by key or by a category's keys (decision 0039).
+      ...choiceColumns.map((key) =>
+        index(`${tableName}_${snakeCase(key)}_idx`).on(built(key))
       ),
       ...(customFields
         ? [

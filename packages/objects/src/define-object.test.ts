@@ -82,6 +82,19 @@ describe(defineObject, () => {
       ]);
     });
 
+    it("indexes refs and choices, which are filtered on", () => {
+      const lead = defineObject({
+        name: "lead",
+        fields: {
+          company: f.ref("company"),
+          source: f.choice("lead-sources", { control: "custom" }),
+        },
+      });
+      expect(
+        getTableConfig(lead.table).indexes.map((each) => each.config.name)
+      ).toStrictEqual(["leads_company_id_idx", "leads_source_idx"]);
+    });
+
     it("types its columns from the fields", () => {
       type Row = typeof deal.table.$inferSelect;
       expectTypeOf<Row["title"]>().toEqualTypeOf<string>();

@@ -116,8 +116,13 @@ describe("example CRM", () => {
     });
   });
 
-  it("moves a deal only through deal.moveStage, and records the category", async () => {
+  it("starts a deal in an open stage, moves it only through deal.moveStage, and records the category", async () => {
     const buyer = await call("organisation.create", { name: "Buyer" });
+    const startWon = await call("deal.create", {
+      name: "Already won",
+      organisation: buyer.output?.record.id,
+      stage: "won",
+    });
     const made = await call("deal.create", {
       name: "New logo",
       organisation: buyer.output?.record.id,
@@ -143,8 +148,10 @@ describe("example CRM", () => {
       seeded.admin
     );
     expect(
-      [viaUpdate, unknown, lostBare].map((result) => result.error?.code)
-    ).toStrictEqual(["validation", "validation", "validation"]);
+      [startWon, viaUpdate, unknown, lostBare].map(
+        (result) => result.error?.code
+      )
+    ).toStrictEqual(["validation", "validation", "validation", "validation"]);
     expect([moved.output?.record, lost.output?.record]).toMatchObject([
       { stage: "qualified" },
       { stage: "lost" },
@@ -231,6 +238,16 @@ describe("example CRM", () => {
       surfaces: { http: httpSurface(request), mcp: mcpSurface(request) },
       samples: {
         ...identitySamples(crm.registry, server.pipeline, caller),
+        "deal.create": async () => {
+          const org = await run("organisation.create", { name: "Buyer" });
+          return {
+            name: "Sample deal",
+            organisation:
+              org.ok && (org.output as { record: { id: string } }).record.id,
+            value: { amount: 250_000, currency: "GBP" },
+            stage: "lead",
+          };
+        },
         "deal.moveStage": async () => {
           const org = await run("organisation.create", { name: "Buyer" });
           const created = await run("deal.create", {

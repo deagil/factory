@@ -10,7 +10,9 @@ permissions:
   - action: contact.moveToOrganisation
     scope: all
   - object: deal
-    can: [view, create, update]
+    can: [view, update]
+    scope: all
+  - action: deal.create
     scope: all
   - action: deal.moveStage
     scope: all

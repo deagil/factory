@@ -1,8 +1,8 @@
-import { defineObject, f } from "@workspace/objects/define";
 // The CRM's objects. drizzle-kit loads this file on its own, so it exports
-// the tables as well as the objects. Field imports stay on
+// the tables as well as the objects, and imports only from
 // `@workspace/objects/define`.
-import { index } from "drizzle-orm/pg-core";
+
+import { defineObject, f } from "@workspace/objects/define";
 
 export const organisation = defineObject({
   name: "organisation",
@@ -51,9 +51,8 @@ export const deal = defineObject({
     }),
   },
   list: ["name", "organisation", "value", "stage", "owner"],
-  // deal.moveStage owns stage.
-  actions: { update: { readOnly: ["stage"] } },
-  drizzle: (table) => [index("deals_stage_idx").on(table.stage)],
+  // deal.create starts a deal in an open stage; deal.moveStage owns it after.
+  actions: { create: "deal.create", update: { readOnly: ["stage"] } },
 });
 
 export const organisations = organisation.table;

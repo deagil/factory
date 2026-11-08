@@ -23,6 +23,7 @@ export { roleConfigType, roleReferences } from "./roles.ts";
 export {
   choiceConfigType,
   choiceListSchema,
+  choiceLookup,
   choiceOptionSchema,
 } from "./choices.ts";
 export type { ChoiceList } from "./choices.ts";

@@ -32,6 +32,7 @@ describe("the CRM's config", () => {
       .filter(
         (definition) =>
           definition.name === "contact.moveToOrganisation" ||
+          definition.name === "deal.create" ||
           definition.name === "deal.moveStage"
       ),
     migrations: crm.migrations,

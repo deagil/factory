@@ -46,3 +46,9 @@ export const choiceConfigType = defineConfigType<ChoiceList>({
   // Code names the lists; a list names nothing.
   references: () => [],
 });
+
+/** Each list's options by key, as `ConfigService.choices` gives them. */
+export const choiceLookup =
+  (lists: readonly ChoiceList[]) =>
+  (list: string): ChoiceList["options"] | undefined =>
+    lists.find((each) => each.key === list)?.options;
