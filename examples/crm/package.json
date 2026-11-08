@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@workspace/actions": "workspace:*",
+    "@workspace/config": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/objects": "workspace:*",
     "@workspace/server": "workspace:*",

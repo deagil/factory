@@ -1,0 +1,8 @@
+key: admin
+label: Admin
+permissions:
+  - object: "*"
+    can: [view, create, update, archive]
+    scope: all
+  - action: "*"
+    scope: all

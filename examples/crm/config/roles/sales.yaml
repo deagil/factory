@@ -1,0 +1,17 @@
+key: sales
+label: Sales
+permissions:
+  - object: organisation
+    can: [view, create, update]
+    scope: all
+  - object: contact
+    can: [view, create, update]
+    scope: all
+  - action: contact.moveToOrganisation
+    scope: all
+  - action: actor.createAgent
+    scope: all
+  - action: apiKey.create
+    scope: all
+  - action: apiKey.revoke
+    scope: all

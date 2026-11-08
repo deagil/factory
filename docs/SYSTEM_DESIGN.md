@@ -307,7 +307,7 @@ Every permission carries a `scope`. Version one supports only `all`, which works
 
 **How it works.**
 
-- **Config types.** Each type (choice, field, role, approval, workflow, template, page, flag) has a Zod schema registered by the core or a module. Files live under `config/<type>/<key>.yaml` (YAML or JSON, still to decide).
+- **Config types.** Each type (choice, field, role, approval, workflow, template, page, flag) has a Zod schema registered by the core or a module. Files live under `config/<type>/<key>.yaml`, in plain YAML 1.2 (decision 0037).
 - **Validation.** One `validateConfig` function validates every file against its schema, then cross-checks references against the running code: objects, fields, choice options, actions, events, templates and roles. It runs in the dev server, in CI, in the web surface on every draft, and in the loader.
 - **The loader.** On start-up and on each new commit to the branch it runs (`production` in production, `main` on staging), the instance fetches `config/`, validates it against its own code, and swaps an in-memory index in one go. It records the commit in `config_versions`. Config that fails validation is refused; the last good version stays live and the failure is flagged.
 - **Pinning.** Workflow runs and actions record the config commit they ran under.

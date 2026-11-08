@@ -10,8 +10,8 @@
 
 ## Resume here
 
-- **Status:** in progress. P2.01 and P2.02 are done: systems have their own migrations (decision 0036), and agents see action ids. [Phase 1b](phase-1b.md)'s screens are where this phase's approvals inbox, config editors and run inspector go.
-- **Next task:** P2.03, config types and the file format. It starts the config track; settle YAML or JSON in a decision record first.
+- **Status:** in progress. P2.01 to P2.03 are done: systems have their own migrations (decision 0036), agents see action ids, and config is YAML files with registered types (decision 0037); the CRM's roles are in `examples/crm/config/roles/`. [Phase 1b](phase-1b.md)'s screens are where this phase's approvals inbox, config editors and run inspector go.
+- **Next task:** P2.04, `validateConfig`: cross-check each file's `references` against the running system. `readConfig` already gives schema problems with file, path and line.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has.
 - **Carried over from phase 1:**
   - Refs to actors have no list query, so the web app shows a plain id input for them (P1.21). P2.07 adds an actor picker.
@@ -44,7 +44,7 @@ These fill gaps until later phases replace them. Don't build further than this.
 
 ### Config (`@workspace/config`; SYSTEM_DESIGN §4.4)
 
-- [ ] **P2.03 Config types and the file format**
+- [x] **P2.03 Config types and the file format**
   - Settle YAML or JSON in a decision record (phase 1 left it open).
   - `defineConfigType({ type, schema, references })` registers a type; modules and the core register theirs. Files live at `config/<type>/<key>.<ext>`; the key in the file must match its name.
   - **Needs:** nothing.
@@ -151,3 +151,4 @@ These fill gaps until later phases replace them. Don't build further than this.
 - 2026-11-07 · plan · Written at the end of phase 1 (P1.23).
 - 2026-11-08 · P2.01 · Each system keeps its own drizzle journal in `<package>/migrations`, applied after the core's and recorded in `drizzle.__drizzle_migrations_system` (decision 0036). `fx ship` generates in `packages/db` and every system package with a drizzle config, in one migration commit. The CRM's drizzle config now lists only its objects, with a `tablesFilter`, so Studio gets its own config to show the core tables too. drizzle-kit writes foreign keys to `actors` without the core schema loaded. The CRM's tests and `db:check-migrations` build its database from migrations alone. Surprise: `pnpm format` rewrote the generated snapshot JSON, so oxfmt now ignores every package's `migrations/`, as it did the core's.
 - 2026-11-08 · P2.02 · Surprise: a text block alone wasn't enough. Claude Code shows the model `structuredContent` when a result has one, and ignores the other text blocks, so its first try said the id was missing. An action's `structuredContent` now has `actionId`, and each action tool's output schema has it too. The `actionId: <id>` text block stays for clients that read text, and on errors, which have no structured content. Checked with `claude -p` against the CRM: it reports the action id.
+- 2026-11-08 · P2.03 · YAML 1.2 with the `yaml` package, plain only: no anchors, aliases or tags (decision 0037). `readConfig` maps each Zod issue to a line through the parsed document. Zod reports a permission that matches neither union member as a bare "Invalid input", so `readConfig` reports the closest member's issues instead (fewest issues wins), which also gives the right line. The CRM's `src/roles.ts` now reads `config/roles/*.yaml`; defineSystem still takes roles until P2.05.
