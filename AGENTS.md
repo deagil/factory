@@ -22,6 +22,7 @@ pnpm typecheck
 pnpm lint
 pnpm format
 pnpm test
+pnpm config:validate   # check config/ files against the running code
 pnpm fx describe   # what the system has: objects, actions, queries, events and schemas
 ```
 

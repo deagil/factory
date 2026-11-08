@@ -24,6 +24,8 @@ export interface ConfigFile<TValue extends Keyed = Keyed> {
   /** Relative to the config folder's parent, such as `config/roles/sales.yaml`. */
   readonly file: string;
   readonly value: TValue;
+  /** The line of the value at `path` in the file, for problems found later. */
+  readonly lineOf: (path: ConfigPath) => number | null;
 }
 
 export interface ConfigProblem {
@@ -88,7 +90,11 @@ const readFile = (
   configType: AnyConfigType,
   absolute: string,
   file: string
-): { value?: Keyed; problems: ConfigProblem[] } => {
+): {
+  value?: Keyed;
+  lineOf?: (at: ConfigPath) => number | null;
+  problems: ConfigProblem[];
+} => {
   const lines = new LineCounter();
   const doc = parseDocument(readFileSync(absolute, "utf-8"), {
     schema: "core",
@@ -161,7 +167,11 @@ const readFile = (
       ],
     };
   }
-  return { value, problems: [] };
+  return {
+    value,
+    lineOf: (at) => lineOf(doc, lines, at),
+    problems: [],
+  };
 };
 
 /**
@@ -212,12 +222,13 @@ export const readConfig = (
       }
       const read = readFile(configType, absolute, file);
       problems.push(...read.problems);
-      if (read.value) {
+      if (read.value && read.lineOf) {
         files.push({
           type: folder,
           key: read.value.key,
           file,
           value: read.value,
+          lineOf: read.lineOf,
         });
       }
     }

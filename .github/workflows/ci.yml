@@ -64,6 +64,10 @@ jobs:
           left=$(psql "$DATABASE_ADMIN_URL" -Atc "select string_agg(datname, ', ') from pg_database where datname like 'factory\_test\_%'")
           if [ -n "$left" ]; then echo "Test databases left behind: $left"; exit 1; fi
 
+      - name: Config validates
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm config:validate
+
       - name: Migration lint
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: pnpm db:lint-migrations

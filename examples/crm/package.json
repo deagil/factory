@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio --config drizzle.studio.config.ts",
     "db:lint-migrations": "node node_modules/@workspace/db/src/bin/lint-migrations.ts migrations",
     "db:check-migrations": "node node_modules/@workspace/db/src/bin/check-migrations.ts .",
+    "config:validate": "node node_modules/@workspace/server/src/bin/validate-config.ts .",
     "typecheck": "tsc --noEmit",
     "lint": "ultracite check",
     "test": "vitest run"

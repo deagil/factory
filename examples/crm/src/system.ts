@@ -5,7 +5,7 @@ import { defineSystem } from "@workspace/server";
 
 import { moveToOrganisation } from "./move-to-organisation.ts";
 import { contact, organisation } from "./objects.ts";
-import { roles } from "./roles.ts";
+import { configDir, roles } from "./roles.ts";
 
 export const crm = defineSystem({
   name: "example-crm",
@@ -13,6 +13,7 @@ export const crm = defineSystem({
   actions: [moveToOrganisation],
   roles,
   migrations: path.resolve(import.meta.dirname, "../migrations"),
+  config: configDir,
 });
 
 export default crm;

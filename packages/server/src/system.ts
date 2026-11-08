@@ -21,8 +21,12 @@ import type {
   SystemDescription,
 } from "@workspace/actions";
 import { identityActions } from "@workspace/auth";
+import { coreConfigTypes, validateConfig } from "@workspace/config";
+import type { ConfigCatalog, ConfigRead } from "@workspace/config";
 import type { AnyObjectDefinition } from "@workspace/objects";
 import { z } from "zod";
+
+import { catalogOf, configValidateQuery } from "./config.ts";
 
 export interface SystemOptions {
   /** The system's name, such as `acme-crm`. */
@@ -37,6 +41,11 @@ export interface SystemOptions {
    * its objects. Applied after the core's (decision 0036).
    */
   migrations?: string;
+  /**
+   * The system's `config/` folder, absolute. With it the system has
+   * `config.validate` and `validateConfig()` (P2.04).
+   */
+  config?: string;
 }
 
 export interface System {
@@ -47,6 +56,10 @@ export interface System {
   readonly registry: Registry;
   /** The system's migrations folder, if it has one. */
   readonly migrations: string | undefined;
+  /** The system's `config/` folder, if it has one. */
+  readonly config: string | undefined;
+  /** Checks `config/` against the config types and this system (P2.04). */
+  readonly validateConfig: () => ConfigRead;
   /** The object tables, for the schema check. */
   readonly tables: readonly AnyObjectDefinition["table"][];
   /** Everything in the system, as `system.describe` shows it to an admin. */
@@ -63,16 +76,38 @@ export const defineSystem = (options: SystemOptions): System => {
     ...identityQueries,
     ...(options.actions ?? []),
   ];
+  // config.validate checks against the whole registry, itself included, so
+  // it reads the catalog once the registry is built.
+  const built: { catalog?: ConfigCatalog } = {};
+  const catalogNow = () => {
+    if (!built.catalog) {
+      throw new Error("The system's registry isn't built yet.");
+    }
+    return built.catalog;
+  };
+  const configQueries = options.config
+    ? [configValidateQuery(options.config, catalogNow)]
+    : [];
   const registry = createRegistry([
     ...definitions,
-    describeQuery({ objects: options.objects, definitions }),
+    ...configQueries,
+    describeQuery({
+      objects: options.objects,
+      definitions: [...definitions, ...configQueries],
+    }),
   ]);
+  built.catalog = catalogOf(options.objects, registry.list());
   return Object.freeze({
     name: options.name,
     objects: options.objects,
     roles,
     registry,
     migrations: options.migrations,
+    config: options.config,
+    validateConfig: () =>
+      options.config
+        ? validateConfig(options.config, coreConfigTypes, catalogNow())
+        : { files: [], problems: [] },
     tables: options.objects.map((object) => object.table),
     describe: () =>
       describeFor(

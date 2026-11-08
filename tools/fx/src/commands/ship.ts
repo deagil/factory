@@ -324,6 +324,7 @@ export const defaultChecks: readonly Check[] = [
   { name: "typecheck", command: ["pnpm", "typecheck"] },
   { name: "lint", command: ["pnpm", "lint"] },
   { name: "tests", command: ["pnpm", "test"] },
+  { name: "config", command: ["pnpm", "config:validate"] },
   {
     name: "migrations on a fresh database",
     command: ["pnpm", "db:check-migrations"],

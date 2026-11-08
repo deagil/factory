@@ -17,6 +17,7 @@
     "@modelcontextprotocol/server": "^2.4.0",
     "@workspace/actions": "workspace:*",
     "@workspace/auth": "workspace:*",
+    "@workspace/config": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/objects": "workspace:*",
     "hono": "^4.13.17",
