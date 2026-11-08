@@ -100,6 +100,40 @@ export const displayValue = (
   }
 };
 
+const isMoney = (
+  value: unknown
+): value is { amount: number; currency: string } =>
+  typeof value === "object" &&
+  value !== null &&
+  "amount" in value &&
+  typeof value.amount === "number";
+
+/** The text a filter chip edits, the inverse of `filterValue`. */
+export const filterText = (
+  field: FieldDescription | undefined,
+  op: string,
+  value: unknown
+): string => {
+  if (op === "isNull") {
+    return "";
+  }
+  if (op === "where" || Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  if (field?.type === "money" && isMoney(value)) {
+    const major = value.amount / 100;
+    return Number.isInteger(major) ? String(major) : major.toFixed(2);
+  }
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+  return "";
+};
+
 /** Turns a filter's typed-in text into the value its field expects. */
 export const filterValue = (field: FieldDescription, text: string): unknown => {
   switch (field.type) {

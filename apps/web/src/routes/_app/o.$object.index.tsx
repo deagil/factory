@@ -105,146 +105,145 @@ const ListScreen = () => {
           ) : null
         }
       />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <FilterBar
-          fields={object.fields}
-          filter={search.filter ?? {}}
-          onChange={(filter) =>
-            update({
-              filter: Object.keys(filter).length > 0 ? filter : undefined,
-            })
-          }
-        />
-        <label className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={search.archived ?? false}
-            onChange={(event) =>
-              update({ archived: event.target.checked || undefined })
+      <div className="min-w-0 overflow-hidden rounded-2xl border bg-background">
+        <div className="border-b px-3 py-2">
+          <FilterBar
+            fields={object.fields}
+            filter={search.filter ?? {}}
+            onChange={(filter) =>
+              update({
+                filter: Object.keys(filter).length > 0 ? filter : undefined,
+              })
+            }
+            archived={search.archived === true}
+            onArchivedChange={(next) =>
+              update({ archived: next ? true : undefined })
             }
           />
-          Show archived
-        </label>
-      </div>
-      {page.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {page.error.message}
-        </p>
-      )}
-      <div className="overflow-x-auto rounded-2xl border">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              {columns.map((field) => (
-                <th
-                  key={field.key}
-                  scope="col"
-                  className="px-3 py-2 font-medium"
-                >
-                  {isSortable(field) ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 hover:underline"
-                      onClick={() =>
-                        update({ sort: nextSort(search.sort, field.key) })
-                      }
-                    >
-                      {field.label}
-                      {search.sort === field.key && " ↑"}
-                      {search.sort === `-${field.key}` && " ↓"}
-                    </button>
-                  ) : (
-                    field.label
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {page.data?.records.map((record) => (
-              <tr
-                key={String(record.id)}
-                className="border-b last:border-0 hover:bg-muted/30"
-              >
-                {columns.map((field, index) => (
-                  <td key={field.key} className="px-3 py-2">
-                    {index === 0 ? (
-                      <Link
-                        to="/o/$object/$id"
-                        params={{ object: name, id: String(record.id) }}
-                        className="font-medium hover:underline"
+        </div>
+        {page.isError && (
+          <p
+            role="alert"
+            className="border-b px-3 py-2 text-sm text-destructive"
+          >
+            {page.error.message}
+          </p>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/50">
+              <tr>
+                {columns.map((field) => (
+                  <th
+                    key={field.key}
+                    scope="col"
+                    className="px-3 py-2 font-medium"
+                  >
+                    {isSortable(field) ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:underline"
+                        onClick={() =>
+                          update({ sort: nextSort(search.sort, field.key) })
+                        }
                       >
-                        {displayValue(
-                          field,
-                          record,
-                          page.data.related,
-                          described.data
-                        ) || "(blank)"}
-                      </Link>
-                    ) : null}
-                    {index === 0 && record.archivedAt ? (
-                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        Archived
-                      </span>
-                    ) : null}
-                    {index === 0
-                      ? null
-                      : displayValue(
-                          field,
-                          record,
-                          page.data.related,
-                          described.data
-                        )}
-                  </td>
+                        {field.label}
+                        {search.sort === field.key && " ↑"}
+                        {search.sort === `-${field.key}` && " ↓"}
+                      </button>
+                    ) : (
+                      field.label
+                    )}
+                  </th>
                 ))}
               </tr>
-            ))}
-            {page.data?.records.length === 0 && (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-3 py-6 text-center text-muted-foreground"
+            </thead>
+            <tbody>
+              {page.data?.records.map((record) => (
+                <tr
+                  key={String(record.id)}
+                  className="border-b last:border-0 hover:bg-muted/30"
                 >
-                  No {object.label.toLowerCase()}s match.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={back.length === 0}
-          onClick={() =>
-            navigate({
-              search: (previous) => ({
-                ...previous,
-                cursor: back.at(-1) || undefined,
-                back: back.length > 1 ? back.slice(0, -1) : undefined,
-              }),
-            })
-          }
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!page.data?.nextCursor}
-          onClick={() =>
-            navigate({
-              search: (previous) => ({
-                ...previous,
-                cursor: page.data?.nextCursor ?? undefined,
-                back: [...back, search.cursor ?? ""],
-              }),
-            })
-          }
-        >
-          Next
-        </Button>
+                  {columns.map((field, index) => (
+                    <td key={field.key} className="px-3 py-2">
+                      {index === 0 ? (
+                        <Link
+                          to="/o/$object/$id"
+                          params={{ object: name, id: String(record.id) }}
+                          className="font-medium hover:underline"
+                        >
+                          {displayValue(
+                            field,
+                            record,
+                            page.data.related,
+                            described.data
+                          ) || "(blank)"}
+                        </Link>
+                      ) : null}
+                      {index === 0 && record.archivedAt ? (
+                        <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          Archived
+                        </span>
+                      ) : null}
+                      {index === 0
+                        ? null
+                        : displayValue(
+                            field,
+                            record,
+                            page.data.related,
+                            described.data
+                          )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              {page.data?.records.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="px-3 py-6 text-center text-muted-foreground"
+                  >
+                    No {object.label.toLowerCase()}s match.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end gap-2 border-t px-3 py-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={back.length === 0}
+            onClick={() =>
+              navigate({
+                search: (previous) => ({
+                  ...previous,
+                  cursor: back.at(-1) || undefined,
+                  back: back.length > 1 ? back.slice(0, -1) : undefined,
+                }),
+              })
+            }
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!page.data?.nextCursor}
+            onClick={() =>
+              navigate({
+                search: (previous) => ({
+                  ...previous,
+                  cursor: page.data?.nextCursor ?? undefined,
+                  back: [...back, search.cursor ?? ""],
+                }),
+              })
+            }
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );
