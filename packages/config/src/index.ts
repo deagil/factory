@@ -20,10 +20,20 @@ export {
 } from "./read.ts";
 export type { ConfigFile, ConfigProblem, ConfigRead } from "./read.ts";
 export { roleConfigType, roleReferences } from "./roles.ts";
+export {
+  choiceConfigType,
+  choiceListSchema,
+  choiceOptionSchema,
+} from "./choices.ts";
+export type { ChoiceList } from "./choices.ts";
 
 export { coreConfigTypes } from "./core-types.ts";
-export { checkReferences, validateConfig } from "./validate.ts";
-export type { ConfigCatalog } from "./validate.ts";
+export {
+  checkChoiceLists,
+  checkReferences,
+  validateConfig,
+} from "./validate.ts";
+export type { ChoiceFieldUse, ConfigCatalog } from "./validate.ts";
 export { createConfigLoader, workingTreeSha } from "./loader.ts";
 export type {
   ConfigIndex,

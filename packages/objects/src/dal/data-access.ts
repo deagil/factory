@@ -23,7 +23,8 @@ import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { z } from "zod";
 
 import type { AnyObjectDefinition } from "../define-object.ts";
-import type { AnyField } from "../fields/field.ts";
+import type { ChoiceOptions } from "../fields/choice.ts";
+import type { AnyField, FilterContext } from "../fields/field.ts";
 import { filterWhere } from "../fields/filters.ts";
 import type { Filterable } from "../fields/filters.ts";
 import { getObject } from "../registry.ts";
@@ -53,6 +54,8 @@ export interface DataAccessOptions {
   executor: Executor;
   /** The permission hook: what the reader may see of each object. */
   canRead: (object: AnyObjectDefinition) => ReadAccess;
+  /** The loaded choice options, for filters by category (P2.06). */
+  choices?: ChoiceOptions | undefined;
 }
 
 /** A record of `TObject`, as reads return it. */
@@ -131,7 +134,8 @@ const archivedCondition = (
 
 const filterConditions = (
   object: AnyObjectDefinition,
-  filter: ListInput["filter"]
+  filter: ListInput["filter"],
+  context: FilterContext
 ): SQL[] =>
   Object.entries(filter ?? {}).flatMap(([key, operators]) => {
     if (operators === undefined) {
@@ -146,7 +150,7 @@ const filterConditions = (
     const columns = field
       ? object.columnsOf(key)
       : { "": columnOf(object.table, key) };
-    return [filterWhere(filterable, columns, operators)];
+    return [filterWhere(filterable, columns, operators, context)];
   });
 
 /** Rows after the cursor, in the sort's order with empty values last. */
@@ -175,7 +179,11 @@ const isTimestamp = (key: string) =>
 const cursorValue = (value: unknown) =>
   value instanceof Date ? value.toISOString() : (value ?? null);
 
-export const createDataAccess = ({ executor, canRead }: DataAccessOptions) => {
+export const createDataAccess = ({
+  executor,
+  canRead,
+  choices,
+}: DataAccessOptions) => {
   const selectFrom = (table: PgTable) =>
     executor.select().from(table as never) as unknown as {
       where: (condition: SQL | undefined) => {
@@ -258,7 +266,7 @@ export const createDataAccess = ({ executor, canRead }: DataAccessOptions) => {
 
     const conditions = [
       archivedCondition(table, parsed.archived ?? "exclude"),
-      ...filterConditions(object, parsed.filter),
+      ...filterConditions(object, parsed.filter, { choices }),
     ];
     const cursor = parsed.cursor ? decodeCursor(parsed.cursor) : undefined;
     if (cursor) {

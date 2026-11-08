@@ -1,0 +1,16 @@
+# organisation.industry. A custom choice: staff add, rename and archive
+# industries freely; no code acts on them.
+key: industries
+options:
+  - key: software
+    label: Software
+  - key: manufacturing
+    label: Manufacturing
+  - key: retail
+    label: Retail
+  - key: finance
+    label: Financial services
+  - key: public-sector
+    label: Public sector
+  - key: other
+    label: Other

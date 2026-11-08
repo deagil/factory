@@ -10,6 +10,8 @@ export const organisation = defineObject({
     name: f.text({ required: true, maxLength: 200 }),
     website: f.text(),
     employees: f.number({ integer: true, min: 0 }),
+    // Staff own the industries: code acts on none of them (P2.06).
+    industry: f.choice("industries", { control: "custom" }),
     owner: f.ref("actor", { label: "Account owner" }),
   },
   customFields: true,

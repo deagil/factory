@@ -25,6 +25,7 @@ import type {
   AnyField,
   BuiltColumns,
   FieldColumns,
+  FilterContext,
   FilterOperator,
   MainColumn,
 } from "./field.ts";
@@ -101,7 +102,8 @@ export const filterSchema = (field: Filterable) => {
 export const filterWhere = (
   field: Filterable,
   columns: BuiltColumns<FieldColumns>,
-  filter: Record<string, unknown>
+  filter: Record<string, unknown>,
+  context?: FilterContext
 ): SQL => {
   const conditions: SQL[] = [];
   for (const [name, value] of Object.entries(filter)) {
@@ -114,7 +116,7 @@ export const filterWhere = (
     if (!op) {
       throw new Error(`The ${field.kind} field has no "${name}" filter`);
     }
-    conditions.push(op.where(columns, value));
+    conditions.push(op.where(columns, value, context));
   }
   const condition = and(...conditions);
   if (!condition) {

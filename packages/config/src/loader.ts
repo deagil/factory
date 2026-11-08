@@ -12,6 +12,7 @@ import path from "node:path";
 
 import type { ConfigService, Role } from "@workspace/actions";
 
+import { choiceConfigType } from "./choices.ts";
 import type { AnyConfigType, Keyed, ConfigType } from "./config-type.ts";
 import { formatProblem } from "./read.ts";
 import type { ConfigFile, ConfigProblem } from "./read.ts";
@@ -149,6 +150,12 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     },
     get roles(): readonly Role[] {
       return live?.values(roleConfigType) ?? [];
+    },
+    // Reading `choices` captures the live version, so a run that pinned it
+    // keeps its options when a newer version goes live.
+    get choices() {
+      const lists = live?.values(choiceConfigType) ?? [];
+      return (list: string) => lists.find((each) => each.key === list)?.options;
     },
     validate: () => {
       const { files, problems } = validateConfig(

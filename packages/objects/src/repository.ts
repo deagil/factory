@@ -15,6 +15,8 @@ import { z } from "zod";
 
 import type { RecordOf } from "./dal/data-access.ts";
 import type { AnyObjectDefinition } from "./define-object.ts";
+import { checkChoice } from "./fields/choice.ts";
+import type { ChoiceField, ChoiceOptions } from "./fields/choice.ts";
 import type { AnyField } from "./fields/field.ts";
 
 export interface RepositoryOptions {
@@ -26,6 +28,11 @@ export interface RepositoryOptions {
   actorId: string;
   /** The clock, from the action's context. */
   now: () => Date;
+  /**
+   * The choice options loaded for this run (P2.06). Choice values are
+   * checked against them; without them, no choice value is accepted.
+   */
+  choices?: ChoiceOptions | undefined;
 }
 
 /** Field values for a write, by key; `customFields` for staff-added fields. */
@@ -105,11 +112,33 @@ const parseValues = (object: AnyObjectDefinition, values: WriteValues) => {
   };
 };
 
+/**
+ * Checks each choice value being written against the loaded options. On an
+ * update, `current` is the record as it is, whose archived value may stay.
+ */
+const checkChoices = (
+  object: AnyObjectDefinition,
+  values: Row,
+  choices: ChoiceOptions | undefined,
+  current?: Row
+) => {
+  for (const [key, value] of Object.entries(values)) {
+    const field = (object.fields as Record<string, AnyField>)[key];
+    if (field?.kind === "choice") {
+      checkChoice(key, field as unknown as ChoiceField, value, {
+        choices,
+        current: current?.[key],
+      });
+    }
+  }
+};
+
 export const createRepository = ({
   executor,
   actionId,
   actorId,
   now,
+  choices,
 }: RepositoryOptions) => {
   if (!is(executor, PgTransaction)) {
     throw new Error(
@@ -160,6 +189,7 @@ export const createRepository = ({
     const { customFields, ...fieldValues } = values;
     const parsed = object.schemas.create.parse(fieldValues) as Row;
     const extra = parseValues(object, { customFields }).customFields;
+    checkChoices(object, parsed, choices);
     const at = now();
     const [row] = await db
       .insert(object.table)
@@ -274,6 +304,7 @@ export const createRepository = ({
     if (Object.keys(changes.after).length === 0) {
       return { status: "unchanged", record: typed };
     }
+    checkChoices(object, changed, choices, record);
 
     const written = await writeAt(object, id, record.version as number, {
       ...object.toRow(changed),

@@ -2,7 +2,7 @@
 // actions and queries, and the events they emit.
 import type { AnyDefinition } from "@workspace/actions";
 import type { ConfigCatalog } from "@workspace/config";
-import type { AnyObjectDefinition } from "@workspace/objects";
+import type { AnyObjectDefinition, ChoiceField } from "@workspace/objects";
 
 /** The objects, actions, queries and events that config can refer to. */
 export const catalogOf = (
@@ -28,5 +28,23 @@ export const catalogOf = (
     definitions.flatMap((definition) =>
       definition.kind === "action" ? Object.keys(definition.emits) : []
     )
+  ),
+  choiceFields: objects.flatMap((object) =>
+    Object.entries(object.fields).flatMap(([field, definition]) => {
+      if (definition.kind !== "choice") {
+        return [];
+      }
+      const choice = definition as unknown as ChoiceField;
+      return [
+        {
+          object: object.name,
+          field,
+          list: choice.list,
+          control: choice.control,
+          keys: choice.keys,
+          categories: choice.categories,
+        },
+      ];
+    })
   ),
 });

@@ -42,6 +42,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0036 | [System migrations](0036-system-migrations.md) | Accepted |
 | 0037 | [Config files are YAML, one per key](0037-config-files-are-yaml.md) | Accepted |
 | 0038 | [The config loader](0038-config-loader.md) | Accepted |
+| 0039 | [Choice fields](0039-choice-fields.md) | Accepted |
 
 ## Template
 

@@ -5,7 +5,7 @@
 
 import type { IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
-import type { DataAccess, Repository } from "@workspace/objects";
+import type { ChoiceOptions, DataAccess, Repository } from "@workspace/objects";
 import type { z } from "zod";
 
 import type { ActionFailure, ErrorHelpers } from "./errors.ts";
@@ -39,6 +39,8 @@ export interface ConfigService {
   readonly sha: string | null;
   /** Every role, by key. */
   readonly roles: readonly Role[];
+  /** The options of each choice list, by list key (P2.06). */
+  readonly choices?: ChoiceOptions;
   /** Checks `config/` on disk against its schemas and the running code. */
   readonly validate?: () => ConfigCheck;
 }
