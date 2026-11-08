@@ -3,8 +3,8 @@
 // version that fails validation is refused and the last good one stays
 // live. Each version it tries is recorded (config_versions). Locally it
 // reads the working tree and, when watching, reloads on save; the sha is
-// then a hash of the files. Reading a commit from a git remote comes with
-// the config service (P2.08).
+// then a hash of the files. With a source (the git config service, P2.08)
+// it reads production's head commit instead, and the sha is that commit's.
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { watch } from "node:fs/promises";
@@ -36,9 +36,24 @@ export type LoadResult =
       readonly problems: readonly ConfigProblem[];
     };
 
+/** Where config comes from when it isn't the working tree: a git remote. */
+export interface ConfigLoaderSource {
+  /** The commit config should be at now. */
+  readonly head: () => Promise<string>;
+  /** The config folder at `sha`, written to a folder of its own. */
+  readonly checkout: (sha: string) => Promise<string>;
+  /** Removes a folder `checkout` wrote, once nothing reads it. */
+  readonly release?: (dir: string) => void;
+}
+
 export interface ConfigLoaderOptions {
-  /** The `config/` folder. It may not exist: then there is no config. */
+  /**
+   * The `config/` folder, read when there is no source. It may not exist:
+   * then there is no config.
+   */
   readonly dir: string;
+  /** Reads config from here instead of `dir` (P2.08). */
+  readonly source?: ConfigLoaderSource;
   readonly types: readonly AnyConfigType[];
   /** What the running code has; read on each load. */
   readonly catalog: () => ConfigCatalog;
@@ -95,20 +110,42 @@ const indexOf = (sha: string, files: readonly ConfigFile[]): ConfigIndex => ({
 export const createConfigLoader = (options: ConfigLoaderOptions) => {
   const log = options.log ?? ((line: string) => console.info(line));
   let live: ConfigIndex | null = null;
+  // The folder the live version was read from, for `validate`.
+  let liveDir = options.dir;
   // Loads run one at a time, so the last save always wins.
   let queue: Promise<unknown> = Promise.resolve();
 
+  /** The version to load: a commit from the source, or the working tree. */
+  const versionToLoad = async () => {
+    if (!options.source) {
+      return { sha: workingTreeSha(options.dir), dir: options.dir };
+    }
+    const sha = await options.source.head();
+    return {
+      sha,
+      dir: live?.sha === sha ? liveDir : await options.source.checkout(sha),
+    };
+  };
+
+  /** Hands a folder the source wrote back to it, once nothing reads it. */
+  const handBack = (dir: string) => {
+    if (options.source?.release && dir !== liveDir && dir !== options.dir) {
+      options.source.release(dir);
+    }
+  };
+
   const loadNow = async (): Promise<LoadResult> => {
-    const sha = workingTreeSha(options.dir);
+    const { sha, dir } = await versionToLoad();
     if (live?.sha === sha) {
       return { status: "unchanged", sha };
     }
     const { files, problems } = validateConfig(
-      options.dir,
+      dir,
       options.types,
       options.catalog()
     );
     if (problems.length > 0) {
+      handBack(dir);
       await options.record?.({ sha, status: "refused", errors: problems });
       log(
         `config ${sha.slice(0, 8)} refused; ${live ? `${live.sha.slice(0, 8)} stays live` : "nothing is live"}:\n${problems.map((problem) => `  ${formatProblem(problem)}`).join("\n")}`
@@ -117,6 +154,9 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     }
     await options.record?.({ sha, status: "loaded", errors: null });
     live = indexOf(sha, files);
+    const previous = liveDir;
+    liveDir = dir;
+    handBack(previous);
     log(`config ${sha.slice(0, 8)} loaded: ${files.length} file(s).`);
     return { status: "loaded", sha };
   };
@@ -158,7 +198,7 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     },
     validate: () => {
       const { files, problems } = validateConfig(
-        options.dir,
+        liveDir,
         options.types,
         options.catalog()
       );
@@ -198,7 +238,16 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     };
   };
 
-  return { load, current, service, watch: watchDir };
+  /**
+   * Loads every `intervalMs` until the returned function is called: how an
+   * instance on a git remote sees new commits.
+   */
+  const poll = (intervalMs: number): (() => void) => {
+    const timer = setInterval(reload, intervalMs);
+    return () => clearInterval(timer);
+  };
+
+  return { load, current, service, watch: watchDir, poll };
 };
 
 export type ConfigLoader = ReturnType<typeof createConfigLoader>;

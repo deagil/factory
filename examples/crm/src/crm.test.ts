@@ -5,6 +5,7 @@ import type { Server } from "@workspace/server";
 import {
   createSystemDatabase,
   httpSurface,
+  draftSamples,
   identitySamples,
   mcpSurface,
   runContract,
@@ -247,6 +248,7 @@ describe("example CRM", () => {
       surfaces: { http: httpSurface(request), mcp: mcpSurface(request) },
       samples: {
         ...identitySamples(crm.registry, server.pipeline, caller),
+        ...draftSamples(),
         "deal.create": async () => {
           const org = await run("organisation.create", { name: "Buyer" });
           return {

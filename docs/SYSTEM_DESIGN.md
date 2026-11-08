@@ -140,7 +140,8 @@ workflow_step_runs id, run_id, step_id, action_id, input jsonb, output jsonb,
 config_versions    sha, status (loaded | rejected), errors jsonb, loaded_at
 drafts             id, branch, title, files text[], status (draft | valid | invalid |
                    awaiting_approval | published | abandoned),
-                   created_by, published_sha, created_at, published_at
+                   base_sha, created_by, published_sha, synced_sha,
+                   created_at, published_at
 ```
 
 ### Object tables
@@ -313,15 +314,15 @@ Every permission carries a `scope`. Version one supports only `all`, which works
 **A staff draft can change several files at once, and publishes them together:**
 
 ```
-1. Staff open a draft in the web surface (or an agent calls config.draft over MCP)
+1. Staff open a draft in the web surface (or an agent calls draft.open over MCP)
 2. The config service makes a short-lived branch from production and commits each edited file
 3. Every save is validated against the running code; problems show in the form
 4. Submit: if an approval rule covers any file in the set, approvers see a plain-English diff
-5. Publish: the branch merges into production in one commit; a bot copies it back to main
+5. Publish: the draft's files go onto production in one commit; a bot copies them back to main
 6. The loader sees the commit, validates, swaps the index; new runs use it in seconds
 ```
 
-The config service uses plain git (clone, branch, commit, push, fetch) against any remote, so it is not tied to GitHub.
+The config service uses plain git (clone, branch, commit, push, fetch) against any remote, so it is not tied to GitHub. Publishing refuses a draft whose files production changed since it began, and the copy to main is skipped, not forced, when main changed them (decision 0041).
 
 **Connects to.** Objects (choice and field definitions), permissions (roles), approvals, workflows, comms templates, pages, and the web surface's config editors.
 

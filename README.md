@@ -6,7 +6,7 @@ A personal software factory: a core I own that lets me, working mostly through A
 
 Each client gets their own system: a thin repo that pins a version of the core packages, adds the client's own objects and logic, and keeps all of its configuration as files. It deploys as one API service, one static web front end and one Postgres database.
 
-**Status: phase 2 next.** The walking skeleton works: objects defined once get generated actions, history and logs, an HTTP API with OpenAPI, MCP tools and generated web screens. `examples/crm` runs it end to end. All of it is usable from the web app, by section; config over git, choice fields and workflows follow; `config`, `events`, `workflows` and `sdk` are still placeholders. Start with [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
+**Status: phase 2 in progress.** The walking skeleton works: objects defined once get generated actions, history and logs, an HTTP API with OpenAPI, MCP tools and generated web screens. `examples/crm` runs it end to end. All of it is usable from the web app, by section. Config is YAML validated against the code and loaded live, with choice fields and drafts that publish over git; approvals and workflows follow, and `events`, `workflows` and `sdk` are still placeholders. Start with [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
 
 ## What it is, and what it isn't
 

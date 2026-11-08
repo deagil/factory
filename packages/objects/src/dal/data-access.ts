@@ -28,6 +28,7 @@ import type { AnyField, FilterContext } from "../fields/field.ts";
 import { filterWhere } from "../fields/filters.ts";
 import type { Filterable } from "../fields/filters.ts";
 import { getObject } from "../registry.ts";
+import { createDraftReader } from "./drafts.ts";
 import { createIdentityReader } from "./identity.ts";
 import {
   decodeCursor,
@@ -380,6 +381,7 @@ export const createDataAccess = ({
     list,
     ...createLogReader(executor),
     ...createIdentityReader(executor),
+    ...createDraftReader(executor),
   };
 };
 

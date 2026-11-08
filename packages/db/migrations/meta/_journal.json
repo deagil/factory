@@ -43,6 +43,13 @@
       "when": 1794141899778,
       "tag": "0005_p2_05_config_loader_and_config_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794151526944,
+      "tag": "0006_p2_08_drafts_over_git",
+      "breakpoints": true
     }
   ]
 }

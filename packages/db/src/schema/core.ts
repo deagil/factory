@@ -1,6 +1,6 @@
 // Core tables: the same in every instance. Columns follow
-// docs/SYSTEM_DESIGN.md section 3. Approval, workflow, config and draft tables
-// arrive with the phases that use them.
+// docs/SYSTEM_DESIGN.md section 3. Approval and workflow tables arrive with
+// the phases that use them.
 //
 // Status and kind columns are text with TypeScript enums, not database
 // enums or check constraints, so adding a value later is not a destructive
@@ -235,6 +235,48 @@ export const configVersions = pgTable(
     loadedAt: timestamptz("loaded_at").notNull().defaultNow(),
   },
   (t) => [index("config_versions_loaded_at_idx").on(t.loadedAt)]
+);
+
+export const draftStatuses = [
+  "draft",
+  "valid",
+  "invalid",
+  "awaiting_approval",
+  "published",
+  "abandoned",
+] as const;
+
+/**
+ * Staff edits to config (P2.08): a branch in the config remote, made from
+ * production, with one commit per saved file. `files` are the config files
+ * the draft changes; `base_sha` is the production commit it began from.
+ * Publishing writes one commit to production (`published_sha`) and copies it
+ * to main (`synced_sha`). Only the draft actions write it.
+ */
+export const drafts = pgTable(
+  "drafts",
+  {
+    id: id(),
+    branch: text("branch").notNull(),
+    title: text("title").notNull(),
+    files: text("files")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    status: text("status", { enum: draftStatuses }).notNull(),
+    baseSha: text("base_sha").notNull(),
+    publishedSha: text("published_sha"),
+    syncedSha: text("synced_sha"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => actors.id),
+    createdAt: createdAt(),
+    publishedAt: timestamptz("published_at"),
+  },
+  (t) => [
+    uniqueIndex("drafts_branch_unique").on(t.branch),
+    index("drafts_status_idx").on(t.status),
+  ]
 );
 
 // Better Auth's own tables, in their own schema. Only Better Auth writes them.

@@ -404,3 +404,22 @@ export const identitySamples = (
     },
   };
 };
+
+/**
+ * Samples for the draft actions a system with config has (P2.08). Without
+ * a config remote each is refused the same way on every surface.
+ */
+export const draftSamples = (): Record<string, () => Promise<unknown>> => {
+  const id = "00000000-0000-7000-8000-00000000d4af";
+  return {
+    "draft.open": () => Promise.resolve({ title: "Sample draft" }),
+    "draft.save": () =>
+      Promise.resolve({
+        id,
+        path: "config/roles/sample.yaml",
+        content: "key: sample\n",
+      }),
+    "draft.submit": () => Promise.resolve({ id }),
+    "draft.publish": () => Promise.resolve({ id }),
+  };
+};

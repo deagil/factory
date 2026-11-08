@@ -3,7 +3,7 @@
 // Handlers reach services only through `ctx`. See docs/SYSTEM_DESIGN.md
 // section 4.2 and decision 0019.
 
-import type { IdentityStore } from "@workspace/db";
+import type { DraftStore, IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
 import type {
   AnyChoiceList,
@@ -79,6 +79,68 @@ export const choiceList = <TList extends AnyChoiceList>(
     ) as OptionOf<TList> | undefined,
 });
 
+/** One config file before and after a change; null where it doesn't exist. */
+export interface ConfigFileDiff {
+  readonly path: string;
+  readonly before: string | null;
+  readonly after: string | null;
+}
+
+/** Who a config commit is by. */
+export interface ConfigAuthor {
+  readonly name: string;
+  readonly email: string;
+}
+
+/** What publishing a draft did. */
+export type PublishResult =
+  | {
+      readonly status: "published";
+      /** The one commit on production. */
+      readonly sha: string;
+      /** The same changes copied to main, or the files that stopped it. */
+      readonly synced:
+        | { readonly status: "copied"; readonly sha: string }
+        | { readonly status: "conflict"; readonly files: readonly string[] };
+    }
+  /** Production changed these files since the draft began. */
+  | { readonly status: "conflict"; readonly files: readonly string[] }
+  /** The draft on top of production doesn't validate. */
+  | { readonly status: "invalid"; readonly problems: ConfigCheck["problems"] };
+
+/**
+ * The config remote (P2.08, SYSTEM_DESIGN §4.4): drafts are branches made
+ * from production, one commit per saved file, and publishing writes them to
+ * production in one commit, then copies that to main. Plain git, any remote.
+ */
+export interface GitService {
+  /** The branch staff publish to and the instance runs. */
+  readonly production: string;
+  /** The commit `branch` is at. */
+  readonly head: (branch: string) => Promise<string>;
+  /** Makes `name` from production's head; returns that commit. */
+  readonly branch: (name: string) => Promise<string>;
+  /** Writes one file (or deletes it, with null) on `branch` as one commit. */
+  readonly commit: (input: {
+    branch: string;
+    path: string;
+    content: string | null;
+    message: string;
+    author: ConfigAuthor;
+  }) => Promise<{ status: "committed"; sha: string } | { status: "conflict" }>;
+  /** The config files that differ between two commits, with both versions. */
+  readonly diff: (from: string, to: string) => Promise<ConfigFileDiff[]>;
+  /** Checks the config at `ref` against the running code. */
+  readonly check: (ref: string) => Promise<ConfigCheck>;
+  /** Writes the draft on `branch` to production in one commit, then to main. */
+  readonly publish: (input: {
+    branch: string;
+    base: string;
+    message: string;
+    author: ConfigAuthor;
+  }) => Promise<PublishResult>;
+}
+
 /** What a permission on an object lets an actor do. */
 export const objectVerbs = ["view", "create", "update", "archive"] as const;
 export type ObjectVerb = (typeof objectVerbs)[number];
@@ -124,6 +186,11 @@ export interface QueryContext extends ErrorHelpers {
   /** What the actor may do, for handlers that filter by it. */
   readonly granted: Granted;
   readonly config: ConfigService;
+  /**
+   * The config remote, for drafts (P2.08). Absent when the system reads
+   * `config/` from its working tree, as it does locally.
+   */
+  readonly git: GitService | undefined;
   readonly clock: Clock;
   readonly actor: Actor;
   /** The person at the start of the chain; null if there isn't one. */
@@ -137,6 +204,13 @@ export interface ActionContext<
   readonly repo: Repository;
   /** Actors and API keys, for the core's identity actions. */
   readonly identity: IdentityStore;
+  /** Draft rows, for the core's draft actions (P2.08). */
+  readonly drafts: DraftStore;
+  /**
+   * Whether this run is a dry run, which is rolled back at the end. Actions
+   * whose effects are outside the database check it and don't make them.
+   */
+  readonly dryRun: boolean;
   readonly emit: Emit<TEmits>;
 }
 

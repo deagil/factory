@@ -1,7 +1,7 @@
 // `createServer` (P1.18, decision 0031): runs a system. It checks the
 // database matches the code (decision 0016), loads the system's config
-// (P2.05), then serves the HTTP API, sign-in and MCP (decisions 0027 and
-// 0028).
+// (P2.05) from its working tree or a config remote (P2.08), then serves the
+// HTTP API, sign-in and MCP (decisions 0027 and 0028).
 import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
@@ -12,6 +12,7 @@ import {
   ConfigError,
   coreConfigTypes,
   createConfigLoader,
+  createGitConfigService,
 } from "@workspace/config";
 import {
   activeUsers,
@@ -49,6 +50,25 @@ export interface ServerOptions {
   watchConfig?: boolean;
   /** Where config loads are reported; the console by default. */
   log?: (line: string) => void;
+  /**
+   * Read config from a git remote's production branch instead of the
+   * working tree, and let staff change it in drafts (P2.08). Tests use a
+   * bare repository on disk.
+   */
+  configRemote?: ConfigRemote;
+}
+
+export interface ConfigRemote {
+  /** A URL or a path to a repository. */
+  url: string;
+  /** Where the server keeps its clone of the remote, absolute. */
+  cacheDir: string;
+  /** `production` by default. */
+  production?: string;
+  /** `main` by default; publishes are copied to it. */
+  main?: string;
+  /** How often to look for new commits on production; never by default. */
+  pollMs?: number;
 }
 
 export const createServer = async (system: System, options: ServerOptions) => {
@@ -59,9 +79,26 @@ export const createServer = async (system: System, options: ServerOptions) => {
     await closeDb(db);
     throw error;
   }
+  const remote = system.config ? options.configRemote : undefined;
+  // Publishing reloads config, so the next run sees the draft's changes.
+  const reload: { load?: () => Promise<unknown> } = {};
+  const git = remote
+    ? createGitConfigService({
+        remote: remote.url,
+        cacheDir: remote.cacheDir,
+        production: remote.production,
+        main: remote.main,
+        types: coreConfigTypes,
+        catalog: system.catalog,
+        onPublished: async () => {
+          await reload.load?.();
+        },
+      })
+    : undefined;
   // No config folder means no config: no roles, so no one can do anything.
   const loader = createConfigLoader({
     dir: system.config ?? "",
+    source: git?.source,
     types: coreConfigTypes,
     catalog: system.catalog,
     record: (version) => recordConfigVersion(db, version),
@@ -78,12 +115,20 @@ export const createServer = async (system: System, options: ServerOptions) => {
     await closeDb(db);
     throw new ConfigError(loaded.problems);
   }
-  const stopWatching =
-    system.config && options.watchConfig ? loader.watch() : undefined;
+  reload.load = loader.load;
+  // On a remote, poll production; locally, watch the working tree.
+  const follow = () => {
+    if (git) {
+      return remote?.pollMs ? loader.poll(remote.pollMs) : undefined;
+    }
+    return system.config && options.watchConfig ? loader.watch() : undefined;
+  };
+  const stopWatching = follow();
   const config = loader.service;
   const pipeline = createPipeline({
     db,
     config,
+    git,
     clock: { now: () => new Date() },
     permissions: rolePermissions({ db, config }),
   });

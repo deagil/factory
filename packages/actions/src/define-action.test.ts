@@ -229,9 +229,12 @@ describe("types", () => {
     expectTypeOf<keyof ActionContext>().toEqualTypeOf<
       | "repo"
       | "identity"
+      | "drafts"
+      | "dryRun"
       | "dal"
       | "granted"
       | "config"
+      | "git"
       | "clock"
       | "actor"
       | "originUserId"
