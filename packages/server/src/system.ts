@@ -32,6 +32,11 @@ export interface SystemOptions {
   actions?: readonly AnyDefinition[];
   /** Roles, until phase 2 loads them from config. */
   roles: readonly Role[];
+  /**
+   * The system's migrations folder, absolute, which `fx ship` writes from
+   * its objects. Applied after the core's (decision 0036).
+   */
+  migrations?: string;
 }
 
 export interface System {
@@ -40,6 +45,8 @@ export interface System {
   readonly roles: readonly Role[];
   /** Every action and query, generated and hand-written. */
   readonly registry: Registry;
+  /** The system's migrations folder, if it has one. */
+  readonly migrations: string | undefined;
   /** The object tables, for the schema check. */
   readonly tables: readonly AnyObjectDefinition["table"][];
   /** Everything in the system, as `system.describe` shows it to an admin. */
@@ -65,6 +72,7 @@ export const defineSystem = (options: SystemOptions): System => {
     objects: options.objects,
     roles,
     registry,
+    migrations: options.migrations,
     tables: options.objects.map((object) => object.table),
     describe: () =>
       describeFor(

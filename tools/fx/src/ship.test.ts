@@ -16,6 +16,7 @@ import {
   contractReason,
   migrationName,
   migrationsPath,
+  migrationTargets,
   runGenerate,
   pullRequestCopy,
   pullRequestMessages,
@@ -88,8 +89,13 @@ const fakeGenerate: Generate = (worktree, name) => {
     : "";
   return Promise.resolve(
     recorded.includes(`-- schema: ${schema}\n`)
-      ? undefined
-      : addMigration(worktree, name, schema)
+      ? []
+      : [
+          path.join(
+            migrationsPath,
+            `${addMigration(worktree, name, schema)}.sql`
+          ),
+        ]
   );
 };
 
@@ -194,7 +200,7 @@ describe("fx ship", { timeout: 30_000 }, () => {
     it("replaces the migration on the next ship instead of adding one", async () => {
       const result = await ship(worktree, shipWith(pullRequests));
       expect(result).toMatchObject({
-        migration: "packages/db/migrations/0001_try_it.sql",
+        migrations: ["packages/db/migrations/0001_try_it.sql"],
         pushed: true,
         pullRequest: { created: false },
       });
@@ -246,7 +252,9 @@ describe("fx ship", { timeout: 30_000 }, () => {
     git(repo, "push", "-q", "origin", "main");
 
     const result = await ship(worktree, shipWith([]));
-    expect(result.migration).toBe("packages/db/migrations/0002_try_it.sql");
+    expect(result.migrations).toStrictEqual([
+      "packages/db/migrations/0002_try_it.sql",
+    ]);
     expect(addedMigrations(worktree)).toStrictEqual([
       "packages/db/migrations/0002_try_it.sql",
       "packages/db/migrations/meta/0002_snapshot.json",
@@ -334,6 +342,26 @@ describe("fx ship", { timeout: 30_000 }, () => {
     await expect(ship(worktree, shipWith([]))).rejects.toMatchObject({
       code: "nothing_to_ship",
     });
+  });
+});
+
+describe(migrationTargets, () => {
+  it("lists the core's migrations, then each system's", async () => {
+    const root = realpathSync(mkdtempSync(path.join(tmpdir(), "fx-targets-")));
+    write(
+      path.join(root, "examples", "shop", "package.json"),
+      JSON.stringify({ factory: { system: "./src/system.ts" } })
+    );
+    write(path.join(root, "examples", "shop", "drizzle.config.ts"), "");
+    // A system with no drizzle config has no migrations of its own.
+    write(
+      path.join(root, "examples", "bare", "package.json"),
+      JSON.stringify({ factory: { system: "./src/system.ts" } })
+    );
+    await expect(migrationTargets(root)).resolves.toStrictEqual([
+      { dir: "packages/db", migrations: "packages/db/migrations" },
+      { dir: "examples/shop", migrations: "examples/shop/migrations" },
+    ]);
   });
 });
 

@@ -50,8 +50,8 @@ pnpm fx --help
 
 - `fx ship` runs in a change's worktree, on its branch, with everything committed. In order, it:
   1. fetches `origin/main` and rebases the branch on it, after taking out the migration commit an earlier ship wrote. The person's commits come first and the migration commit always comes last, so main's new migrations never conflict with it;
-  2. refuses if the branch edits `packages/db/migrations` itself: fx ship writes the change's one migration;
-  3. runs `drizzle-kit generate --name <slug>` and commits the result as `chore: migration for <name>` with an `Fx-Migration: <slug>` trailer. That trailer is how the next ship finds the commit and replaces it. If the schema didn't change, there is no migration;
+  2. refuses if the branch edits `packages/db/migrations` or a system's `migrations` folder itself: fx ship writes the change's migrations;
+  3. runs `drizzle-kit generate --name <slug>` in `packages/db` and in each system package with a `drizzle.config.ts` (decision 0036), and commits what they write as `chore: migration for <name>` with an `Fx-Migration: <slug>` trailer. That trailer is how the next ship finds the commit and replaces it. Each schema that didn't change gets no migration;
   4. runs the checks CI runs, stopping at the first that fails: the migration lint, typecheck, lint, tests, and the migrations on a fresh database (`pnpm db:check-migrations`). The result goes in the change's `lastCheck`. A green result here is the local run, not GitHub's `check`;
   5. pushes with `--force-with-lease`, then opens a PR, or updates the open one. The title is the first commit's subject, which a squash onto main keeps, so that commit has to describe the whole change. The body is every commit on the branch, and a later ship refreshes it. Without `gh`, it prints the compare URL;
   6. waits for GitHub's `check` and prints its failing log. `fx status` shows the same check: pending, passed or failed. Merge only after it is green.

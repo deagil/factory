@@ -536,7 +536,7 @@ You run `fx start "deal forecasting"`, add a `forecast` field and a `deal.foreca
 ### Migrations
 
 - No migration files while working on a change: schema edits are pushed to the change's own database.
-- `fx ship` generates one migration for the change. CI applies it to a fresh database and a copy of seeded data.
+- `fx ship` generates the change's migration: one for the core and one for each system whose schema changed, each system keeping its own after the core's (decision 0036). CI applies them to a fresh database and a copy of seeded data.
 - Merge applies it to staging; release applies it to production before the new code starts.
 - **Expand, then contract:** migrations must work with the code already running. Destructive operations are linted and allowed only as the marked contract step.
 - Staff never trigger migrations: custom fields live in JSONB `custom_fields`.

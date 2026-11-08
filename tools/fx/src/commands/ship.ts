@@ -15,9 +15,38 @@ import type { RemoteCheck } from "../github.ts";
 import { capture, errorLine, plainText, runToStderr } from "../process.ts";
 import { changeForPath, listChanges, saveChange } from "../state.ts";
 import type { Change } from "../state.ts";
+import { findSystems } from "./describe.ts";
 
-/** The migrations folder, relative to the worktree. */
+/** The core's migrations folder, relative to the worktree. */
 export const migrationsPath = path.join("packages", "db", "migrations");
+
+/** Where drizzle-kit runs and the migrations folder it writes, relative to the worktree. */
+export interface MigrationTarget {
+  readonly dir: string;
+  readonly migrations: string;
+}
+
+/**
+ * The core's migrations, then each system's: a system package with a
+ * drizzle.config.ts keeps its own in `<package>/migrations` (decision 0036).
+ */
+export const migrationTargets = async (
+  worktree: string
+): Promise<MigrationTarget[]> => {
+  const systems = await findSystems(worktree);
+  return [
+    { dir: path.join("packages", "db"), migrations: migrationsPath },
+    ...systems
+      .filter((system) =>
+        existsSync(path.join(worktree, system.dir, "drizzle.config.ts"))
+      )
+      .toSorted((a, b) => a.dir.localeCompare(b.dir))
+      .map((system) => ({
+        dir: system.dir,
+        migrations: path.join(system.dir, "migrations"),
+      })),
+  ];
+};
 
 /** The trailer on the commit that holds the change's migration. */
 export const migrationTrailer = "Fx-Migration";
@@ -68,7 +97,7 @@ export const migrationCommits = async (
   return shas === "" ? [] : shas.split("\n");
 };
 
-/** The contract-step reason in the migration a commit added, if any. */
+/** The contract-step reason in the migrations a commit added, if any. */
 const commitContractReason = async (
   worktree: string,
   sha: string
@@ -79,9 +108,7 @@ const commitContractReason = async (
     "--format=",
     "--name-only",
     "--diff-filter=A",
-    sha,
-    "--",
-    migrationsPath
+    sha
   );
   const sqlFile = files.split("\n").find((file) => file.endsWith(".sql"));
   return sqlFile
@@ -115,7 +142,7 @@ export const dropMigrationCommits = async (
     throw new FxError(
       "rebase_conflict",
       "Commits after the change's migration commit also edit the migration, so fx ship can't replace it.",
-      `Undo those edits to ${migrationsPath}, commit, and run fx ship again. fx ship writes the migration from the schema.`
+      "Undo those edits to the migrations, commit, and run fx ship again. fx ship writes the migrations from the schema."
     );
   }
   return await dropMigrationCommits(worktree, base, slug, kept);
@@ -138,10 +165,11 @@ export const rebaseOn = async (
   }
 };
 
-/** Files under the migrations folder that differ from `base`. */
+/** Files under the migrations folders that differ from `base`. */
 const editedMigrations = async (
   worktree: string,
-  base: string
+  base: string,
+  folders: readonly string[]
 ): Promise<string[]> => {
   const files = await git(
     worktree,
@@ -149,7 +177,7 @@ const editedMigrations = async (
     "--name-only",
     `${base}...HEAD`,
     "--",
-    migrationsPath
+    ...folders
   );
   return files === "" ? [] : files.split("\n");
 };
@@ -168,11 +196,11 @@ const journalTags = async (migrations: string): Promise<string[]> => {
   return (journal.entries ?? []).map((entry) => entry.tag);
 };
 
-/** Generates a migration; resolves with its tag, or undefined if nothing changed. */
-export type Generate = (
-  worktree: string,
-  name: string
-) => Promise<string | undefined>;
+/**
+ * Generates the change's migrations; resolves with the SQL files written,
+ * relative to the worktree, one for each folder whose schema changed.
+ */
+export type Generate = (worktree: string, name: string) => Promise<string[]>;
 
 /**
  * Runs drizzle-kit `args` in `cwd` and returns the tag of the one migration
@@ -214,34 +242,54 @@ export const runGenerate = async (
   );
 };
 
-/** `drizzle-kit generate --name <name>` in the worktree's db package. */
-export const generateMigration: Generate = (worktree, name) =>
-  runGenerate(dbPackageDir(worktree), path.join(worktree, migrationsPath), [
-    "drizzle-kit",
-    "generate",
-    "--name",
-    name,
-  ]);
+/**
+ * `drizzle-kit generate --name <name>` in the db package, then in each
+ * system package, one after another.
+ */
+export const generateMigrations: Generate = async (worktree, name) => {
+  const written: string[] = [];
+  for (const target of await migrationTargets(worktree)) {
+    const dir =
+      target.migrations === migrationsPath
+        ? dbPackageDir(worktree)
+        : path.join(worktree, target.dir);
+    // oxlint-disable-next-line eslint/no-await-in-loop -- drizzle-kit runs one at a time
+    const tag = await runGenerate(dir, path.join(worktree, target.migrations), [
+      "drizzle-kit",
+      "generate",
+      "--name",
+      name,
+    ]);
+    if (tag) {
+      written.push(path.join(target.migrations, `${tag}.sql`));
+    }
+  }
+  return written;
+};
 
 /** The migration's name: the slug, in the snake case drizzle-kit uses. */
 export const migrationName = (slug: string): string =>
   slug.replaceAll("-", "_");
 
-const commitMigration = async (
+const commitMigrations = async (
   worktree: string,
   change: Change,
-  tag: string,
+  files: readonly string[],
   contractStep: string | undefined
-): Promise<string> => {
-  const file = path.join(migrationsPath, `${tag}.sql`);
-  const absolute = path.join(worktree, file);
+): Promise<void> => {
   if (contractStep) {
-    await writeFile(
-      absolute,
-      withContractStep(await readFile(absolute, "utf-8"), contractStep)
+    await Promise.all(
+      files.map(async (file) => {
+        const absolute = path.join(worktree, file);
+        await writeFile(
+          absolute,
+          withContractStep(await readFile(absolute, "utf-8"), contractStep)
+        );
+      })
     );
   }
-  await git(worktree, "add", "--", migrationsPath);
+  const folders = [...new Set(files.map((file) => path.dirname(file)))];
+  await git(worktree, "add", "--", ...folders);
   await git(
     worktree,
     "commit",
@@ -254,7 +302,6 @@ const commitMigration = async (
     "-m",
     `${migrationTrailer}: ${change.slug}`
   );
-  return file;
 };
 
 // ---------------------------------------------------------------------------
@@ -500,8 +547,8 @@ export interface ShipOptions {
 export interface ShipResult {
   /** The change, with this run's checks recorded. */
   readonly change: Change;
-  /** The change's migration, relative to the worktree; null if the schema didn't change. */
-  readonly migration: string | null;
+  /** The change's migrations, relative to the worktree: one per folder whose schema changed. */
+  readonly migrations: readonly string[];
   readonly contractStep: string | null;
   readonly checks: readonly CheckRun[];
   readonly pushed: boolean;
@@ -561,12 +608,14 @@ const updateHistory = async (
   log(`Rebasing ${change.branch} on ${base}…`);
   await rebaseOn(worktree, base);
 
-  const edited = await editedMigrations(worktree, base);
+  const targets = await migrationTargets(worktree);
+  const folders = targets.map((target) => target.migrations);
+  const edited = await editedMigrations(worktree, base, folders);
   if (edited.length > 0) {
     throw new FxError(
       "migration_failed",
-      `This change edits ${migrationsPath} by hand:\n  ${edited.join("\n  ")}`,
-      `fx ship writes the change's one migration from the schema. Undo those edits (\`git checkout ${base} -- ${migrationsPath}\`), commit, and run fx ship again.`
+      `This change edits migrations by hand:\n  ${edited.join("\n  ")}`,
+      `fx ship writes the change's migrations from the schema. Undo those edits (\`git checkout ${base} -- ${folders.join(" ")}\`), commit, and run fx ship again.`
     );
   }
   const commits = await git(worktree, "rev-list", "--count", `${base}..HEAD`);
@@ -580,29 +629,27 @@ const updateHistory = async (
   return kept;
 };
 
-/** Generates and commits the change's migration, if the schema changed. */
-const writeMigration = async (
+/** Generates and commits the change's migrations, if a schema changed. */
+const writeMigrations = async (
   change: Change,
   generate: Generate,
   contractStep: string | undefined,
   log: Log
-): Promise<{ migration: string | null; contractStep: string | null }> => {
-  log("Generating the change's migration from the schema…");
-  const tag = await generate(change.worktree, migrationName(change.slug));
-  if (!tag) {
-    log("The schema didn't change, so there is no migration.");
-    return { migration: null, contractStep: null };
-  }
-  const migration = await commitMigration(
+): Promise<{ migrations: string[]; contractStep: string | null }> => {
+  log("Generating the change's migrations from the schema…");
+  const migrations = await generate(
     change.worktree,
-    change,
-    tag,
-    contractStep
+    migrationName(change.slug)
   );
+  if (migrations.length === 0) {
+    log("The schema didn't change, so there is no migration.");
+    return { migrations, contractStep: null };
+  }
+  await commitMigrations(change.worktree, change, migrations, contractStep);
   log(
-    `Wrote ${migration}${contractStep ? ` (contract step: ${contractStep})` : ""}.`
+    `Wrote ${migrations.join(", ")}${contractStep ? ` (contract step: ${contractStep})` : ""}.`
   );
-  return { migration, contractStep: contractStep ?? null };
+  return { migrations, contractStep: contractStep ?? null };
 };
 
 /** Runs the checks and records the result on the change. Throws if one failed. */
@@ -697,9 +744,9 @@ export const ship = async (
   }
 
   const kept = await updateHistory(change, base, log);
-  const written = await writeMigration(
+  const written = await writeMigrations(
     change,
-    options.generate ?? generateMigration,
+    options.generate ?? generateMigrations,
     options.contractStep ?? kept,
     log
   );
@@ -766,7 +813,7 @@ const ciLine = (result: ShipResult): string | undefined => {
 export const formatShip = (result: ShipResult): string =>
   `${[
     `Shipped "${result.change.name}".`,
-    `  migration  ${result.migration ?? "none (the schema didn't change)"}${result.contractStep ? ` (contract step: ${result.contractStep})` : ""}`,
+    `  migration  ${result.migrations.join(", ") || "none (the schema didn't change)"}${result.contractStep ? ` (contract step: ${result.contractStep})` : ""}`,
     `  checks     ${result.checks.map((check) => check.name).join(", ")} passed`,
     where(result),
     ciLine(result),

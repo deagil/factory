@@ -15,7 +15,13 @@ export {
   staffActorFor,
 } from "./identity.ts";
 export type { IdentityStore } from "./identity.ts";
-export { migrationsFolder, runMigrations } from "./migrate.ts";
+export {
+  migrationsFolder,
+  runMigrations,
+  runSystemMigrations,
+  systemMigrationsTable,
+} from "./migrate.ts";
+export type { MigrateOptions } from "./migrate.ts";
 export {
   contractMarker,
   isContractStep,

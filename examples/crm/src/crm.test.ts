@@ -1,16 +1,14 @@
-import path from "node:path";
-
 import { checkSchema, coreTables } from "@workspace/db";
-import { createObjectsDatabase } from "@workspace/objects/testing/database";
-import type { CrmDatabase } from "@workspace/objects/testing/database";
 import { createServer } from "@workspace/server";
 import type { Server } from "@workspace/server";
 import {
+  createSystemDatabase,
   httpSurface,
   identitySamples,
   mcpSurface,
   runContract,
 } from "@workspace/server/testing";
+import type { SystemDatabase } from "@workspace/server/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { seed } from "./seed.ts";
@@ -23,15 +21,13 @@ const bearer = (key: string | null) => ({
 });
 
 describe("example CRM", () => {
-  let database: CrmDatabase;
+  let database: SystemDatabase;
   let server: Server;
   let seeded: Seeded;
 
   beforeAll(async () => {
-    database = await createObjectsDatabase(
-      path.resolve(import.meta.dirname, "objects.ts"),
-      "crm"
-    );
+    // Built from the committed migrations alone, as a deployed CRM's is.
+    database = await createSystemDatabase(crm);
     server = await createServer(crm, {
       databaseUrl: database.url,
       authSecret: "a-test-secret-that-is-at-least-32-characters",

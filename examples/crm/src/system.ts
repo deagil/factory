@@ -1,4 +1,6 @@
 // The example CRM: organisations and contacts, with one hand-written action.
+import path from "node:path";
+
 import { defineSystem } from "@workspace/server";
 
 import { moveToOrganisation } from "./move-to-organisation.ts";
@@ -10,6 +12,7 @@ export const crm = defineSystem({
   objects: [organisation, contact],
   actions: [moveToOrganisation],
   roles,
+  migrations: path.resolve(import.meta.dirname, "../migrations"),
 });
 
 export default crm;

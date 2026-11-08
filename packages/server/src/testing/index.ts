@@ -12,3 +12,5 @@ export type {
   Surface,
   SurfaceCall,
 } from "./contract.ts";
+export { createSystemDatabase } from "./database.ts";
+export type { SystemDatabase } from "./database.ts";
