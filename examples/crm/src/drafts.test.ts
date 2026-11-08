@@ -49,6 +49,15 @@ describe("drafts over git", () => {
   const system = defineSystem({
     name: crm.name,
     objects: crm.objects,
+    // The CRM's hand-written actions, which its roles grant.
+    actions: crm.registry
+      .list()
+      .filter(
+        (definition) =>
+          definition.name === "contact.moveToOrganisation" ||
+          definition.name === "deal.create" ||
+          definition.name === "deal.moveStage"
+      ),
     migrations: crm.migrations,
     config: configDir,
   });
