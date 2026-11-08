@@ -6,13 +6,8 @@
 // then a hash of the files. Reading a commit from a git remote comes with
 // the config service (P2.08).
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  watch,
-} from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { watch } from "node:fs/promises";
 import path from "node:path";
 
 import type { ConfigService, Role } from "@workspace/actions";
@@ -128,8 +123,17 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
   /** Reads, validates and, if it's valid and new, swaps in `config/`. */
   const load = (): Promise<LoadResult> => {
     const next = queue.then(loadNow);
-    queue = next.catch(() => {});
+    queue = next.catch(() => null);
     return next;
+  };
+
+  /** `load`, for the watcher: a load that throws is logged, not thrown. */
+  const reload = async () => {
+    try {
+      await load();
+    } catch (error) {
+      log(`config reload failed: ${String(error)}`);
+    }
   };
 
   /** The live version, or null before the first good load. */
@@ -161,21 +165,30 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
    * called. Saves within `debounceMs` of each other load once.
    */
   const watchDir = (debounceMs = 100): (() => void) => {
+    const stop = new AbortController();
     if (!existsSync(options.dir)) {
-      return () => {};
+      return () => stop.abort();
     }
     let timer: NodeJS.Timeout | undefined;
-    const watcher = watch(options.dir, { recursive: true }, () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        load().catch((error: unknown) => {
-          log(`config reload failed: ${String(error)}`);
-        });
-      }, debounceMs);
-    });
+    const follow = async () => {
+      try {
+        for await (const _change of watch(options.dir, {
+          recursive: true,
+          signal: stop.signal,
+        })) {
+          clearTimeout(timer);
+          timer = setTimeout(reload, debounceMs);
+        }
+      } catch (error) {
+        if (!stop.signal.aborted) {
+          log(`config watching stopped: ${String(error)}`);
+        }
+      }
+    };
+    void follow();
     return () => {
       clearTimeout(timer);
-      watcher.close();
+      stop.abort();
     };
   };
 
