@@ -81,12 +81,11 @@ describe("MCP server", () => {
     });
     expect(record).toMatchObject({ name: "Made by Claude" });
     // The model sees the action id in the result, not only in `_meta`.
-    expect(called.body.result.structuredContent).toMatchObject({
-      actionId: log?.id,
-    });
-    expect(called.body.result.content).toContainEqual({
-      type: "text",
-      text: `actionId: ${log?.id}`,
+    expect(called.body.result).toMatchObject({
+      structuredContent: { actionId: log?.id },
+      content: expect.arrayContaining([
+        { type: "text", text: `actionId: ${log?.id}` },
+      ]),
     });
     expect(log).toMatchObject({
       actorId: test.actors.agent,
