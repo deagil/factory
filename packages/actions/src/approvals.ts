@@ -11,7 +11,11 @@ import { z } from "zod";
 import { rulesForFiles, signOffsFor } from "./approval-rules.ts";
 import type { SignOff } from "./approval-rules.ts";
 import { defineAction, defineQuery } from "./define-action.ts";
-import type { ActionContext, QueryContext } from "./define-action.ts";
+import type {
+  ActionContext,
+  AnyQueryDefinition,
+  QueryContext,
+} from "./define-action.ts";
 
 const statusSchema = z.enum(["pending", "approved", "rejected", "cancelled"]);
 const who = z.object({ id: z.uuid(), name: z.string() });
@@ -148,9 +152,9 @@ export const approvalApprove = defineAction({
     return {
       approval,
       ran: result.ok
-        ? { actionId: subjectId, ok: true, output: result.output, error: null }
+        ? { actionId: parked, ok: true, output: result.output, error: null }
         : {
-            actionId: subjectId,
+            actionId: parked,
             ok: false,
             output: null,
             error: { code: result.error.code, message: result.error.message },
@@ -238,6 +242,16 @@ export const approvalWithdraw = defineAction({
   },
 });
 
+/**
+ * The permission to read every approval: `approval.list` as a role grants
+ * it. The query itself is open to everyone, for their own requests and the
+ * ones they could decide.
+ */
+const everyApproval = {
+  kind: "query",
+  name: "approval.list",
+} as AnyQueryDefinition;
+
 /** The caller as the approval filters see it. */
 const caller = (ctx: QueryContext) => ({
   actorId: ctx.actor.id,
@@ -247,7 +261,7 @@ const caller = (ctx: QueryContext) => ({
 export const approvalList = defineQuery({
   name: "approval.list",
   description:
-    "Approvals, newest first, optionally in one status: what each is for (a pending action or a draft), the rule, the role that decides, and who asked and decided. mine lists the ones you asked for, or were asked for you; decidable lists the pending ones you could decide now; recordId those on pending actions on one record.",
+    "Approvals, newest first, optionally in one status: what each is for (a pending action or a draft), the rule, the role that decides, and who asked and decided. mine lists the ones you asked for, or were asked for you; decidable lists the pending ones you could decide now; recordId those on pending actions on one record. Without the approval.list permission you see only your own and the ones you could decide.",
   input: z.strictObject({
     status: statusSchema.optional(),
     /** Only the approvals on this pending action or draft. */
@@ -261,25 +275,37 @@ export const approvalList = defineQuery({
     limit: z.number().int().min(1).max(200).optional(),
   }),
   output: z.object({ approvals: z.array(approvalEntrySchema) }),
+  everyone: true,
   handler: async (ctx, { mine, decidable: canDecide, ...input }) => {
-    if (canDecide && ctx.actor.kind !== "staff") {
+    const roles = ctx.config.roles
+      .map((role) => role.key)
+      .filter((key) => ctx.granted.holds(key));
+    const askedBy = { askedBy: caller(ctx) };
+    const decidableBy =
+      ctx.actor.kind === "staff"
+        ? { decidableBy: { ...caller(ctx), roles } }
+        : null;
+    if (canDecide && !decidableBy) {
       return { approvals: [] };
     }
+    const filters = {
+      ...input,
+      ...(mine ? askedBy : {}),
+      ...(canDecide ? decidableBy : {}),
+    };
+    // Without the permission, only your own and those you could decide.
+    if (mine || canDecide || ctx.granted.authorise(everyApproval) === null) {
+      return { approvals: await ctx.dal.approvalList(filters) };
+    }
+    const [asked, decide] = await Promise.all([
+      ctx.dal.approvalList({ ...filters, ...askedBy }),
+      decidableBy ? ctx.dal.approvalList({ ...filters, ...decidableBy }) : [],
+    ]);
+    const seen = new Set(asked.map((each) => each.id));
     return {
-      approvals: await ctx.dal.approvalList({
-        ...input,
-        ...(mine ? { askedBy: caller(ctx) } : {}),
-        ...(canDecide
-          ? {
-              decidableBy: {
-                ...caller(ctx),
-                roles: ctx.config.roles
-                  .map((role) => role.key)
-                  .filter((key) => ctx.granted.holds(key)),
-              },
-            }
-          : {}),
-      }),
+      approvals: [...asked, ...decide.filter((each) => !seen.has(each.id))]
+        .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, input.limit ?? 50),
     };
   },
 });
