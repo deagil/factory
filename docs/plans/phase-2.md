@@ -10,8 +10,8 @@
 
 ## Resume here
 
-- **Status:** not started. [Phase 1b](phase-1b.md), the web surface, comes first.
-- **Next task:** P2.01, system migrations, once phase 1b is done. It closes phase 1's known gap, and choice fields (P2.06) add columns to object tables, so it comes first.
+- **Status:** not started. [Phase 1b](phase-1b.md) is done: its screens are where this phase's approvals inbox, config editors and run inspector go.
+- **Next task:** P2.01, system migrations. It closes phase 1's known gap, and choice fields (P2.06) add columns to object tables, so it comes first.
 - **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has.
 - **Carried over from phase 1:**
   - Systems have no committed migrations; `fx ship` writes only the core's (decision 0031). P2.01.

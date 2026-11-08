@@ -449,6 +449,25 @@ All surfaces are generated from the same registry of objects, actions, queries a
 | Web | Staff | Generated list and record screens per object, forms from action inputs, config editors, drafts and approvals inbox, run inspector, record timeline |
 | SDK | Developers of external systems | Generated from the OpenAPI spec |
 
+The web app has no data access of its own: every screen calls the HTTP API as the signed-in user (decision 0032). Its header holds navigation by section, with breadcrumbs below, and the sidebar is kept for the in-app agent (decision 0033). Each section and item appears only when `system.describe` says the caller can use what it needs:
+
+| Section | What it has |
+| --- | --- |
+| Data | A list, record and create screen per object; archive and restore; each record's history |
+| Activity | The action log (each action's input, result, changes and events), every change across records, and the event log |
+| Access | Users (invite, roles, disable), agents, integrations and their keys, and roles |
+| Settings | Reference (the system as `system.describe` gives it to you) and API & MCP |
+
+The account menu has My agents, where staff connect an MCP client with a key of their own. Approvals, config editors, drafts and the run inspector join these sections in phase 2.
+
+Local development adds a dev bar above the app, and production builds leave it out. It is for working on the factory, never for configuring a system. Its menus are:
+
+- **Factory:** the change, branch and database.
+- **Session:** sign in as any user from the server's dev outbox.
+- **API:** recent calls, dry runs, added latency and forced errors.
+- **Inspect:** TanStack devtools and the raw description.
+- **Design:** animation speed.
+
 The page builder (phase 4) adds staff-composed pages from blocks over the same queries and actions. The pages are config files.
 
 ### 4.10 Modules

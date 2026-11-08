@@ -19,6 +19,7 @@ const Connect = ({ onDone }: { onDone: () => void }) => {
     name: string;
     key: string;
   } | null>(null);
+  const queryClient = useQueryClient();
   const connect = useMutation({
     mutationFn: async () => {
       const agent = await runAction<{ actorId: string }>("actor.createAgent", {
@@ -30,7 +31,11 @@ const Connect = ({ onDone }: { onDone: () => void }) => {
       });
       return { name, key: key.output.key };
     },
-    onSuccess: setConnected,
+    onSuccess: async (result) => {
+      setConnected(result);
+      // The list below shows the new agent while its key is on screen.
+      await queryClient.invalidateQueries({ queryKey: ["actor.list"] });
+    },
   });
   if (connected) {
     const command = mcpCommand(
@@ -90,7 +95,6 @@ const Connect = ({ onDone }: { onDone: () => void }) => {
 
 const MyAgentsScreen = () => {
   const { session } = Route.useRouteContext();
-  const queryClient = useQueryClient();
   const agents = useActors("agent");
   const [connecting, setConnecting] = useState(false);
   // An admin's list has everyone's agents; this page is only yours.
@@ -109,14 +113,7 @@ const MyAgentsScreen = () => {
           )
         }
       />
-      {connecting && (
-        <Connect
-          onDone={async () => {
-            setConnecting(false);
-            await queryClient.invalidateQueries({ queryKey: ["actor.list"] });
-          }}
-        />
-      )}
+      {connecting && <Connect onDone={() => setConnecting(false)} />}
       <ErrorText error={agents.error} />
       <ul className="flex flex-col gap-2">
         {mine.map((agent) => (
