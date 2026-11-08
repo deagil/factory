@@ -3,91 +3,183 @@ import { describe, expect, it } from "vitest";
 import {
   approvalRuleSchema,
   conditionHolds,
+  describeSignOffs,
   rulesForAction,
   rulesForFiles,
   signOffsFor,
+  unmetSignOff,
 } from "./approval-rules.ts";
 import type { ApprovalRule, Condition } from "./approval-rules.ts";
 import { grantedBy } from "./permissions.ts";
 
+const gbp = (pounds: number) => ({ amount: pounds * 100, currency: "GBP" });
+const over = (pounds: number): Condition[] => [
+  { field: "record.value.currency", operator: "eq", value: "GBP" },
+  { field: "record.value.amount", operator: "gt", value: pounds * 100 },
+];
+
 const rules: ApprovalRule[] = [
   {
-    key: "big-discounts",
-    label: "Big discounts",
-    action: "deal.discount",
-    when: [
-      { field: "percent", operator: "gt", value: 20 },
-      { field: "customer.tier", operator: "in", value: ["gold", "silver"] },
-    ],
+    key: "large-manager",
+    label: "Large, manager",
+    action: "payment.release",
+    record: { object: "payment", id: "input.id" },
+    when: over(1000),
     approver: "manager",
+    exempt: ["manager", "senior"],
   },
   {
-    key: "roles",
-    label: "Roles",
-    config: ["roles"],
-    approver: "admin",
+    key: "large-senior",
+    label: "Large, senior",
+    action: "payment.release",
+    record: { object: "payment", id: "input.id" },
+    when: over(1000),
+    approver: "senior",
   },
+  {
+    key: "credits",
+    label: "Credits by juniors",
+    action: "credit.issue",
+    requester: ["junior"],
+    approvals: 2,
+    approver: "manager",
+  },
+  { key: "roles", label: "Roles", config: ["roles"], approver: "admin" },
 ];
+
+const holding = (...keys: string[]) =>
+  grantedBy(keys.map((key) => ({ key, label: key, permissions: [] })));
+const staff = { id: "a", name: "Jo", userId: "u", kind: "staff" as const };
+
+/** Whether `rule` asks a staff member or agent holding `roles`. */
+const asked = (
+  rule: ApprovalRule | undefined,
+  kind: "staff" | "agent",
+  ...roles: string[]
+) =>
+  signOffsFor(rule ? [rule] : [], { ...staff, kind }, holding(...roles))
+    .length > 0;
 
 describe("approval rules", () => {
   it.each<[Condition, unknown, boolean]>([
-    [{ field: "a", operator: "eq", value: null }, {}, true],
-    [{ field: "a.b", operator: "ne", value: "x" }, { a: { b: "y" } }, true],
-    [{ field: "a", operator: "notIn", value: [1, 2] }, { a: 2 }, false],
-    [{ field: "a", operator: "gte", value: 5 }, { a: 5 }, true],
-    [{ field: "a", operator: "lt", value: 5 }, { a: "4" }, false],
+    [{ field: "input.a", operator: "eq", value: null }, {}, true],
+    [
+      { field: "input.a.b", operator: "ne", value: "x" },
+      { a: { b: "y" } },
+      true,
+    ],
+    [{ field: "input.a", operator: "notIn", value: [1, 2] }, { a: 2 }, false],
+    [{ field: "input.a", operator: "gte", value: 5 }, { a: 5 }, true],
+    [{ field: "input.a", operator: "lt", value: 5 }, { a: "4" }, false],
   ])("tests %o against %o", (condition, input, holds) => {
-    expect(conditionHolds(condition, input)).toBe(holds);
+    expect(conditionHolds(condition, { input })).toBe(holds);
   });
 
-  it("matches an action's rules only when every condition holds", () => {
-    const gold = { percent: 25, customer: { tier: "gold" } };
+  it("tests the record a rule names, reading each record once", async () => {
+    const reads: string[] = [];
+    const payments: Record<string, unknown> = {
+      small: { value: gbp(50) },
+      large: { value: gbp(5000) },
+    };
+    const load = (object: string, id: string) => {
+      reads.push(`${object}:${id}`);
+      return Promise.resolve(payments[id] ?? null);
+    };
+    const keys = async (id: string) => {
+      const matched = await rulesForAction(
+        rules,
+        "payment.release",
+        { id },
+        load
+      );
+      return matched.map((rule) => rule.key);
+    };
     expect({
-      matched: rulesForAction(rules, "deal.discount", gold).map((r) => r.key),
-      small: rulesForAction(rules, "deal.discount", { ...gold, percent: 5 }),
-      files: rulesForFiles(rules, ["config/roles/sales.yaml"]).map(
-        (r) => r.key
-      ),
-      choices: rulesForFiles(rules, ["config/choices/stages.yaml"]),
+      large: await keys("large"),
+      small: await keys("small"),
+      missing: await keys("missing"),
+      reads,
     }).toStrictEqual({
-      matched: ["big-discounts"],
+      large: ["large-manager", "large-senior"],
       small: [],
-      files: ["roles"],
-      choices: [],
+      missing: [],
+      reads: ["payment:large", "payment:small", "payment:missing"],
     });
   });
 
-  it("doesn't ask staff who hold the approver role, but always asks agents", () => {
-    const manager = grantedBy([
-      { key: "manager", label: "Manager", permissions: [] },
-    ]);
-    const actor = { id: "a", name: "Mo", userId: "u" };
+  it("asks by requester and exempt roles, and always asks agents", () => {
+    const [manager, senior, credits] = rules;
     expect({
-      staff: signOffsFor(rules, { ...actor, kind: "staff" }, manager),
-      agent: signOffsFor(rules, { ...actor, kind: "agent" }, manager),
+      // The manager tier skips managers and seniors; the senior tier only seniors.
+      managerTierForSenior: asked(manager, "staff", "senior"),
+      seniorTierForManager: asked(senior, "staff", "manager"),
+      seniorTierForSenior: asked(senior, "staff", "senior"),
+      seniorTierForSeniorsAgent: asked(senior, "agent", "senior"),
+      // Credits ask only juniors.
+      creditsForJunior: asked(credits, "staff", "junior"),
+      creditsForSupport: asked(credits, "staff", "support"),
     }).toStrictEqual({
-      staff: [{ ruleKey: "roles", approverRole: "admin" }],
-      agent: [
-        { ruleKey: "big-discounts", approverRole: "manager" },
-        { ruleKey: "roles", approverRole: "admin" },
-      ],
+      managerTierForSenior: false,
+      seniorTierForManager: true,
+      seniorTierForSenior: false,
+      seniorTierForSeniorsAgent: true,
+      creditsForJunior: true,
+      creditsForSupport: false,
     });
   });
 
-  it("refuses a list for eq, and a rule with neither an action nor config", () => {
+  it("counts approvals per rule and role", () => {
+    const signOffs = signOffsFor(
+      rules.filter((rule) => rule.key === "credits"),
+      staff,
+      holding("junior")
+    );
+    const approved = { ruleKey: "credits", approverRole: "manager" };
     expect({
-      list: approvalRuleSchema.safeParse({
+      signOffs,
+      described: describeSignOffs([
+        ...signOffs,
+        { ruleKey: "x", approverRole: "senior", count: 1 },
+      ]),
+      one: unmetSignOff(signOffs, [{ ...approved, status: "approved" }]),
+      two: unmetSignOff(signOffs, [
+        { ...approved, status: "approved" },
+        { ...approved, status: "approved" },
+      ]),
+      files: rulesForFiles(rules, ["config/roles/sales.yaml"]).length,
+    }).toStrictEqual({
+      signOffs: [{ ruleKey: "credits", approverRole: "manager", count: 2 }],
+      described: "2 approvals from manager and 1 from senior",
+      one: signOffs[0],
+      two: undefined,
+      files: 1,
+    });
+  });
+
+  it.each([
+    [
+      "a list for eq",
+      { when: [{ field: "input.a", operator: "eq", value: [1] }] },
+    ],
+    [
+      "a field outside input and record",
+      { when: [{ field: "a", operator: "eq", value: 1 }] },
+    ],
+    [
+      "a record field with no record",
+      { when: [{ field: "record.a", operator: "eq", value: 1 }] },
+    ],
+    ["no action or config", { action: undefined }],
+    ["six approvals", { approvals: 6 }],
+  ])("refuses %s", (_case, change) => {
+    expect(
+      approvalRuleSchema.safeParse({
         key: "x",
         label: "X",
         action: "deal.update",
-        when: [{ field: "a", operator: "eq", value: [1] }],
         approver: "admin",
-      }).success,
-      neither: approvalRuleSchema.safeParse({
-        key: "x",
-        label: "X",
-        approver: "admin",
-      }).success,
-    }).toStrictEqual({ list: false, neither: false });
+        ...change,
+      }).success
+    ).toBeFalsy();
   });
 });

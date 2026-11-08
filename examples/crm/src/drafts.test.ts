@@ -72,6 +72,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
   let database: SystemDatabase;
   let server: Server;
   let admin: { actorId: string };
+  let bea: { actorId: string };
 
   beforeAll(async () => {
     database = await createSystemDatabase(system);
@@ -88,6 +89,12 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       roles: ["admin"],
     });
     admin = { actorId: ada.id };
+    const second = await bootstrapStaff(server.db, {
+      name: "Bea Admin",
+      email: "bea@example.com",
+      roles: ["admin"],
+    });
+    bea = { actorId: second.id };
   });
 
   afterAll(async () => {
@@ -203,8 +210,9 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     ).resolves.toMatchObject({ ok: false, error: { code: "validation" } });
   });
 
-  it("waits for an admin to approve a draft an agent submits", async () => {
-    // Ada's agent acts for her, but agents always need a person's approval.
+  it("waits for another admin to approve a draft an agent submits", async () => {
+    // Ada's agent acts for her, but agents always need a person's approval,
+    // and not Ada's: it's her request.
     const created = await server.pipeline.run(
       action("actor.createAgent"),
       { name: "Ada's agent" },
@@ -238,17 +246,22 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     const approval = (
       listed as { output: { approvals: { id: string; subjectId: string }[] } }
     ).output.approvals.find((each) => each.subjectId === id);
-    const approved = await server.pipeline.run(
+    const byAda = await server.pipeline.run(
       action("approval.approve"),
       { id: approval?.id },
       admin
+    );
+    const approved = await server.pipeline.run(
+      action("approval.approve"),
+      { id: approval?.id },
+      bea
     );
     const published = await server.pipeline.run(
       action("draft.publish"),
       { id },
       agent
     );
-    expect({ submitted, early, approved, published }).toMatchObject({
+    expect({ submitted, early, byAda, approved, published }).toMatchObject({
       submitted: {
         ok: true,
         output: { draft: { status: "awaiting_approval" } },
@@ -257,6 +270,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
         ok: false,
         error: { code: "approval_required", rule: "config-changes" },
       },
+      byAda: { ok: false, error: { code: "permission" } },
       approved: { ok: true, output: { approval: { status: "approved" } } },
       published: { ok: true, output: { draft: { status: "published" } } },
     });

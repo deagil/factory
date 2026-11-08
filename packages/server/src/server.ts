@@ -135,6 +135,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
       const definition = system.registry.get(name);
       return definition?.kind === "action" ? definition : undefined;
     },
+    objects: system.objects,
   });
   const outbox = options.devOutbox ? createDevOutbox() : null;
   const auth = createAuth({

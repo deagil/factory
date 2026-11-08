@@ -23,11 +23,17 @@ import {
   createDataAccess,
   createRepository,
 } from "@workspace/objects";
-import type { AnyChoiceList } from "@workspace/objects";
+import type { AnyChoiceList, AnyObjectDefinition } from "@workspace/objects";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { rulesForAction, signOffsFor } from "./approval-rules.ts";
+import {
+  describeSignOffs,
+  rulesForAction,
+  signOffsFor,
+  unmetSignOff,
+} from "./approval-rules.ts";
+import type { SignOff } from "./approval-rules.ts";
 import { createActionContext, createQueryContext } from "./context.ts";
 import type { EmittedEvent } from "./context.ts";
 import { choiceList } from "./define-action.ts";
@@ -41,6 +47,7 @@ import type {
   GitService,
   ResumeResult,
 } from "./define-action.ts";
+import { allGranted } from "./describe.ts";
 import { failures, isActionFailure } from "./errors.ts";
 import type { ActionError, ActionFailure } from "./errors.ts";
 import { allowAll } from "./permissions.ts";
@@ -116,6 +123,11 @@ export interface PipelineOptions {
    * (P2.09). Without it, an approved action fails as no longer known.
    */
   actions?: (name: string) => AnyActionDefinition | undefined;
+  /**
+   * The system's objects, so approval rules can test the record an action
+   * acts on (decision 0043). A rule naming another object sees no record.
+   */
+  objects?: readonly AnyObjectDefinition[];
 }
 
 /**
@@ -259,7 +271,45 @@ export const createPipeline = ({
   git,
   permissions = allowAll,
   actions,
+  objects = [],
 }: PipelineOptions) => {
+  /**
+   * Reads a record for approval rules, archived or not, whoever is acting:
+   * the rule is policy, so it sees what the actor might not.
+   */
+  const readRecord = async (
+    executor: Db | Tx,
+    pinned: ConfigService,
+    name: string,
+    id: string
+  ) => {
+    const object = objects.find((each) => each.name === name);
+    if (!object) {
+      return null;
+    }
+    const found = await dalFor(executor, allGranted, pinned).get(object, id, {
+      archived: "include",
+    });
+    return found?.record ?? null;
+  };
+
+  /** The sign-offs the rules on `state.action` ask of its actor now. */
+  const signOffsNow = async (
+    state: RunState,
+    input: unknown,
+    executor: Db | Tx
+  ): Promise<SignOff[]> =>
+    signOffsFor(
+      await rulesForAction(
+        state.config.approvals ?? [],
+        state.action.name,
+        input,
+        (name, id) => readRecord(executor, state.config, name, id)
+      ),
+      state.actor,
+      state.granted
+    );
+
   /** 1. Identify: the actor, if it exists and is active. */
   const identify = async (caller: Caller) => {
     const [row] = await db
@@ -486,6 +536,20 @@ export const createPipeline = ({
       options: { dryRun },
       config: pin(config),
     };
+    // The rules, the record or the actor's roles may have changed while it
+    // waited, so what it needs now must already be approved.
+    const unmet = unmetSignOff(
+      await signOffsNow(state, parsed.data, tx),
+      await approvals.forSubject("action", actionId)
+    );
+    if (unmet) {
+      return failed(
+        failures.needsApproval(
+          unmet.ruleKey,
+          `While this waited, it came to need ${describeSignOffs([unmet])} (rule ${unmet.ruleKey}), which it doesn't have. Ask again.`
+        ).error
+      );
+    }
     try {
       const done = await withTransaction(tx, (savepoint) =>
         perform(savepoint, state, parsed.data, actionId, approvals)
@@ -557,13 +621,12 @@ export const createPipeline = ({
    */
   const park = async (
     state: RunState,
-    signOffs: { ruleKey: string; approverRole: string }[]
+    signOffs: SignOff[]
   ): Promise<ActionResult> => {
-    const roles = [...new Set(signOffs.map((each) => each.approverRole))];
     const [first] = signOffs;
     const { error } = failures.needsApproval(
       first?.ruleKey ?? "",
-      `This waits for approval from ${roles.join(" and ")} (${signOffs.length === 1 ? "rule" : "rules"} ${signOffs.map((each) => each.ruleKey).join(", ")}). It runs once approved.`
+      `This waits for ${describeSignOffs(signOffs)} (${signOffs.length === 1 ? "rule" : "rules"} ${signOffs.map((each) => each.ruleKey).join(", ")}). It runs once approved.`
     );
     if (state.options.dryRun) {
       return fail(state, error);
@@ -653,11 +716,7 @@ export const createPipeline = ({
       return fail(state, denied.error);
     }
     // 5. Approve: a matching rule parks the action until it's decided.
-    const signOffs = signOffsFor(
-      rulesForAction(state.config.approvals ?? [], action.name, parsed.data),
-      state.actor,
-      granted
-    );
+    const signOffs = await signOffsNow(state, parsed.data, db);
     if (signOffs.length > 0) {
       return park(state, signOffs);
     }

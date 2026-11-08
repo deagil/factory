@@ -190,7 +190,7 @@ describe("the action pipeline", () => {
             key: "big-customers",
             label: "Big customers",
             action: "org.guarded",
-            when: [{ field: "name", operator: "eq", value: "Guarded" }],
+            when: [{ field: "input.name", operator: "eq", value: "Guarded" }],
             approver: "admin",
           },
         ],

@@ -1,6 +1,7 @@
-// Deciding approvals (P2.09, decision 0042). `approval.approve` and
+// Deciding approvals (P2.09, decisions 0042 and 0043). `approval.approve` and
 // `approval.reject` are open to every actor; the handler checks that the
-// decider is staff, holds the approval's role and didn't ask for it. Once
+// decider is staff, holds the approval's role, isn't the person who asked or
+// who it's for, and hasn't already approved the same subject. Once
 // every approval on a pending action is approved, it runs in the same
 // transaction, once. A draft whose approvals are all approved can publish.
 import { z } from "zod";
@@ -42,10 +43,11 @@ const decidable = async (
   ctx: ActionContext<Record<never, never>>,
   id: string
 ) => {
-  const approval = await ctx.approvals.lock(id);
-  if (!approval) {
+  const locked = await ctx.approvals.lock(id);
+  if (!locked) {
     return ctx.notFound("approval", id);
   }
+  const { approval, barred } = locked;
   if (approval.status !== "pending") {
     return ctx.conflict(`This approval is already ${approval.status}.`);
   }
@@ -55,10 +57,29 @@ const decidable = async (
       `Only staff with the ${approval.approverRole} role can decide this.`
     );
   }
-  if (approval.requestedBy === ctx.actor.id) {
+  // Nobody decides their own request, nor one an agent made for them.
+  if (
+    barred.actorIds.includes(ctx.actor.id) ||
+    (ctx.actor.userId !== null && barred.userIds.includes(ctx.actor.userId))
+  ) {
     return ctx.forbidden(
       `role:${approval.approverRole}`,
-      "You asked for this, so someone else must decide it."
+      "This was asked for by you or for you, so someone else must decide it."
+    );
+  }
+  // Each approval on one subject needs a different person.
+  const rows = await ctx.approvals.forSubject(
+    approval.subject,
+    approval.subjectId
+  );
+  if (
+    rows.some(
+      (row) => row.status === "approved" && row.decidedBy === ctx.actor.id
+    )
+  ) {
+    return ctx.forbidden(
+      `role:${approval.approverRole}`,
+      "You've already approved this, so someone else must give the next approval."
     );
   }
   return { approval };

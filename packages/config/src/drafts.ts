@@ -7,8 +7,10 @@
 import {
   defineAction,
   defineQuery,
+  describeSignOffs,
   rulesForFiles,
   signOffsFor,
+  unmetSignOff,
 } from "@workspace/actions";
 import type {
   ActionContext,
@@ -269,19 +271,15 @@ export const draftPublish = defineAction({
         "Only a valid draft can be published. Fix its problems and save again."
       );
     }
-    const decided = await ctx.approvals.forSubject("draft", draft.id);
-    const approved = new Set(
-      decided
-        .filter((each) => each.status === "approved")
-        .map((each) => each.ruleKey)
-    );
-    const missing = signOffs(ctx, draft.files).find(
-      (each) => !approved.has(each.ruleKey)
+    // What the rules ask now, which may be more than when it was submitted.
+    const missing = unmetSignOff(
+      signOffs(ctx, draft.files),
+      await ctx.approvals.forSubject("draft", draft.id)
     );
     if (missing) {
       return ctx.needsApproval(
         missing.ruleKey,
-        `The rule ${missing.ruleKey} covers this draft's files, so ${missing.approverRole} must approve it. Submit it first.`
+        `The rule ${missing.ruleKey} covers this draft's files, so it needs ${describeSignOffs([missing])}. Submit it for approval.`
       );
     }
     const result = await git.publish({

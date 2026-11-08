@@ -71,6 +71,7 @@ export type {
   ApprovalStatus,
   ApprovalStore,
   ApprovalSubject,
+  LockedApproval,
 } from "./approvals.ts";
 export { createDraftStore } from "./drafts.ts";
 export type { DraftChanges, DraftStatus, DraftStore } from "./drafts.ts";
