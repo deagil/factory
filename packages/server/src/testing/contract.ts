@@ -11,7 +11,11 @@ import type {
   Registry,
 } from "@workspace/actions";
 import type { Db } from "@workspace/db";
-import type { AnyField, AnyObjectDefinition } from "@workspace/objects";
+import type {
+  AnyField,
+  AnyObjectDefinition,
+  ChoiceOptions,
+} from "@workspace/objects";
 
 /** What one surface did with one call, as the client and the logs see it. */
 export interface SurfaceCall {
@@ -102,7 +106,8 @@ export const mcpSurface =
 const sampleValue = async (
   field: AnyField,
   variant: number,
-  refTo: (target: string) => Promise<string>
+  refTo: (target: string) => Promise<string>,
+  choices: ChoiceOptions | undefined
 ): Promise<unknown> => {
   switch (field.kind) {
     case "text": {
@@ -128,6 +133,16 @@ const sampleValue = async (
         String((field as AnyField & { target: string }).target)
       );
     }
+    case "choice": {
+      // An option that can be chosen: the first, or the second for updates.
+      const { list } = field as AnyField & { list: string };
+      const live = (choices?.(list) ?? []).filter((option) => !option.archived);
+      const option = live[(variant - 1) % Math.max(live.length, 1)];
+      if (!option) {
+        throw new Error(`No options loaded for the choice list ${list}`);
+      }
+      return option.key;
+    }
     default: {
       throw new Error(`No sample for a ${field.kind} field`);
     }
@@ -148,6 +163,8 @@ export interface ContractOptions {
    * create, update and archive actions get theirs from their fields.
    */
   samples?: Record<string, () => Promise<unknown>>;
+  /** The loaded choice options, for samples of choice fields. */
+  choices?: ChoiceOptions;
 }
 
 /** A difference between surfaces, or an action with no sample. */
@@ -187,6 +204,7 @@ export const runContract = async ({
   caller,
   surfaces,
   samples = {},
+  choices,
 }: ContractOptions): Promise<ContractProblem[]> => {
   const byName = new Map(objects.map((object) => [object.name, object]));
 
@@ -218,7 +236,9 @@ export const runContract = async ({
       ([key]) => !skip.includes(key)
     );
     const values = await Promise.all(
-      entries.map(([, field]) => sampleValue(field as AnyField, variant, refTo))
+      entries.map(([, field]) =>
+        sampleValue(field as AnyField, variant, refTo, choices)
+      )
     );
     return Object.fromEntries(
       entries.map(([key], index) => [key, values[index]])

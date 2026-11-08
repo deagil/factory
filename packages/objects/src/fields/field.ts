@@ -11,6 +11,8 @@ import type { NotNull, SQL } from "drizzle-orm";
 import type { PgColumn, PgColumnBuilderBase } from "drizzle-orm/pg-core";
 import type { z } from "zod";
 
+import type { ChoiceOptions } from "./choice.ts";
+
 /** Options every field type takes. */
 export interface FieldOptions<TRequired extends boolean = boolean> {
   /** The field must have a value: its columns are NOT NULL and input can't be null. */
@@ -52,8 +54,14 @@ export interface FilterOperator<
   readonly value: TSchema;
   readonly where: (
     columns: BuiltColumns<TColumns>,
-    value: z.output<TSchema>
+    value: z.output<TSchema>,
+    context?: FilterContext
   ) => SQL;
+}
+
+/** What a filter can read besides its value: the loaded choice options. */
+export interface FilterContext {
+  readonly choices?: ChoiceOptions | undefined;
 }
 
 /** The filter operators a field type supports, by name. */
@@ -126,7 +134,7 @@ export interface AnyField {
     string,
     {
       readonly value: z.ZodType;
-      readonly where: (columns: any, value: any) => SQL;
+      readonly where: (columns: any, value: any, context?: any) => SQL;
     }
   >;
 }

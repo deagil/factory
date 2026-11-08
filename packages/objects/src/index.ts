@@ -22,6 +22,18 @@ export type {
 } from "./define-object.ts";
 export { f } from "./fields/index.ts";
 export type { BooleanField } from "./fields/boolean.ts";
+export {
+  checkChoice,
+  choiceControls,
+  choiceKey,
+  ChoiceValueError,
+} from "./fields/choice.ts";
+export type {
+  ChoiceControl,
+  ChoiceField,
+  ChoiceOption,
+  ChoiceOptions,
+} from "./fields/choice.ts";
 export type { DateField } from "./fields/date.ts";
 export type {
   AnyField,

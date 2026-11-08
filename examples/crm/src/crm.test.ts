@@ -1,3 +1,4 @@
+import type { AnyQueryDefinition } from "@workspace/actions";
 import { checkSchema, coreTables } from "@workspace/db";
 import { createServer } from "@workspace/server";
 import type { Server } from "@workspace/server";
@@ -94,6 +95,27 @@ describe("example CRM", () => {
     };
   };
 
+  it("takes an industry only from the industries list, and filters by it", async () => {
+    const unknown = await call("organisation.create", {
+      name: "Rocket Co",
+      industry: "aerospace",
+    });
+    const made = await call("organisation.create", {
+      name: "Corner Shop",
+      industry: "retail",
+    });
+    const listed = await server.pipeline.query(
+      crm.registry.get("organisation.list") as AnyQueryDefinition,
+      { filter: { industry: { eq: "retail" } } },
+      seeded.admin
+    );
+    expect(unknown.error?.code).toBe("validation");
+    expect(listed).toMatchObject({
+      ok: true,
+      output: { records: [{ id: made.output?.record.id }] },
+    });
+  });
+
   it("moves a contact only through contact.moveToOrganisation", async () => {
     const [from, to] = await Promise.all([
       call("organisation.create", { name: "From" }),
@@ -142,6 +164,7 @@ describe("example CRM", () => {
         : Promise.reject(new Error(name));
     };
     const problems = await runContract({
+      choices: server.config.service.choices,
       registry: crm.registry,
       objects: crm.objects,
       pipeline: server.pipeline,

@@ -14,7 +14,11 @@ import {
   withTransaction,
 } from "@workspace/db";
 import type { Db, Tx } from "@workspace/db";
-import { createDataAccess, createRepository } from "@workspace/objects";
+import {
+  ChoiceValueError,
+  createDataAccess,
+  createRepository,
+} from "@workspace/objects";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -175,6 +179,13 @@ const errorFrom = (thrown: unknown): { error: RunError; logged: RunError } => {
   if (isActionFailure(thrown)) {
     return { error: thrown.error, logged: thrown.error };
   }
+  // The repository refused a choice the loaded options don't allow.
+  if (thrown instanceof ChoiceValueError) {
+    const { error } = failures.invalid(thrown.message, [
+      { path: [thrown.field], message: thrown.message },
+    ]);
+    return { error, logged: error };
+  }
   const message = thrown instanceof Error ? thrown.message : String(thrown);
   return {
     error: internal(
@@ -184,8 +195,12 @@ const errorFrom = (thrown: unknown): { error: RunError; logged: RunError } => {
   };
 };
 
-const dalFor = (executor: Db | Tx, granted: Granted) =>
-  createDataAccess({ executor, canRead: granted.canRead });
+const dalFor = (executor: Db | Tx, granted: Granted, config: ConfigService) =>
+  createDataAccess({
+    executor,
+    canRead: granted.canRead,
+    choices: config.choices,
+  });
 
 /** One run's who, what and how. */
 interface RunState {
@@ -206,6 +221,9 @@ interface RunState {
 const pin = (config: ConfigService): ConfigService => ({
   sha: config.sha,
   roles: config.roles,
+  // A loader's `choices` reads the version live when it's read, so this
+  // keeps that version's lookup.
+  ...(config.choices ? { choices: config.choices } : {}),
   ...(config.validate ? { validate: config.validate } : {}),
 });
 
@@ -343,9 +361,10 @@ export const createPipeline = ({
           actionId,
           actorId: actor.id,
           now: clock.now,
+          choices: state.config.choices,
         }),
         identity: createIdentityStore(tx),
-        dal: dalFor(tx, state.granted),
+        dal: dalFor(tx, state.granted, state.config),
         granted: state.granted,
         config: state.config,
         clock,
@@ -504,11 +523,12 @@ export const createPipeline = ({
     if (denied) {
       return { ok: false, error: denied.error };
     }
+    const pinned = pin(config);
     try {
       const ctx = createQueryContext({
-        dal: dalFor(db, granted),
+        dal: dalFor(db, granted, pinned),
         granted,
-        config: pin(config),
+        config: pinned,
         clock,
         actor,
         originUserId,

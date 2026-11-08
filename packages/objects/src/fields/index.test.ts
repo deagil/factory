@@ -4,9 +4,10 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { f } from "./index.ts";
 
 describe("the field types library", () => {
-  it("has the phase 1 field types", () => {
+  it("has the field types", () => {
     expect(Object.keys(f).toSorted()).toStrictEqual([
       "boolean",
+      "choice",
       "date",
       "money",
       "number",
