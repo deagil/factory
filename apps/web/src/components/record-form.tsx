@@ -62,6 +62,17 @@ const RefSelect = ({
     );
   }
   const object = findObject(description, target);
+  const labelOf = (record: Record<string, unknown>) => {
+    if (!isActor) {
+      return titleOf(record, object);
+    }
+    const name =
+      typeof record.name === "string" && record.name !== ""
+        ? record.name
+        : String(record.id);
+    const email = (record.user as { email?: string } | null)?.email;
+    return email ? `${name} (${email})` : name;
+  };
   return (
     <select
       id={field.key}
@@ -73,7 +84,38 @@ const RefSelect = ({
       <option value="">{options.isPending ? "Loading…" : "None"}</option>
       {options.data?.map((record) => (
         <option key={String(record.id)} value={String(record.id)}>
-          {titleOf(record, object)}
+          {labelOf(record)}
+        </option>
+      ))}
+    </select>
+  );
+};
+
+/** A select of the choice's live options. An archived value stays visible. */
+const ChoiceSelect = ({
+  field,
+  value,
+  onChange,
+}: {
+  field: FormField;
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const options = (field.options ?? []).filter(
+    (option) => !option.archived || option.key === value
+  );
+  return (
+    <select
+      id={field.key}
+      className={selectClass}
+      value={value}
+      required={field.required}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{field.required ? "Choose…" : "None"}</option>
+      {options.map((option) => (
+        <option key={option.key} value={option.key}>
+          {option.archived ? `${option.label} (archived)` : option.label}
         </option>
       ))}
     </select>
@@ -84,6 +126,48 @@ const inputTypes: Record<string, string> = {
   number: "number",
   money: "number",
   date: "date",
+};
+
+const FieldControl = ({
+  field,
+  value,
+  onChange,
+  description,
+}: {
+  field: FormField;
+  value: string | boolean;
+  onChange: (value: string) => void;
+  description: SystemDescription | undefined;
+}) => {
+  if (field.type === "ref") {
+    return (
+      <RefSelect
+        field={field}
+        value={String(value ?? "")}
+        onChange={onChange}
+        description={description}
+      />
+    );
+  }
+  if (field.type === "choice") {
+    return (
+      <ChoiceSelect
+        field={field}
+        value={String(value ?? "")}
+        onChange={onChange}
+      />
+    );
+  }
+  return (
+    <Input
+      id={field.key}
+      type={inputTypes[field.type] ?? "text"}
+      step={field.type === "money" ? "0.01" : undefined}
+      value={String(value ?? "")}
+      required={field.required}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
 };
 
 /** What went wrong, with each invalid field's message. */
@@ -185,23 +269,12 @@ export const RecordForm = ({
               {field.label}
               {field.required && " *"}
             </Label>
-            {field.type === "ref" ? (
-              <RefSelect
-                field={field}
-                value={String(value ?? "")}
-                onChange={(next) => set(field.key, next)}
-                description={description}
-              />
-            ) : (
-              <Input
-                id={field.key}
-                type={inputTypes[field.type] ?? "text"}
-                step={field.type === "money" ? "0.01" : undefined}
-                value={String(value ?? "")}
-                required={field.required}
-                onChange={(event) => set(field.key, event.target.value)}
-              />
-            )}
+            <FieldControl
+              field={field}
+              value={value ?? ""}
+              onChange={(next) => set(field.key, next)}
+              description={description}
+            />
           </div>
         );
       })}

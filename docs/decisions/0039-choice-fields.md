@@ -13,7 +13,7 @@ SYSTEM_DESIGN §4.5 describes choice fields: a record stores an option key, staf
 - **The repository checks every choice value it writes against the options pinned for the run** (`RepositoryOptions.choices`, from `ConfigService.choices`). An unknown key is refused, and so is an archived one, unless it is the value the record already has, so archived options stay valid on existing records. An update checks only the fields it changes. The pipeline turns a refusal into a `validation` failure on that field. With no options loaded, a choice value is refused rather than let through.
 - **`validateConfig` holds each list to its fields' control.** A list a field uses must exist. `system`: the options are exactly the field's keys, none archived (staff may rename labels). `mapped`: every option has one of the field's categories. `custom`: no rules. The catalog's `choiceFields` say which object field uses which list, built by `@workspace/server`.
 - **Config refers to an option as `list.option`** (reference kind `choice`). It must exist and not be archived, so archiving an option that config still uses is refused with the file and line of the use.
-- **Filters:** `eq`, `ne`, `in` and `isNull` by key, and for `mapped` fields `category`, which reads the pinned options to find that category's keys.
+- **Filters:** `eq`, `ne`, `in` and `isNull` by key, and for `mapped` fields `category`, which reads the pinned options to find that category's keys. `defineObject` indexes each choice column, as it does refs.
 - **Handlers read options through `ctx.config.choices(list)`.** The `ctx.config.choice(list).get(key)` helper in SYSTEM_DESIGN §4.2 comes with its first user, `deal.moveStage` (P2.07).
 
 ## Consequences

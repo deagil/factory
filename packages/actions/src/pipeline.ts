@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { createActionContext, createQueryContext } from "./context.ts";
 import type { EmittedEvent } from "./context.ts";
+import { choiceList } from "./define-action.ts";
 import type {
   Actor,
   AnyActionDefinition,
@@ -218,14 +219,19 @@ interface RunState {
  * The config as it is now. A loader swaps versions while runs go on, so a
  * run takes one snapshot and reads only that (P2.05).
  */
-const pin = (config: ConfigService): ConfigService => ({
-  sha: config.sha,
-  roles: config.roles,
-  // A loader's `choices` reads the version live when it's read, so this
-  // keeps that version's lookup.
-  ...(config.choices ? { choices: config.choices } : {}),
-  ...(config.validate ? { validate: config.validate } : {}),
-});
+const pin = (config: ConfigService): ConfigService => {
+  const { choices } = config;
+  return {
+    sha: config.sha,
+    roles: config.roles,
+    // A loader's `choices` reads the version live when it's read, so this
+    // keeps that version's lookup. `choice` reads the same snapshot.
+    ...(choices
+      ? { choices, choice: (list: string) => choiceList(choices, list) }
+      : {}),
+    ...(config.validate ? { validate: config.validate } : {}),
+  };
+};
 
 /** The columns every action_log row for this run has. */
 const rowFor = (state: RunState) => ({

@@ -9,6 +9,13 @@ permissions:
     scope: all
   - action: contact.moveToOrganisation
     scope: all
+  - object: deal
+    can: [view, update]
+    scope: all
+  - action: deal.create
+    scope: all
+  - action: deal.moveStage
+    scope: all
   - action: actor.createAgent
     scope: all
   - action: apiKey.create

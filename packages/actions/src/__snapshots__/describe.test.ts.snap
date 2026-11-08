@@ -2298,6 +2298,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "name",
           "label": "Name",
+          "options": null,
           "readOnly": false,
           "required": true,
           "schema": {
@@ -2320,6 +2321,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "website",
           "label": "Website",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -2345,6 +2347,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "employees",
           "label": "Employees",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -2372,6 +2375,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "owner",
           "label": "Owner",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -2413,6 +2417,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "firstName",
           "label": "First name",
+          "options": null,
           "readOnly": false,
           "required": true,
           "schema": {
@@ -2434,6 +2439,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "lastName",
           "label": "Last name",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -2457,6 +2463,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "email",
           "label": "Email",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -2478,6 +2485,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "organisation",
           "label": "Organisation",
+          "options": null,
           "readOnly": true,
           "required": true,
           "schema": {
@@ -2496,6 +2504,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "active",
           "label": "Active",
+          "options": null,
           "readOnly": false,
           "required": true,
           "schema": {
@@ -2518,6 +2527,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "birthday",
           "label": "Birthday",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -2549,6 +2559,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "lifetimeValue",
           "label": "Lifetime value",
+          "options": null,
           "readOnly": false,
           "required": false,
           "schema": {
@@ -4105,6 +4116,43 @@ exports[`system.describe > describes everything to an admin 1`] = `
                       "label": {
                         "type": "string",
                       },
+                      "options": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "archived": {
+                                  "type": "boolean",
+                                },
+                                "category": {
+                                  "type": [
+                                    "string",
+                                    "null",
+                                  ],
+                                },
+                                "key": {
+                                  "type": "string",
+                                },
+                                "label": {
+                                  "type": "string",
+                                },
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "category",
+                                "archived",
+                              ],
+                              "type": "object",
+                            },
+                            "type": "array",
+                          },
+                          {
+                            "type": "null",
+                          },
+                        ],
+                      },
                       "readOnly": {
                         "type": "boolean",
                       },
@@ -4137,6 +4185,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
                       "readOnly",
                       "target",
                       "filters",
+                      "options",
                       "schema",
                     ],
                     "type": "object",

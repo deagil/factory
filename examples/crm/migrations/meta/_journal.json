@@ -15,6 +15,13 @@
       "when": 1794143294069,
       "tag": "0001_p2_06_choice_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794144956926,
+      "tag": "0002_p2_07_deals_in_the_crm",
+      "breakpoints": true
     }
   ]
 }

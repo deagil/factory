@@ -58,6 +58,18 @@ describe("record helpers", () => {
     });
   });
 
+  it("shows a choice by its label", () => {
+    const stage = {
+      key: "stage",
+      type: "choice",
+      options: [
+        { key: "lead", label: "Lead", category: "open", archived: false },
+        { key: "lost", label: "Lost", category: "lost", archived: true },
+      ],
+    } as unknown as ObjectDescription["fields"][number];
+    expect(displayValue(stage, { stage: "lost" }, {}, undefined)).toBe("Lost");
+  });
+
   it("names a record by its first text field", () => {
     expect(titleOf({ id: "x", name: "Acme" }, organisation)).toBe("Acme");
   });

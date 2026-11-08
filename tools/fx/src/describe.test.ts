@@ -33,6 +33,10 @@ describe("fx describe", () => {
       expect(formatDescribe(result)).toMatch(
         /organisation\s+ref → organisation\s+required, read-only/u
       );
+      const deals = await describeSystem(repoRoot, "deal");
+      expect(formatDescribe(deals)).toMatch(
+        /stage\s+choice\s+required, read-only\s+Lead, Qualified, Proposal sent, Won, Lost/u
+      );
     }
   );
 

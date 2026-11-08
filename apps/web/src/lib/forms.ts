@@ -14,6 +14,8 @@ export interface FormField {
   /** The object a `ref` field points at. */
   target: string | null;
   required: boolean;
+  /** A choice field's options. Null when the field isn't a choice. */
+  options: FieldDescription["options"];
 }
 
 /** Values as the form holds them: text for inputs, booleans for checkboxes. */
@@ -73,6 +75,7 @@ export const formFields = (
         type: field?.type ?? (property.type === "boolean" ? "boolean" : "text"),
         target: field?.target ?? null,
         required: required.has(key),
+        options: field?.options ?? null,
       };
     });
 };

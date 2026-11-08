@@ -85,6 +85,12 @@ export const displayValue = (
     case "boolean": {
       return value ? "Yes" : "No";
     }
+    case "choice": {
+      return (
+        field.options?.find((option) => option.key === value)?.label ??
+        String(value)
+      );
+    }
     case "number": {
       return (value as number).toLocaleString("en-GB");
     }

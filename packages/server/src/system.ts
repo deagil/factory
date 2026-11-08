@@ -20,9 +20,16 @@ import type {
   SystemDescription,
 } from "@workspace/actions";
 import { identityActions } from "@workspace/auth";
-import { coreConfigTypes, validateConfig } from "@workspace/config";
+import {
+  choiceConfigType,
+  choiceLookup,
+  coreConfigTypes,
+  readConfig,
+  validateConfig,
+  valuesOf,
+} from "@workspace/config";
 import type { ConfigCatalog, ConfigRead } from "@workspace/config";
-import type { AnyObjectDefinition } from "@workspace/objects";
+import type { AnyObjectDefinition, ChoiceOptions } from "@workspace/objects";
 
 import { catalogOf } from "./catalog.ts";
 import { configValidateQuery } from "./config.ts";
@@ -63,6 +70,20 @@ export interface System {
   /** Everything in the system, as `system.describe` shows it to an admin. */
   readonly describe: () => SystemDescription;
 }
+
+/**
+ * Choice lists on disk, for `system.describe` outside a running server
+ * (`fx describe`). A running server describes through the query, which uses
+ * the loader's pinned lists instead.
+ */
+const choiceOptions = (
+  configDir: string | undefined
+): ChoiceOptions | undefined =>
+  configDir
+    ? choiceLookup(
+        valuesOf(readConfig(configDir, coreConfigTypes).files, choiceConfigType)
+      )
+    : undefined;
 
 export const defineSystem = (options: SystemOptions): System => {
   const definitions = [
@@ -106,7 +127,11 @@ export const defineSystem = (options: SystemOptions): System => {
     tables: options.objects.map((object) => object.table),
     describe: () =>
       describeFor(
-        { objects: options.objects, definitions: registry.list() },
+        {
+          objects: options.objects,
+          definitions: registry.list(),
+          choices: choiceOptions(options.config),
+        },
         allGranted
       ),
   });
