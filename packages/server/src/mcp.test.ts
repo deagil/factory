@@ -73,16 +73,15 @@ describe("MCP server", () => {
       name: "organisation_create",
       arguments: { name: "Made by Claude" },
     });
-    const { record } = called.body.result.structuredContent as {
-      record: { id: string };
-    };
     const log = await test.crm.db.query.actionLog.findFirst({
       where: (t, { eq }) => eq(t.name, "organisation.create"),
     });
-    expect(record).toMatchObject({ name: "Made by Claude" });
     // The model sees the action id in the result, not only in `_meta`.
     expect(called.body.result).toMatchObject({
-      structuredContent: { actionId: log?.id },
+      structuredContent: {
+        record: { name: "Made by Claude" },
+        actionId: log?.id,
+      },
       content: expect.arrayContaining([
         { type: "text", text: `actionId: ${log?.id}` },
       ]),
