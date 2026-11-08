@@ -334,13 +334,15 @@ A rule names an action, with conditions on its input (`input.…`) or its record
 **A staff draft can change several files at once, and publishes them together:**
 
 ```
-1. Staff open a draft in the web surface (or an agent calls draft.open over MCP)
+1. Staff change a setting; their first save opens their working draft (or an agent calls draft.open or draft.save over MCP)
 2. The config service makes a short-lived branch from production and commits each edited file
-3. Every save is validated against the running code; problems show in the form
-4. Submit: if an approval rule covers any file in the set, it waits until approvers approve
-5. Publish: the draft's files go onto production in one commit; a bot copies them back to main
+3. Every save is validated against the running code; problems show in the form. Edits can be undone one file at a time, or the draft discarded
+4. Publish: if an approval rule covers any file in the set, it asks the approvers instead, and the last approval publishes it as the person who asked
+5. The draft's files go onto production in one commit; a bot copies them back to main
 6. The loader sees the commit, validates, swaps the index; new runs use it in seconds
 ```
+
+Whoever asked for approval, or the person their agent acts for, can withdraw the request, and `approval.check` says beforehand whether an action or a draft needs sign-off and from whom (decision 0044).
 
 In the web surface, Config → Drafts edits choice lists and roles as forms and shows a draft's changes in plain English ("Adds the option “Negotiation”", "Can now archive deal"); a save sends the file's value and the server writes the YAML (`draft.save` with `value`, read back with `draft.files`). Other types are edited as YAML through the API for now.
 
@@ -495,7 +497,7 @@ The web app has no data access of its own: every screen calls the HTTP API as th
 | Inbox | Approvals: each pending action or draft, what it would do, who asked, and Approve and Reject |
 | Activity | The action log (each action's input, result, changes and events), every change across records, and the event log |
 | Access | Users (invite, roles, disable), agents, integrations and their keys, and roles |
-| Config | Drafts: start one, edit choice lists and roles, see its changes in plain English, submit and publish |
+| Config | Drafts: start one, edit choice lists and roles, see its changes in plain English, publish (or request approval), withdraw and discard |
 | Settings | Reference (the system as `system.describe` gives it to you) and API & MCP |
 
 The account menu has My agents, where staff connect an MCP client with a key of their own. The run inspector joins these sections with workflows.
@@ -615,7 +617,7 @@ At runtime, agents connect to an instance's MCP server as an actor acting for a 
 | --- | --- | --- |
 | Operate | `deal.moveStage`, `contact.create`, start a workflow, approve | Whatever the actor's permissions allow |
 | Query | Search and read records, history, workflow runs | Filtered by the same permissions |
-| Configure | List config types, draft, validate, submit and publish drafts | Config permissions; approval rules still apply |
+| Configure | List config types, draft, validate and publish drafts, withdraw requests | Config permissions; approval rules still apply |
 | Introspect | Describe objects, actions, choices, workflows | Anyone signed in |
 
 - **The in-app agent** (phase 4) is a client of this MCP server running as the signed-in staff member. It has no tools an external agent with the same permissions lacks.

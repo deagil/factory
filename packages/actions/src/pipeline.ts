@@ -293,22 +293,27 @@ export const createPipeline = ({
     return found?.record ?? null;
   };
 
+  /** The sign-offs the rules on `action` ask of `who` for `input` now. */
+  const signOffsOf =
+    (
+      who: { actor: Actor; granted: Granted; config: ConfigService },
+      executor: Db | Tx
+    ) =>
+    async (action: string, input: unknown): Promise<SignOff[]> =>
+      signOffsFor(
+        await rulesForAction(
+          who.config.approvals ?? [],
+          action,
+          input,
+          (name, id) => readRecord(executor, who.config, name, id)
+        ),
+        who.actor,
+        who.granted
+      );
+
   /** The sign-offs the rules on `state.action` ask of its actor now. */
-  const signOffsNow = async (
-    state: RunState,
-    input: unknown,
-    executor: Db | Tx
-  ): Promise<SignOff[]> =>
-    signOffsFor(
-      await rulesForAction(
-        state.config.approvals ?? [],
-        state.action.name,
-        input,
-        (name, id) => readRecord(executor, state.config, name, id)
-      ),
-      state.actor,
-      state.granted
-    );
+  const signOffsNow = (state: RunState, input: unknown, executor: Db | Tx) =>
+    signOffsOf(state, executor)(state.action.name, input);
 
   /** 1. Identify: the actor, if it exists and is active. */
   const identify = async (caller: Caller) => {
@@ -434,6 +439,7 @@ export const createPipeline = ({
       clock,
       actor,
       originUserId,
+      signOffs: signOffsOf(state, tx),
     });
 
     const returned = await action.handler(ctx, input);
@@ -491,7 +497,9 @@ export const createPipeline = ({
     tx: Tx,
     actionId: string,
     dryRun: boolean,
-    approvals: ApprovalService
+    approvals: ApprovalService,
+    /** `ctx.approvals` for the resumed run, as its own actor. */
+    approvalsFor: (executor: Tx, resumed: RunState) => ApprovalService
   ): Promise<ResumeResult> => {
     const [row] = await tx
       .select()
@@ -552,7 +560,13 @@ export const createPipeline = ({
     }
     try {
       const done = await withTransaction(tx, (savepoint) =>
-        perform(savepoint, state, parsed.data, actionId, approvals)
+        perform(
+          savepoint,
+          state,
+          parsed.data,
+          actionId,
+          approvalsFor(savepoint, state)
+        )
       );
       return { ok: true, output: done.output };
     } catch (error_) {
@@ -561,21 +575,38 @@ export const createPipeline = ({
     }
   };
 
-  /** `ctx.approvals` for a run in `tx`. */
-  const approvalsIn = (tx: Tx, dryRun: boolean): ApprovalService => {
+  /** `ctx.approvals` for a run of `state` in `tx`. */
+  const approvalsIn = (tx: Tx, state: RunState): ApprovalService => {
+    const dryRun = state.options.dryRun ?? false;
     const service: ApprovalService = {
       ...createApprovalStore(tx),
-      resume: (actionId) => resume(tx, actionId, dryRun, service),
-      close: async (actionId) => {
+      resume: (actionId) => resume(tx, actionId, dryRun, service, approvalsIn),
+      close: async (actionId, status = "rejected") => {
         await tx
           .update(actionLog)
-          .set({ status: "rejected", completedAt: clock.now() })
+          .set({ status, completedAt: clock.now() })
           .where(
             and(
               eq(actionLog.id, actionId),
               eq(actionLog.status, "pending_approval")
             )
           );
+      },
+      park: async () => {
+        const [row] = await tx
+          .insert(actionLog)
+          .values({
+            ...rowFor(state),
+            // A parked call is never replayed by its retry key.
+            retryKey: null,
+            status: "pending_approval",
+            createdAt: clock.now(),
+          })
+          .returning({ id: actionLog.id });
+        if (!row) {
+          throw new Error("insert returned no action_log row");
+        }
+        return row.id;
       },
     };
     return service;
@@ -598,7 +629,7 @@ export const createPipeline = ({
         state,
         input,
         actionId,
-        approvalsIn(tx, state.options.dryRun ?? false)
+        approvalsIn(tx, state)
       );
       if (result.dryRun) {
         const changes = await tx
@@ -757,6 +788,7 @@ export const createPipeline = ({
         clock,
         actor,
         originUserId,
+        signOffs: signOffsOf({ actor, granted, config: pinned }, db),
       });
       const returned = await definition.handler(ctx, parsed.data);
       if (isActionFailure(returned)) {

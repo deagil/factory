@@ -1,6 +1,6 @@
 # 0042. Approval rules
 
-- **Status:** Accepted; amended by [0043](0043-approval-limits.md)
+- **Status:** Accepted; amended by [0043](0043-approval-limits.md) and [0044](0044-working-drafts-and-requests.md)
 - **Date:** 2026-11-08
 - **Amends:** [0020](0020-action-pipeline.md), whose pipeline took an `approvals` function that returned a rule key, and SYSTEM_DESIGN §3's `approvals` and `approval_decisions` tables.
 

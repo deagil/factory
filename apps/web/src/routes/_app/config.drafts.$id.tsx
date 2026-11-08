@@ -270,13 +270,8 @@ const DraftScreen = () => {
         client.invalidateQueries({ queryKey: [key] })
       )
     );
-  const submit = useMutation({
-    mutationFn: () => runAction<Checked>("draft.submit", { id }),
-    onSuccess: async (result) => {
-      setProblems(result.output.problems);
-      await refresh();
-    },
-  });
+  // Publishing a draft an approval rule covers asks for approval instead,
+  // and the last approval publishes it (decision 0044).
   const publish = useMutation({
     mutationFn: () => runAction<{ draft: Draft }>("draft.publish", { id }),
     onSuccess: async () => {
@@ -287,6 +282,14 @@ const DraftScreen = () => {
         client.invalidateQueries({ queryKey: ["system.describe"] }),
       ]);
     },
+  });
+  const withdraw = useMutation({
+    mutationFn: () => runAction("approval.withdraw", { subjectId: id }),
+    onSuccess: refresh,
+  });
+  const discard = useMutation({
+    mutationFn: () => runAction("draft.discard", { id }),
+    onSuccess: refresh,
   });
   const trail = [{ label: "Drafts", link: { to: "/config/drafts" } }] as const;
   if (found.isPending) {
@@ -312,20 +315,28 @@ const DraftScreen = () => {
           open ? (
             <>
               <Button
-                variant="outline"
-                disabled={
-                  submit.isPending || draft.status === "awaiting_approval"
-                }
-                onClick={() => submit.mutate()}
+                variant="ghost"
+                disabled={discard.isPending}
+                onClick={() => discard.mutate()}
               >
-                Submit
+                Discard
               </Button>
-              <Button
-                disabled={publish.isPending || draft.status !== "valid"}
-                onClick={() => publish.mutate()}
-              >
-                Publish
-              </Button>
+              {draft.status === "awaiting_approval" ? (
+                <Button
+                  variant="outline"
+                  disabled={withdraw.isPending}
+                  onClick={() => withdraw.mutate()}
+                >
+                  Withdraw request
+                </Button>
+              ) : (
+                <Button
+                  disabled={publish.isPending || draft.status !== "valid"}
+                  onClick={() => publish.mutate()}
+                >
+                  Publish
+                </Button>
+              )}
             </>
           ) : null
         }
@@ -340,17 +351,17 @@ const DraftScreen = () => {
         </p>
         {draft.status === "awaiting_approval" ? (
           <p className="text-muted-foreground">
-            Waiting for approval ({progress(approvals)}). It can be published
-            once it’s approved.
+            Waiting for approval ({progress(approvals)}). It publishes once it’s
+            approved.
           </p>
         ) : null}
         {open && draft.status !== "awaiting_approval" ? (
           <p className="text-muted-foreground">
-            Submit checks the draft and asks for any approvals it needs; a valid
-            draft that needs none can be published straight away.
+            Publish checks the draft again. If an approval rule covers it, it
+            asks for approval instead, and publishes once it’s approved.
           </p>
         ) : null}
-        <ErrorText error={submit.error ?? publish.error} />
+        <ErrorText error={publish.error ?? withdraw.error ?? discard.error} />
       </div>
       <Problems problems={problems} />
       <Section title="What it changes">

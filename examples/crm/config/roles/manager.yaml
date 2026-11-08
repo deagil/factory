@@ -22,7 +22,11 @@ permissions:
     scope: all
   - action: draft.save
     scope: all
-  - action: draft.submit
+  - action: draft.mine
+    scope: all
+  - action: draft.revert
+    scope: all
+  - action: draft.discard
     scope: all
   - action: draft.publish
     scope: all

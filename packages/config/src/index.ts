@@ -49,11 +49,14 @@ export { createGitConfigService, ensureLocalRemote } from "./git.ts";
 export type { GitConfigOptions, GitConfigService } from "./git.ts";
 export {
   draftDefinitions,
+  draftDiscard,
   draftFiles,
   draftGet,
   draftList,
+  draftMine,
   draftOpen,
   draftPublish,
+  draftRevert,
   draftSave,
-  draftSubmit,
+  titleFor,
 } from "./drafts.ts";

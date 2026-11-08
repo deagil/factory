@@ -58,10 +58,12 @@ export type {
 } from "./approval-rules.ts";
 export {
   approvalApprove,
+  approvalCheck,
   approvalDefinitions,
   approvalEntrySchema,
   approvalList,
   approvalReject,
+  approvalWithdraw,
 } from "./approvals.ts";
 export {
   actionErrorCodes,

@@ -14,7 +14,7 @@ import type {
 } from "@workspace/objects";
 import type { z } from "zod";
 
-import type { ApprovalRule } from "./approval-rules.ts";
+import type { ApprovalRule, SignOff } from "./approval-rules.ts";
 import type { ActionError, ActionFailure, ErrorHelpers } from "./errors.ts";
 import type { Granted, Role } from "./permissions.ts";
 
@@ -82,8 +82,21 @@ export interface ApprovalService extends ApprovalStore {
    * succeeded or failed; a second call finds nothing pending and throws.
    */
   readonly resume: (actionId: string) => Promise<ResumeResult>;
-  /** Marks a pending action rejected; it never runs. */
-  readonly close: (actionId: string) => Promise<void>;
+  /**
+   * Marks a pending action rejected, or withdrawn by whoever asked; it never
+   * runs. An action that isn't pending is left alone.
+   */
+  readonly close: (
+    actionId: string,
+    status?: "rejected" | "withdrawn"
+  ) => Promise<void>;
+  /**
+   * Parks this same call, by the same actor, as a pending action that runs
+   * once approved, and returns its id. For an action that asks for
+   * approvals on another subject itself, as `draft.publish` does (decision
+   * 0044); approvals on the pending action itself come from the pipeline.
+   */
+  readonly park: () => Promise<string>;
 }
 
 /** One choice list: `get` returns the option that can be chosen now. */
@@ -157,6 +170,8 @@ export interface GitService {
   }) => Promise<{ status: "committed"; sha: string } | { status: "conflict" }>;
   /** The config files that differ between two commits, with both versions. */
   readonly diff: (from: string, to: string) => Promise<ConfigFileDiff[]>;
+  /** Deletes `branch` from the remote, as discarding a draft does; gone is fine. */
+  readonly remove: (branch: string) => Promise<void>;
   /** Every config file at `ref`, with its content (P2.10). */
   readonly files: (
     ref: string
@@ -226,6 +241,12 @@ export interface QueryContext extends ErrorHelpers {
   readonly actor: Actor;
   /** The person at the start of the chain; null if there isn't one. */
   readonly originUserId: string | null;
+  /**
+   * The sign-offs the approval rules would ask of this actor for running
+   * `action` with `input` now, reading a rule's record as the pipeline does
+   * (decision 0044). Absent outside the pipeline.
+   */
+  readonly signOffs?: (action: string, input: unknown) => Promise<SignOff[]>;
 }
 
 /** What an action handler gets: a query's context, plus writes and events. */

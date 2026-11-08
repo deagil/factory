@@ -239,6 +239,7 @@ describe("types", () => {
       | "clock"
       | "actor"
       | "originUserId"
+      | "signOffs"
       | "emit"
       | "invalid"
       | "invalidInput"

@@ -1,14 +1,14 @@
 // Drafts (P2.08, decision 0041): staff change config in a draft, a branch
-// made from production, and publish it as one commit. A draft whose files an
-// approval rule covers waits for approval before it publishes (P2.09). The actions and
-// queries reach git only through `ctx.git`, and record each draft in the
-// `drafts` table. A system that reads `config/` from its working tree has no
+// made from production, and publish it as one commit. Each person has one
+// working draft, which their first save opens (decision 0044). Publishing a
+// draft whose files an approval rule covers asks for approval instead, and the
+// last approval publishes it (P2.09). The actions and queries reach git only
+// through `ctx.git`, and record each draft in the `drafts` table. A system that reads `config/` from its working tree has no
 // `ctx.git`, and refuses them.
 import {
   approvalEntrySchema,
   defineAction,
   defineQuery,
-  describeSignOffs,
   rulesForFiles,
   signOffsFor,
   unmetSignOff,
@@ -87,11 +87,10 @@ const problemsOf = (check: ConfigCheck) =>
 
 const toDraft = (entry: DraftEntry) => draftSchema.parse(entry);
 
-/** The draft and the remote, or why the action can't go on. */
-const openDraft = async (
-  ctx: ActionContext<Record<never, never>>,
-  id: string
-) => {
+type Ctx = ActionContext<Record<never, never>>;
+
+/** The remote, or why a draft action can't use it. */
+const remoteFor = (ctx: Ctx) => {
   if (!ctx.git) {
     return ctx.invalid(noRemote);
   }
@@ -100,6 +99,80 @@ const openDraft = async (
       "Drafts write to the config remote, so they can't be dry-run."
     );
   }
+  return { git: ctx.git };
+};
+
+/** `config/<type>/<key>.yaml` → its type and key. */
+const typeAndKey = (file: string) => {
+  const [, type = "", name = ""] = file.split("/");
+  return { type, key: name.replace(configExtension, "") };
+};
+
+/** "Edit deal-stages and manager", from the files a draft changes. */
+export const titleFor = (files: readonly string[]) => {
+  const keys = files.map((file) => typeAndKey(file).key);
+  if (keys.length === 0) {
+    return "Unpublished edits";
+  }
+  const shown =
+    keys.length > 3 ? [...keys.slice(0, 2), `${keys.length - 2} more`] : keys;
+  const last = shown.pop();
+  return `Edit ${shown.length > 0 ? `${shown.join(", ")} and ` : ""}${last}`;
+};
+
+/** Makes a draft branch and its row, and returns the draft. */
+const start = async (
+  ctx: Ctx,
+  git: GitService,
+  title: string,
+  autoTitle: boolean
+) => {
+  const id = await ctx.drafts.newId();
+  const branch = `draft/${id}`;
+  const baseSha = await git.branch(branch);
+  await ctx.drafts.create({
+    id,
+    branch,
+    title,
+    autoTitle,
+    baseSha,
+    createdBy: ctx.actor.id,
+  });
+  const draft = await ctx.dal.draftDetail(id);
+  if (!draft) {
+    throw new Error(`Draft ${id} wasn't saved.`);
+  }
+  return draft;
+};
+
+/** The caller's working draft: their newest one that can still change. */
+const mine = async (ctx: QueryContext) => {
+  const [draft] = await ctx.dal.draftList({
+    createdBy: ctx.actor.id,
+    open: true,
+    limit: 1,
+  });
+  return draft ?? null;
+};
+
+/**
+ * Ends a draft's request for approval, as a change to it does: what was
+ * approved is no longer what would publish.
+ */
+const endRequest = async (ctx: Ctx, draft: DraftEntry) => {
+  await ctx.approvals.cancelOpen("draft", draft.id, ctx.clock.now());
+  if (draft.publishActionId) {
+    await ctx.approvals.close(draft.publishActionId, "withdrawn");
+    await ctx.drafts.update(draft.id, { publishActionId: null });
+  }
+};
+
+/** The draft and the remote, or why the action can't go on. */
+const openDraft = async (ctx: Ctx, id: string) => {
+  const remote = remoteFor(ctx);
+  if (!("git" in remote)) {
+    return remote;
+  }
   const draft = await ctx.dal.draftDetail(id);
   if (!draft) {
     return ctx.notFound("draft", id);
@@ -107,14 +180,11 @@ const openDraft = async (
   if (draft.status === "published" || draft.status === "abandoned") {
     return ctx.conflict(`This draft is ${draft.status}, so it can't change.`);
   }
-  return { draft, git: ctx.git };
+  return { draft, git: remote.git };
 };
 
 /** The sign-offs the rules covering `files` ask of `ctx.actor`. */
-const signOffs = (
-  ctx: ActionContext<Record<never, never>>,
-  files: readonly string[]
-) =>
+const signOffs = (ctx: Ctx, files: readonly string[]) =>
   signOffsFor(
     rulesForFiles(ctx.config.approvals ?? [], files),
     ctx.actor,
@@ -122,19 +192,17 @@ const signOffs = (
   );
 
 /** Re-checks a draft's whole set of files and records what it found. */
-const recheck = async (
-  ctx: ActionContext<Record<never, never>>,
-  git: GitService,
-  draft: DraftEntry
-) => {
+const recheck = async (ctx: Ctx, git: GitService, draft: DraftEntry) => {
   const head = await git.head(draft.branch);
   const [check, diff] = await Promise.all([
     git.check(head),
     git.diff(draft.baseSha, head),
   ]);
+  const files = diff.map((each) => each.path);
   await ctx.drafts.update(draft.id, {
-    files: diff.map((each) => each.path),
+    files,
     status: check.problems.length > 0 ? "invalid" : "valid",
+    ...(draft.autoTitle ? { title: titleFor(files) } : {}),
   });
   const updated = await ctx.dal.draftDetail(draft.id);
   if (!updated) {
@@ -146,43 +214,38 @@ const recheck = async (
 export const draftOpen = defineAction({
   name: "draft.open",
   description:
-    "Open a draft: a set of config changes made on a branch from production, published together. Save files into it with draft.save.",
+    "Open a new draft: a set of config changes made on a branch from production, published together. draft.save without an id saves into your working draft instead, opening one if you have none.",
   input: z.strictObject({ title: z.string().min(1).max(200) }),
   output: z.object({ draft: draftSchema }),
   handler: async (ctx, { title }) => {
-    if (!ctx.git) {
-      return ctx.invalid(noRemote);
+    const remote = remoteFor(ctx);
+    if (!("git" in remote)) {
+      return remote;
     }
-    if (ctx.dryRun) {
-      return ctx.invalid(
-        "Drafts write to the config remote, so they can't be dry-run."
-      );
-    }
-    const id = await ctx.drafts.newId();
-    const branch = `draft/${id}`;
-    const baseSha = await ctx.git.branch(branch);
-    await ctx.drafts.create({
-      id,
-      branch,
-      title,
-      baseSha,
-      createdBy: ctx.actor.id,
-    });
-    const draft = await ctx.dal.draftDetail(id);
-    if (!draft) {
-      throw new Error(`Draft ${id} wasn't saved.`);
-    }
-    return { draft: toDraft(draft) };
+    return { draft: toDraft(await start(ctx, remote.git, title, false)) };
+  },
+});
+
+export const draftMine = defineQuery({
+  name: "draft.mine",
+  description:
+    "Your working draft: the newest of your drafts that isn't published or abandoned, which draft.save without an id saves into. Null when you have none.",
+  input: z.strictObject({}),
+  output: z.object({ draft: draftSchema.nullable() }),
+  handler: async (ctx) => {
+    const draft = await mine(ctx);
+    return { draft: draft ? toDraft(draft) : null };
   },
 });
 
 export const draftSave = defineAction({
   name: "draft.save",
   description:
-    "Save one config file in a draft: its YAML as content, or its value as an object, which is written as YAML; content null deletes it. Each save is one commit, and checks the draft's whole set of files against the running system.",
+    "Save one config file in a draft: its YAML as content, or its value as an object, which is written as YAML; content null deletes it. Without an id it saves into your working draft, opening one if you have none. Each save is one commit, and checks the draft's whole set of files against the running system. Saving a draft that waits for approval withdraws the request.",
   input: z
     .strictObject({
-      id: z.uuid(),
+      /** The draft; your working draft when left out. */
+      id: z.uuid().optional(),
       path: configFile,
       content: z.string().max(200_000).nullable().optional(),
       value: z.record(z.string(), z.unknown()).optional(),
@@ -193,7 +256,18 @@ export const draftSave = defineAction({
     ),
   output: checkedSchema,
   handler: async (ctx, input) => {
-    const opened = await openDraft(ctx, input.id);
+    let { id } = input;
+    if (id === undefined) {
+      const remote = remoteFor(ctx);
+      if (!("git" in remote)) {
+        return remote;
+      }
+      const working =
+        (await mine(ctx)) ??
+        (await start(ctx, remote.git, titleFor([input.path]), true));
+      ({ id } = working);
+    }
+    const opened = await openDraft(ctx, id);
     if (!("draft" in opened)) {
       return opened;
     }
@@ -215,43 +289,76 @@ export const draftSave = defineAction({
       );
     }
     // What was approved has changed, so it needs approving again.
-    await ctx.approvals.cancelOpen("draft", draft.id, ctx.clock.now());
+    await endRequest(ctx, draft);
     return recheck(ctx, git, draft);
   },
 });
 
-export const draftSubmit = defineAction({
-  name: "draft.submit",
+export const draftRevert = defineAction({
+  name: "draft.revert",
   description:
-    "Submit a draft for publishing: checks it again and, when an approval rule covers one of its files, asks the rule's approvers. It waits in awaiting_approval until they decide.",
-  input: z.strictObject({ id: z.uuid() }),
+    "Undo a draft's change to one file: it goes back to how it was when the draft began, so the draft no longer changes it. Withdraws a request for approval, like a save.",
+  input: z.strictObject({ id: z.uuid(), path: configFile }),
   output: checkedSchema,
+  handler: async (ctx, { id, path }) => {
+    const opened = await openDraft(ctx, id);
+    if (!("draft" in opened)) {
+      return opened;
+    }
+    const { draft, git } = opened;
+    const diff = await git.diff(draft.baseSha, await git.head(draft.branch));
+    const changed = diff.find((each) => each.path === path);
+    if (!changed) {
+      return ctx.invalid(`This draft doesn't change ${path}.`);
+    }
+    const committed = await git.commit({
+      branch: draft.branch,
+      path,
+      content: changed.before,
+      message: `Revert ${path}${trailers(ctx, draft.id)}`,
+      author: authorOf(ctx),
+    });
+    if (committed.status === "conflict") {
+      return ctx.conflict(
+        "Someone else saved this draft at the same moment. Read it again and retry."
+      );
+    }
+    await endRequest(ctx, draft);
+    return recheck(ctx, git, draft);
+  },
+});
+
+export const draftDiscard = defineAction({
+  name: "draft.discard",
+  description:
+    "Throw a draft away: it's abandoned, its branch is deleted and any request for approval is withdrawn. Nothing it changed is published.",
+  input: z.strictObject({ id: z.uuid() }),
+  output: z.object({ draft: draftSchema }),
   handler: async (ctx, { id }) => {
     const opened = await openDraft(ctx, id);
     if (!("draft" in opened)) {
       return opened;
     }
-    const checked = await recheck(ctx, opened.git, opened.draft);
-    // A new submission starts a new round of approvals.
-    await ctx.approvals.cancelOpen("draft", id, ctx.clock.now());
-    const needed = signOffs(ctx, checked.draft.files);
-    if (checked.draft.status !== "valid" || needed.length === 0) {
-      return checked;
+    const { draft, git } = opened;
+    await endRequest(ctx, draft);
+    await ctx.drafts.update(draft.id, { status: "abandoned" });
+    await git.remove(draft.branch);
+    const discarded = await ctx.dal.draftDetail(draft.id);
+    if (!discarded) {
+      throw new Error(`Draft ${draft.id} vanished while it was discarded.`);
     }
-    await ctx.approvals.request("draft", id, needed, ctx.actor.id);
-    await ctx.drafts.update(id, { status: "awaiting_approval" });
-    return {
-      ...checked,
-      draft: { ...checked.draft, status: "awaiting_approval" as const },
-    };
+    return { draft: toDraft(discarded) };
   },
 });
 
 export const draftPublish = defineAction({
   name: "draft.publish",
   description:
-    "Publish a valid draft: its files go onto production as one commit, which is copied to main, and the running system loads it.",
-  input: z.strictObject({ id: z.uuid() }),
+    "Publish a valid draft: its files go onto production as one commit, which is copied to main, and the running system loads it. When an approval rule covers its files, it asks the rule's approvers instead and the draft waits in awaiting_approval; the last approval publishes it, as you. A title names the published commit.",
+  input: z.strictObject({
+    id: z.uuid(),
+    title: z.string().min(1).max(200).optional(),
+  }),
   output: z.object({ draft: draftSchema }),
   emits: {
     "draft.published": z.object({
@@ -260,12 +367,17 @@ export const draftPublish = defineAction({
       files: z.array(z.string()),
     }),
   },
-  handler: async (ctx, { id }) => {
+  handler: async (ctx, { id, title }) => {
     const opened = await openDraft(ctx, id);
     if (!("draft" in opened)) {
       return opened;
     }
-    const { draft, git } = opened;
+    const { git } = opened;
+    let { draft } = opened;
+    if (title !== undefined && draft.status !== "awaiting_approval") {
+      await ctx.drafts.update(draft.id, { title, autoTitle: false });
+      draft = { ...draft, title, autoTitle: false };
+    }
     if (draft.files.length === 0) {
       return ctx.invalid("This draft changes nothing yet. Save a file first.");
     }
@@ -275,7 +387,7 @@ export const draftPublish = defineAction({
         waiting.find((each) => each.status === "pending")?.ruleKey ?? "";
       return ctx.needsApproval(
         rule,
-        "This draft is waiting for approval. It can be published once it's approved."
+        "This draft is waiting for approval, and publishes once it's approved."
       );
     }
     if (draft.status !== "valid") {
@@ -283,16 +395,25 @@ export const draftPublish = defineAction({
         "Only a valid draft can be published. Fix its problems and save again."
       );
     }
-    // What the rules ask now, which may be more than when it was submitted.
-    const missing = unmetSignOff(
-      signOffs(ctx, draft.files),
-      await ctx.approvals.forSubject("draft", draft.id)
-    );
-    if (missing) {
-      return ctx.needsApproval(
-        missing.ruleKey,
-        `The rule ${missing.ruleKey} covers this draft's files, so it needs ${describeSignOffs([missing])}. Submit it for approval.`
-      );
+    // What the rules ask now. Approvals already given count only when they
+    // cover all of it; otherwise a new round asks for every sign-off.
+    const needed = signOffs(ctx, draft.files);
+    if (
+      unmetSignOff(needed, await ctx.approvals.forSubject("draft", draft.id))
+    ) {
+      await ctx.approvals.cancelOpen("draft", draft.id, ctx.clock.now());
+      await ctx.approvals.request("draft", draft.id, needed, ctx.actor.id);
+      // This same call runs again, as this actor, once it's approved.
+      const publishActionId = await ctx.approvals.park();
+      await ctx.drafts.update(draft.id, {
+        status: "awaiting_approval",
+        publishActionId,
+      });
+      const waiting = await ctx.dal.draftDetail(draft.id);
+      if (!waiting) {
+        throw new Error(`Draft ${draft.id} vanished while it was submitted.`);
+      }
+      return { draft: toDraft(waiting) };
     }
     const result = await git.publish({
       branch: draft.branch,
@@ -318,6 +439,7 @@ export const draftPublish = defineAction({
     await ctx.approvals.cancelPending("draft", draft.id, ctx.clock.now());
     await ctx.drafts.update(draft.id, {
       status: "published",
+      publishActionId: null,
       publishedSha: result.sha,
       syncedSha: result.synced.status === "copied" ? result.synced.sha : null,
       publishedAt: ctx.clock.now(),
@@ -368,12 +490,6 @@ const valueOf = (content: string | null): unknown => {
   } catch {
     return null;
   }
-};
-
-/** `config/<type>/<key>.yaml` → its type and key. */
-const typeAndKey = (file: string) => {
-  const [, type = "", name = ""] = file.split("/");
-  return { type, key: name.replace(configExtension, "") };
 };
 
 /** The commit a draft's files are at: published, or its branch's head. */
@@ -464,8 +580,10 @@ export const draftFiles = defineQuery({
 /** Every draft action and query, which a system with config has. */
 export const draftDefinitions = [
   draftOpen,
+  draftMine,
   draftSave,
-  draftSubmit,
+  draftRevert,
+  draftDiscard,
   draftPublish,
   draftList,
   draftGet,

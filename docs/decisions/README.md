@@ -47,6 +47,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0041 | [Drafts over git](0041-drafts-over-git.md) | Accepted |
 | 0042 | [Approval rules](0042-approval-rules.md) | Accepted |
 | 0043 | [Approval limits](0043-approval-limits.md) | Accepted |
+| 0044 | [Working drafts, and requests that publish when approved](0044-working-drafts-and-requests.md) | Accepted |
 
 ## Template
 
