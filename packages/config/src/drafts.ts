@@ -499,7 +499,7 @@ const draftCommit = async (git: GitService | undefined, draft: DraftEntry) =>
 export const draftGet = defineQuery({
   name: "draft.get",
   description:
-    "One config draft: each file it changes before and after, as YAML and as values (null where the file doesn't exist), and its approvals.",
+    "One config draft: each file it changes before and after, as YAML and as values (null where the file doesn't exist), its approvals, and, when it's invalid, its problems.",
   input: z.strictObject({ id: z.uuid() }),
   output: z.object({
     draft: draftSchema,
@@ -515,6 +515,7 @@ export const draftGet = defineQuery({
       })
     ),
     approvals: z.array(approvalEntrySchema),
+    problems: z.array(problemSchema),
   }),
   handler: async (ctx, { id }) => {
     const draft = await ctx.dal.draftDetail(id);
@@ -522,9 +523,13 @@ export const draftGet = defineQuery({
       return ctx.notFound("draft", id);
     }
     const to = await draftCommit(ctx.git, draft);
-    const [diff, approvals] = await Promise.all([
+    const [diff, approvals, check] = await Promise.all([
       ctx.git && to ? ctx.git.diff(draft.baseSha, to) : [],
       ctx.dal.approvalList({ subjectId: id, limit: 200 }),
+      // Only an invalid draft has problems worth checking again for.
+      ctx.git && to && draft.status === "invalid"
+        ? ctx.git.check(to)
+        : { files: 0, problems: [] },
     ]);
     return {
       draft: toDraft(draft),
@@ -535,6 +540,7 @@ export const draftGet = defineQuery({
         afterValue: valueOf(change.after),
       })),
       approvals,
+      problems: problemsOf(check),
     };
   },
 });
@@ -542,9 +548,11 @@ export const draftGet = defineQuery({
 export const draftFiles = defineQuery({
   name: "draft.files",
   description:
-    "Every config file as a draft has it, with its YAML and its value, for editing it.",
-  input: z.strictObject({ id: z.uuid() }),
+    "Every config file as a draft has it, with its YAML and its value, for editing it. Without an id, as your working draft has it, or as production has it when you have none; draftId says which.",
+  input: z.strictObject({ id: z.uuid().optional() }),
   output: z.object({
+    /** The draft the files are from; null for production. */
+    draftId: z.uuid().nullable(),
     files: z.array(
       z.object({
         path: z.string(),
@@ -556,16 +564,23 @@ export const draftFiles = defineQuery({
     ),
   }),
   handler: async (ctx, { id }) => {
-    const draft = await ctx.dal.draftDetail(id);
-    if (!draft) {
+    if (!ctx.git) {
+      return ctx.invalid(noRemote);
+    }
+    const draft =
+      id === undefined ? await mine(ctx) : await ctx.dal.draftDetail(id);
+    if (id !== undefined && !draft) {
       return ctx.notFound("draft", id);
     }
-    const at = await draftCommit(ctx.git, draft);
-    if (!ctx.git || !at) {
+    const at = draft
+      ? await draftCommit(ctx.git, draft)
+      : await ctx.git.head(ctx.git.production);
+    if (!at) {
       return ctx.invalid(noRemote);
     }
     const files = await ctx.git.files(at);
     return {
+      draftId: draft?.id ?? null,
       files: files
         .filter((file) => configFile.safeParse(file.path).success)
         .map((file) => ({

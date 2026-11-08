@@ -272,6 +272,21 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     await expect(
       server.pipeline.run(action("draft.publish"), { id }, admin)
     ).resolves.toMatchObject({ ok: false, error: { code: "validation" } });
+    // draft.get finds the problems again, for the review page (P2.10b).
+    await expect(
+      server.pipeline.query(
+        system.registry.get("draft.get") as AnyQueryDefinition,
+        { id },
+        admin
+      )
+    ).resolves.toMatchObject({
+      ok: true,
+      output: {
+        problems: [
+          expect.objectContaining({ file: "config/roles/sales.yaml" }),
+        ],
+      },
+    });
   });
 
   const query = (name: string, input: object, by = admin) =>
@@ -305,6 +320,8 @@ describe("drafts over git", { timeout: 30_000 }, () => {
   };
 
   it("saves into each person's working draft, and undoes or discards it", async () => {
+    // Before Bea's first save, her files are production's.
+    const live = await query("draft.files", {}, bea);
     const first = await server.pipeline.run(
       action("draft.save"),
       { path: "config/roles/clerk.yaml", content: role("clerk") },
@@ -318,6 +335,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     const { id } = (first as { output: { draft: { id: string } } }).output
       .draft;
     const mine = await query("draft.mine", {}, bea);
+    const files = await query("draft.files", {}, bea);
     const reverted = await server.pipeline.run(
       action("draft.revert"),
       { id, path: "config/roles/clerk.yaml" },
@@ -336,6 +354,8 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       bea
     );
     expect({
+      live,
+      files,
       first,
       second,
       mine,
@@ -346,6 +366,24 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       after: branches(),
       gone: await query("draft.mine", {}, bea),
     }).toMatchObject({
+      live: {
+        ok: true,
+        output: {
+          draftId: null,
+          files: expect.not.arrayContaining([
+            expect.objectContaining({ path: "config/roles/clerk.yaml" }),
+          ]),
+        },
+      },
+      files: {
+        ok: true,
+        output: {
+          draftId: id,
+          files: expect.arrayContaining([
+            expect.objectContaining({ path: "config/roles/clerk.yaml" }),
+          ]),
+        },
+      },
       first: {
         ok: true,
         output: { draft: { title: "Edit clerk", status: "valid" } },

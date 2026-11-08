@@ -19,6 +19,8 @@ export interface EditorProps {
   description: SystemDescription | undefined;
   saving: boolean;
   onSave: (value: Value) => void;
+  /** The save button's label; "Save to draft" by default. */
+  saveLabel?: string;
 }
 
 interface ColumnSchema {
@@ -109,16 +111,18 @@ const SaveBar = ({
   saving,
   dirty,
   onSave,
+  label = "Save to draft",
   children,
 }: {
   saving: boolean;
   dirty: boolean;
   onSave: () => void;
+  label?: string;
   children?: ReactNode;
 }) => (
   <div className="flex flex-wrap items-center gap-2">
     <Button disabled={saving || !dirty} onClick={onSave}>
-      {saving ? "Saving…" : "Save to draft"}
+      {saving ? "Saving…" : label}
     </Button>
     {children}
     {dirty ? (
@@ -148,6 +152,7 @@ export const ChoiceListEditor = ({
   description,
   saving,
   onSave,
+  saveLabel,
 }: EditorProps) => {
   const listKey = String(value.key ?? "");
   const saved = Array.isArray(value.options) ? (value.options as Value[]) : [];
@@ -311,6 +316,7 @@ export const ChoiceListEditor = ({
       <SaveBar
         saving={saving}
         dirty={dirty}
+        label={saveLabel}
         onSave={() => onSave({ ...value, options: options.map(tidy) })}
       >
         <Button
@@ -362,6 +368,7 @@ export const RoleEditor = ({
   description,
   saving,
   onSave,
+  saveLabel,
 }: EditorProps) => {
   const saved = linesOf(value);
   const [label, setLabel] = useState(String(value.label ?? ""));
@@ -525,7 +532,12 @@ export const RoleEditor = ({
           </Button>
         </div>
       </fieldset>
-      <SaveBar saving={saving} dirty={dirty} onSave={() => onSave(next)} />
+      <SaveBar
+        saving={saving}
+        dirty={dirty}
+        label={saveLabel}
+        onSave={() => onSave(next)}
+      />
     </div>
   );
 };
