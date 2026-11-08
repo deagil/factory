@@ -80,6 +80,14 @@ describe("MCP server", () => {
       where: (t, { eq }) => eq(t.name, "organisation.create"),
     });
     expect(record).toMatchObject({ name: "Made by Claude" });
+    // The model sees the action id in the result, not only in `_meta`.
+    expect(called.body.result.structuredContent).toMatchObject({
+      actionId: log?.id,
+    });
+    expect(called.body.result.content).toContainEqual({
+      type: "text",
+      text: `actionId: ${log?.id}`,
+    });
     expect(log).toMatchObject({
       actorId: test.actors.agent,
       originUserId: test.actors.sarahUser,
@@ -104,6 +112,7 @@ describe("MCP server", () => {
       isError: true,
       content: [
         { type: "text", text: expect.stringMatching(/^permission: /u) },
+        { type: "text", text: expect.stringMatching(/^actionId: /u) },
       ],
     });
   });
