@@ -216,6 +216,27 @@ export const eventLog = pgTable(
   ]
 );
 
+// Config (SYSTEM_DESIGN §4.4)
+
+export const configVersionStatuses = ["loaded", "refused"] as const;
+
+/**
+ * Each version of `config/` the loader tried (P2.05): the commit, or locally
+ * a hash of the working tree; whether it went live; and, if it was refused,
+ * the problems. Only the config loader writes it.
+ */
+export const configVersions = pgTable(
+  "config_versions",
+  {
+    id: id(),
+    sha: text("sha").notNull(),
+    status: text("status", { enum: configVersionStatuses }).notNull(),
+    errors: jsonb("errors"),
+    loadedAt: timestamptz("loaded_at").notNull().defaultNow(),
+  },
+  (t) => [index("config_versions_loaded_at_idx").on(t.loadedAt)]
+);
+
 // Better Auth's own tables, in their own schema. Only Better Auth writes them.
 
 export const authSchema = pgSchema("auth");

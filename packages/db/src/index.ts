@@ -49,6 +49,8 @@ export {
   actorStatuses,
   apiKeys,
   auditLog,
+  configVersions,
+  configVersionStatuses,
   authSchema,
   eventLog,
   sessions,
@@ -56,3 +58,8 @@ export {
   userStatuses,
   verifications,
 } from "./schema/core.ts";
+export { listConfigVersions, recordConfigVersion } from "./config-versions.ts";
+export type {
+  ConfigVersionRow,
+  ConfigVersionStatus,
+} from "./config-versions.ts";

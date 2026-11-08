@@ -16,15 +16,31 @@ export interface Clock {
   now: () => Date;
 }
 
+/** One problem `validate` found, at a place in a config file. */
+export interface ConfigCheckProblem {
+  readonly file: string;
+  readonly path: readonly (string | number)[];
+  readonly line: number | null;
+  readonly message: string;
+}
+
+/** What `ConfigService.validate` found in `config/` as it is on disk. */
+export interface ConfigCheck {
+  readonly files: number;
+  readonly problems: readonly ConfigCheckProblem[];
+}
+
 /**
- * Config, as actions see it. In phase 1 it's a static object passed to
- * defineSystem, so `sha` is null; phase 2 loads it from git.
+ * Config, as actions see it: the version the config loader has live
+ * (P2.05). Tests pass a static one, with `sha` null.
  */
 export interface ConfigService {
-  /** The config commit this run uses, written to action_log.config_sha. */
+  /** The config version this run uses, written to action_log.config_sha. */
   readonly sha: string | null;
   /** Every role, by key. */
   readonly roles: readonly Role[];
+  /** Checks `config/` on disk against its schemas and the running code. */
+  readonly validate?: () => ConfigCheck;
 }
 
 /** What a permission on an object lets an actor do. */

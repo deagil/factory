@@ -18,6 +18,8 @@ export type {
   AnyDefinition,
   AnyQueryDefinition,
   Clock,
+  ConfigCheck,
+  ConfigCheckProblem,
   ConfigService,
   Emit,
   EventSchemas,

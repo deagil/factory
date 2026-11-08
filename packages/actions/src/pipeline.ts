@@ -195,7 +195,30 @@ interface RunState {
   actor: Actor;
   originUserId: string | null;
   options: RunOptions;
+  /** The config version this run reads, pinned when it starts. */
+  config: ConfigService;
 }
+
+/**
+ * The config as it is now. A loader swaps versions while runs go on, so a
+ * run takes one snapshot and reads only that (P2.05).
+ */
+const pin = (config: ConfigService): ConfigService => ({
+  sha: config.sha,
+  roles: config.roles,
+  ...(config.validate ? { validate: config.validate } : {}),
+});
+
+/** The columns every action_log row for this run has. */
+const rowFor = (state: RunState) => ({
+  name: state.action.name,
+  actorId: state.actor.id,
+  originUserId: state.originUserId,
+  input: state.input ?? null,
+  retryKey: state.options.retryKey ?? null,
+  dryRun: state.options.dryRun ?? false,
+  configSha: state.config.sha,
+});
 
 export const createPipeline = ({
   db,
@@ -228,17 +251,6 @@ export const createPipeline = ({
     "actor.active",
     "The caller isn't a known, active actor"
   ).error;
-
-  /** The columns every action_log row for this run has. */
-  const rowFor = (state: RunState) => ({
-    name: state.action.name,
-    actorId: state.actor.id,
-    originUserId: state.originUserId,
-    input: state.input ?? null,
-    retryKey: state.options.retryKey ?? null,
-    dryRun: state.options.dryRun ?? false,
-    configSha: config.sha,
-  });
 
   /** Writes a finished row outside the run's (rolled-back) transaction. */
   const writeRow = async (
@@ -335,7 +347,7 @@ export const createPipeline = ({
         identity: createIdentityStore(tx),
         dal: dalFor(tx, state.granted),
         granted: state.granted,
-        config,
+        config: state.config,
         clock,
         actor,
         originUserId,
@@ -432,7 +444,14 @@ export const createPipeline = ({
       return { ok: false, error: unknownActor, actionId: null };
     }
     const granted = await permissions.load(who.actor);
-    const state: RunState = { action, input, granted, ...who, options };
+    const state: RunState = {
+      action,
+      input,
+      granted,
+      ...who,
+      options,
+      config: pin(config),
+    };
 
     // 2. Validate.
     const parsed = action.input.safeParse(input);
@@ -489,7 +508,7 @@ export const createPipeline = ({
       const ctx = createQueryContext({
         dal: dalFor(db, granted),
         granted,
-        config,
+        config: pin(config),
         clock,
         actor,
         originUserId,

@@ -44,7 +44,7 @@ It shows the database in `.env` (the change's own, in a worktree): showing the c
 
 - `src/objects.ts`: the objects, imported only from `@workspace/objects/define` so drizzle-kit can load it.
 - `src/move-to-organisation.ts`: the hand-written action.
-- `src/roles.ts`, `src/system.ts`: `defineSystem`.
+- `src/system.ts`: `defineSystem`. `config/roles/*.yaml`: the roles, loaded live (decision 0038).
 - `src/seed.ts`, `src/main.ts`: seed data and the server.
 - `drizzle.config.ts`: the core schema plus the objects, for `pnpm dev`.
 

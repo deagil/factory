@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-08
-- **Amends:** [0031](0031-define-system-and-running-a-system.md), which left systems without committed migrations.
+- **Amends:** [0031](0031-define-system-and-create-server.md), which left systems without committed migrations.
 
 ## Context
 

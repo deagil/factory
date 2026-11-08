@@ -24,3 +24,10 @@ export { roleConfigType, roleReferences } from "./roles.ts";
 export { coreConfigTypes } from "./core-types.ts";
 export { checkReferences, validateConfig } from "./validate.ts";
 export type { ConfigCatalog } from "./validate.ts";
+export { createConfigLoader, workingTreeSha } from "./loader.ts";
+export type {
+  ConfigIndex,
+  ConfigLoader,
+  ConfigLoaderOptions,
+  LoadResult,
+} from "./loader.ts";
