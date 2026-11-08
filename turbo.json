@@ -17,6 +17,34 @@
       "outputs": [],
       "env": ["DATABASE_ADMIN_URL"]
     },
+    "@workspace/actions#test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "env": ["DATABASE_ADMIN_URL"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/modules/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/examples/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/templates/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/examples/*/config/**",
+        "$TURBO_ROOT$/packages/db/migrations/**"
+      ]
+    },
+    "@workspace/fx#test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "env": ["DATABASE_ADMIN_URL"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/modules/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/examples/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/templates/**/*.{ts,tsx}",
+        "$TURBO_ROOT$/examples/*/config/**",
+        "$TURBO_ROOT$/packages/db/migrations/**"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true,
