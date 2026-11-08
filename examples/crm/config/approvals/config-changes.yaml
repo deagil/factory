@@ -1,0 +1,5 @@
+key: config-changes
+label: Changing stages, roles or approval rules
+description: A draft that changes these needs an admin's approval before it publishes.
+config: [approvals, choices, roles]
+approver: admin

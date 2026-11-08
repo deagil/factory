@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { actionLog, auditLog, eventLog } from "@workspace/db";
+import { actionLog, approvals, auditLog, eventLog } from "@workspace/db";
 import {
   createCrmDatabase,
   createStaffActor,
@@ -162,6 +162,7 @@ describe("the action pipeline", () => {
           Promise.resolve({
             authorise: (definition) => failures.forbidden(definition.name),
             canRead: () => "all" as const,
+            holds: () => false,
           }),
       },
     });
@@ -181,18 +182,38 @@ describe("the action pipeline", () => {
   it("approves: a matching rule parks the action as pending_approval", async () => {
     const guarded = createPipeline({
       db: crm.db,
-      config: { sha: null, roles: [] },
+      config: {
+        sha: null,
+        roles: [],
+        approvals: [
+          {
+            key: "big-customers",
+            label: "Big customers",
+            action: "org.guarded",
+            when: [{ field: "name", operator: "eq", value: "Guarded" }],
+            approver: "admin",
+          },
+        ],
+      },
       clock: { now: () => clock },
-      approvals: () => "big-customers",
     });
     const result = await guarded.run(
       createOrg("org.guarded"),
       { name: "Guarded" },
       caller
     );
-    expect(result).toMatchObject({
-      ok: false,
-      error: { code: "approval_required", rule: "big-customers" },
+    const waiting = await crm.db
+      .select()
+      .from(approvals)
+      .where(eq(approvals.subjectId, result.actionId ?? ""));
+    expect({ result, waiting }).toMatchObject({
+      result: {
+        ok: false,
+        error: { code: "approval_required", rule: "big-customers" },
+      },
+      waiting: [
+        { ruleKey: "big-customers", approverRole: "admin", status: "pending" },
+      ],
     });
     await expect(logRows("org.guarded")).resolves.toMatchObject([
       { status: "pending_approval" },

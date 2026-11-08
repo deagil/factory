@@ -50,6 +50,13 @@
       "when": 1794151526944,
       "tag": "0006_p2_08_drafts_over_git",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794160948429,
+      "tag": "0007_p2_09_approval_rules",
+      "breakpoints": true
     }
   ]
 }

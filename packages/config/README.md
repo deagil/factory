@@ -2,7 +2,7 @@
 
 Config schemas, validateConfig, the git config service, the config loader and staff drafts.
 
-**Status:** config types, reading `config/`, `validateConfig`, the loader, choice lists, the git config service and drafts are built (P2.03 to P2.08). Approval rules for drafts follow in P2.09.
+**Status:** config types, reading `config/`, `validateConfig`, the loader, choice lists, the git config service, drafts and approval rules are built (P2.03 to P2.09).
 
 - Config is plain YAML 1.2 at `config/<type>/<key>.yaml`, and the `key` in a file matches its name (decision 0037).
 - `defineConfigType({ type, schema, references })` registers a type: its folder, its Zod schema, and what each file points to (objects, actions and so on), with the path to each.
@@ -12,6 +12,7 @@ Config schemas, validateConfig, the git config service, the config loader and st
 - `choiceConfigType` reads `config/choices/<list>.yaml`: the rows of a list whose structure is defined in code with `defineChoiceList`. `validateConfig` checks each row against its list's columns (the built-in key, label, description and archived, and the list's own) and a list with fixed keys to exactly those, none archived. Config refers to an option as `list.option`, which must not be archived. The loader's `choices(list)` gives the live options, which the repository checks choice values against (decisions 0039, 0040).
 - `createGitConfigService({ remote, cacheDir, types, catalog, onPublished })` works on any git remote with plain git: a bare clone as a cache, and commits made with plumbing. It is the `GitService` actions see as `ctx.git`, and its `source` lets the loader read production's head commit instead of the working tree (decision 0041).
 - The draft actions `draft.open`, `draft.save`, `draft.submit` and `draft.publish`, and the queries `draft.list` and `draft.get`, are in `drafts.ts`; every system with `config` has them. A draft is a branch from production, one commit per saved file, checked on every save; publishing lays its files on production as one commit and copies them to `main`.
-- `roleConfigType` and `choiceConfigType` are the core's types; `coreConfigTypes` lists them.
+- `approvalConfigType` reads `config/approvals/<key>.yaml`: a rule on an action, with conditions on its input, or on the config types a draft changes, and the role that approves (decision 0042). `draft.submit` asks a covered draft's approvers and `draft.publish` waits for them; saving cancels the approvals.
+- `roleConfigType`, `choiceConfigType` and `approvalConfigType` are the core's types; `coreConfigTypes` lists them.
 
 Design: [docs/SYSTEM_DESIGN.md](../../docs/SYSTEM_DESIGN.md), section 4.4 Config.

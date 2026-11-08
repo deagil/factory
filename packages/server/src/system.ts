@@ -3,9 +3,11 @@
 // where its roles live (P2.05). It adds what every
 // system has: the generated actions and queries for each object, the
 // identity actions and queries, `record.history`, the log queries and
-// `system.describe`, and with config, `config.validate` and drafts (P2.08).
+// `system.describe`, and with config, `config.validate`, drafts (P2.08) and
+// approvals (P2.09).
 import {
   allGranted,
+  approvalDefinitions,
   createRegistry,
   describeFor,
   describeQuery,
@@ -105,7 +107,7 @@ export const defineSystem = (options: SystemOptions): System => {
     return built.catalog;
   };
   const configQueries = options.config
-    ? [configValidateQuery, ...draftDefinitions]
+    ? [configValidateQuery, ...draftDefinitions, ...approvalDefinitions]
     : [];
   const registry = createRegistry([
     ...definitions,

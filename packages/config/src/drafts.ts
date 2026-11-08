@@ -1,9 +1,15 @@
 // Drafts (P2.08, decision 0041): staff change config in a draft, a branch
-// made from production, and publish it as one commit. The actions and
+// made from production, and publish it as one commit. A draft whose files an
+// approval rule covers waits for approval before it publishes (P2.09). The actions and
 // queries reach git only through `ctx.git`, and record each draft in the
 // `drafts` table. A system that reads `config/` from its working tree has no
 // `ctx.git`, and refuses them.
-import { defineAction, defineQuery } from "@workspace/actions";
+import {
+  defineAction,
+  defineQuery,
+  rulesForFiles,
+  signOffsFor,
+} from "@workspace/actions";
 import type {
   ActionContext,
   ConfigAuthor,
@@ -100,6 +106,17 @@ const openDraft = async (
   return { draft, git: ctx.git };
 };
 
+/** The sign-offs the rules covering `files` ask of `ctx.actor`. */
+const signOffs = (
+  ctx: ActionContext<Record<never, never>>,
+  files: readonly string[]
+) =>
+  signOffsFor(
+    rulesForFiles(ctx.config.approvals ?? [], files),
+    ctx.actor,
+    ctx.granted
+  );
+
 /** Re-checks a draft's whole set of files and records what it found. */
 const recheck = async (
   ctx: ActionContext<Record<never, never>>,
@@ -183,6 +200,8 @@ export const draftSave = defineAction({
         "Someone else saved this draft at the same moment. Read it again and retry."
       );
     }
+    // What was approved has changed, so it needs approving again.
+    await ctx.approvals.cancelOpen("draft", draft.id, ctx.clock.now());
     return recheck(ctx, git, draft);
   },
 });
@@ -190,7 +209,7 @@ export const draftSave = defineAction({
 export const draftSubmit = defineAction({
   name: "draft.submit",
   description:
-    "Submit a draft for publishing: checks it again. When an approval rule covers one of its files, approvers must approve it first (from P2.09).",
+    "Submit a draft for publishing: checks it again and, when an approval rule covers one of its files, asks the rule's approvers. It waits in awaiting_approval until they decide.",
   input: z.strictObject({ id: z.uuid() }),
   output: checkedSchema,
   handler: async (ctx, { id }) => {
@@ -198,7 +217,19 @@ export const draftSubmit = defineAction({
     if (!("draft" in opened)) {
       return opened;
     }
-    return recheck(ctx, opened.git, opened.draft);
+    const checked = await recheck(ctx, opened.git, opened.draft);
+    // A new submission starts a new round of approvals.
+    await ctx.approvals.cancelOpen("draft", id, ctx.clock.now());
+    const needed = signOffs(ctx, checked.draft.files);
+    if (checked.draft.status !== "valid" || needed.length === 0) {
+      return checked;
+    }
+    await ctx.approvals.request("draft", id, needed, ctx.actor.id);
+    await ctx.drafts.update(id, { status: "awaiting_approval" });
+    return {
+      ...checked,
+      draft: { ...checked.draft, status: "awaiting_approval" as const },
+    };
   },
 });
 
@@ -224,9 +255,33 @@ export const draftPublish = defineAction({
     if (draft.files.length === 0) {
       return ctx.invalid("This draft changes nothing yet. Save a file first.");
     }
+    if (draft.status === "awaiting_approval") {
+      const waiting = await ctx.approvals.forSubject("draft", draft.id);
+      const rule =
+        waiting.find((each) => each.status === "pending")?.ruleKey ?? "";
+      return ctx.needsApproval(
+        rule,
+        "This draft is waiting for approval. It can be published once it's approved."
+      );
+    }
     if (draft.status !== "valid") {
       return ctx.invalid(
         "Only a valid draft can be published. Fix its problems and save again."
+      );
+    }
+    const decided = await ctx.approvals.forSubject("draft", draft.id);
+    const approved = new Set(
+      decided
+        .filter((each) => each.status === "approved")
+        .map((each) => each.ruleKey)
+    );
+    const missing = signOffs(ctx, draft.files).find(
+      (each) => !approved.has(each.ruleKey)
+    );
+    if (missing) {
+      return ctx.needsApproval(
+        missing.ruleKey,
+        `The rule ${missing.ruleKey} covers this draft's files, so ${missing.approverRole} must approve it. Submit it first.`
       );
     }
     const result = await git.publish({
@@ -250,6 +305,7 @@ export const draftPublish = defineAction({
         }))
       );
     }
+    await ctx.approvals.cancelPending("draft", draft.id, ctx.clock.now());
     await ctx.drafts.update(draft.id, {
       status: "published",
       publishedSha: result.sha,

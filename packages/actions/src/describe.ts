@@ -151,6 +151,7 @@ export interface DescribeOptions {
 export const allGranted: Granted = {
   authorise: () => null,
   canRead: () => "all",
+  holds: () => false,
 };
 
 /** What of `objects` and `definitions` a caller granted `granted` may use. */

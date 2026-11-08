@@ -53,7 +53,8 @@ export const httpSurface =
       error?: unknown;
       actionId: string | null;
     };
-    return response.ok
+    // approval_required is a 202: accepted, but not run, so it's an error.
+    return response.ok && body.error === undefined
       ? { ok: true, body: body.output, actionId: body.actionId }
       : { ok: false, body: body.error, actionId: body.actionId };
   };
@@ -406,12 +407,15 @@ export const identitySamples = (
 };
 
 /**
- * Samples for the draft actions a system with config has (P2.08). Without
- * a config remote each is refused the same way on every surface.
+ * Samples for the draft and approval actions a system with config has (P2.08,
+ * P2.09). Without a config remote each draft action is refused the same way
+ * on every surface, and there is no approval with the sample id.
  */
-export const draftSamples = (): Record<string, () => Promise<unknown>> => {
+export const configSamples = (): Record<string, () => Promise<unknown>> => {
   const id = "00000000-0000-7000-8000-00000000d4af";
   return {
+    "approval.approve": () => Promise.resolve({ id }),
+    "approval.reject": () => Promise.resolve({ id, comment: "Not now" }),
     "draft.open": () => Promise.resolve({ title: "Sample draft" }),
     "draft.save": () =>
       Promise.resolve({
