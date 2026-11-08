@@ -135,11 +135,13 @@ const sampleValue = async (
     }
     case "choice": {
       // An option that can be chosen: the first, or the second for updates.
-      const { list } = field as AnyField & { list: string };
-      const live = (choices?.(list) ?? []).filter((option) => !option.archived);
+      const { list } = field as AnyField & { list: { key: string } };
+      const live = (choices?.(list.key) ?? []).filter(
+        (option) => !option.archived
+      );
       const option = live[(variant - 1) % Math.max(live.length, 1)];
       if (!option) {
-        throw new Error(`No options loaded for the choice list ${list}`);
+        throw new Error(`No options loaded for the choice list ${list.key}`);
       }
       return option.key;
     }

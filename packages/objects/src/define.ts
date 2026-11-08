@@ -3,3 +3,4 @@
 // as CommonJS, where code using import.meta fails (decision 0031).
 export { defineObject } from "./define-object.ts";
 export { f } from "./fields/index.ts";
+export { defineChoiceList } from "./fields/choice.ts";

@@ -25,6 +25,7 @@ export {
   choiceListSchema,
   choiceLookup,
   choiceOptionSchema,
+  plainChoiceOption,
 } from "./choices.ts";
 export type { ChoiceList } from "./choices.ts";
 
@@ -34,7 +35,7 @@ export {
   checkReferences,
   validateConfig,
 } from "./validate.ts";
-export type { ChoiceFieldUse, ConfigCatalog } from "./validate.ts";
+export type { ChoiceListUse, ConfigCatalog } from "./validate.ts";
 export { createConfigLoader, workingTreeSha } from "./loader.ts";
 export type {
   ConfigIndex,

@@ -2298,6 +2298,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "name",
           "label": "Name",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": true,
@@ -2321,6 +2322,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "website",
           "label": "Website",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -2347,6 +2349,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "employees",
           "label": "Employees",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -2375,6 +2378,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "owner",
           "label": "Owner",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -2417,6 +2421,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "firstName",
           "label": "First name",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": true,
@@ -2439,6 +2444,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "lastName",
           "label": "Last name",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -2463,6 +2469,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "email",
           "label": "Email",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -2485,6 +2492,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "organisation",
           "label": "Organisation",
+          "optionColumns": null,
           "options": null,
           "readOnly": true,
           "required": true,
@@ -2504,6 +2512,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "active",
           "label": "Active",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": true,
@@ -2527,6 +2536,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "birthday",
           "label": "Birthday",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -2559,6 +2569,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           ],
           "key": "lifetimeValue",
           "label": "Lifetime value",
+          "optionColumns": null,
           "options": null,
           "readOnly": false,
           "required": false,
@@ -4116,6 +4127,20 @@ exports[`system.describe > describes everything to an admin 1`] = `
                       "label": {
                         "type": "string",
                       },
+                      "optionColumns": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": {},
+                            "propertyNames": {
+                              "type": "string",
+                            },
+                            "type": "object",
+                          },
+                          {
+                            "type": "null",
+                          },
+                        ],
+                      },
                       "options": {
                         "anyOf": [
                           {
@@ -4125,7 +4150,14 @@ exports[`system.describe > describes everything to an admin 1`] = `
                                 "archived": {
                                   "type": "boolean",
                                 },
-                                "category": {
+                                "columns": {
+                                  "additionalProperties": {},
+                                  "propertyNames": {
+                                    "type": "string",
+                                  },
+                                  "type": "object",
+                                },
+                                "description": {
                                   "type": [
                                     "string",
                                     "null",
@@ -4141,8 +4173,9 @@ exports[`system.describe > describes everything to an admin 1`] = `
                               "required": [
                                 "key",
                                 "label",
-                                "category",
+                                "description",
                                 "archived",
+                                "columns",
                               ],
                               "type": "object",
                             },
@@ -4186,6 +4219,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
                       "target",
                       "filters",
                       "options",
+                      "optionColumns",
                       "schema",
                     ],
                     "type": "object",

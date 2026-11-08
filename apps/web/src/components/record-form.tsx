@@ -104,21 +104,35 @@ const ChoiceSelect = ({
   const options = (field.options ?? []).filter(
     (option) => !option.archived || option.key === value
   );
+  // The chosen option's description, as a hint under the select.
+  const hint = options.find((option) => option.key === value)?.description;
   return (
-    <select
-      id={field.key}
-      className={selectClass}
-      value={value}
-      required={field.required}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      <option value="">{field.required ? "Choose…" : "None"}</option>
-      {options.map((option) => (
-        <option key={option.key} value={option.key}>
-          {option.archived ? `${option.label} (archived)` : option.label}
-        </option>
-      ))}
-    </select>
+    <>
+      <select
+        id={field.key}
+        className={selectClass}
+        value={value}
+        required={field.required}
+        aria-describedby={hint ? `${field.key}-hint` : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{field.required ? "Choose…" : "None"}</option>
+        {options.map((option) => (
+          <option
+            key={option.key}
+            value={option.key}
+            title={option.description ?? undefined}
+          >
+            {option.archived ? `${option.label} (archived)` : option.label}
+          </option>
+        ))}
+      </select>
+      {hint && (
+        <p id={`${field.key}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
+    </>
   );
 };
 

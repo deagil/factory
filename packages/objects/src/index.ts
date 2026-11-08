@@ -24,15 +24,20 @@ export { f } from "./fields/index.ts";
 export type { BooleanField } from "./fields/boolean.ts";
 export {
   checkChoice,
-  choiceControls,
   choiceKey,
+  choiceOptionShape,
   ChoiceValueError,
+  defineChoiceList,
+  reservedChoiceColumns,
 } from "./fields/choice.ts";
 export type {
-  ChoiceControl,
+  AnyChoiceList,
+  ChoiceColumns,
   ChoiceField,
+  ChoiceListDefinition,
   ChoiceOption,
   ChoiceOptions,
+  OptionOf,
 } from "./fields/choice.ts";
 export type { DateField } from "./fields/date.ts";
 export type {

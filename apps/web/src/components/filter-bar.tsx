@@ -4,6 +4,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { useState } from "react";
 
+import { humanise } from "../lib/forms.ts";
 import { displayValue, filterValue, withoutFilter } from "../lib/records.ts";
 import type { FieldDescription, Filter } from "../lib/records.ts";
 
@@ -21,13 +22,41 @@ const words: Record<string, string> = {
   lt: "is less than",
   lte: "is at most",
   isNull: "is empty",
-  category: "is in",
+  where: "has",
+};
+
+/** A choice list's column values, such as `category open`. */
+const columnsText = (match: unknown) =>
+  Object.entries(match as Record<string, unknown>)
+    .map(([name, value]) => `${humanise(name).toLowerCase()} ${String(value)}`)
+    .join(" and ");
+
+/**
+ * Each distinct value of each of the list's own columns among its live
+ * options, as `where` filters: `{ category: "open" }` and so on.
+ */
+const columnMatches = (field: FieldDescription) => {
+  const seen = new Map<string, Record<string, unknown>>();
+  for (const option of field.options ?? []) {
+    if (option.archived) {
+      continue;
+    }
+    for (const [name, value] of Object.entries(option.columns)) {
+      const match = { [name]: value };
+      seen.set(JSON.stringify(match), match);
+    }
+  }
+  return [...seen.entries()];
 };
 
 const shownFilterValue = (
   field: FieldDescription | undefined,
+  op: string,
   value: unknown
 ) => {
+  if (op === "where") {
+    return columnsText(value);
+  }
   if (field?.type !== "choice") {
     return JSON.stringify(value);
   }
@@ -61,19 +90,15 @@ const FilterValue = ({
     );
   }
   if (field?.type === "choice") {
-    const live = (field.options ?? []).filter((option) => !option.archived);
-    const byCategory = operator === "category";
-    const keys = byCategory
-      ? [
-          ...new Set(
-            live.flatMap((option) => (option.category ? [option.category] : []))
-          ),
-        ]
-      : live.map((option) => option.key);
-    const labelOf = (key: string) =>
-      byCategory
-        ? key
-        : (live.find((option) => option.key === key)?.label ?? key);
+    const choices: [string, string][] =
+      operator === "where"
+        ? columnMatches(field).map(([json, match]) => [
+            json,
+            columnsText(match),
+          ])
+        : (field.options ?? [])
+            .filter((option) => !option.archived)
+            .map((option) => [option.key, option.label]);
     return (
       <select
         aria-label="Value"
@@ -82,9 +107,9 @@ const FilterValue = ({
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="">Choose…</option>
-        {keys.map((key) => (
-          <option key={key} value={key}>
-            {labelOf(key)}
+        {choices.map(([choiceValue, label]) => (
+          <option key={choiceValue} value={choiceValue}>
+            {label}
           </option>
         ))}
       </select>
@@ -104,6 +129,15 @@ const FilterValue = ({
       onChange={(event) => onChange(event.target.value)}
     />
   );
+};
+
+/** The filter value for an operator and the text the control holds. */
+const valueFor = (field: FieldDescription, operator: string, text: string) => {
+  if (operator === "isNull") {
+    return true;
+  }
+  // A `where` value is one of the column matches, as JSON.
+  return operator === "where" ? JSON.parse(text) : filterValue(field, text);
 };
 
 export const FilterBar = ({
@@ -128,7 +162,10 @@ export const FilterBar = ({
     if (!(field && operator)) {
       return;
     }
-    const value = operator === "isNull" ? true : filterValue(field, text);
+    if (operator === "where" && !text) {
+      return;
+    }
+    const value = valueFor(field, operator, text);
     onChange({
       ...filter,
       [field.key]: { ...filter[field.key], [operator]: value },
@@ -200,6 +237,7 @@ export const FilterBar = ({
                   ? ""
                   : shownFilterValue(
                       fields.find((each) => each.key === fieldKey),
+                      op,
                       value
                     )}
                 <Button

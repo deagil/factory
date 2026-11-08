@@ -1,23 +1,22 @@
 // Choice lists as config: `config/choices/<key>.yaml` (P2.06, SYSTEM_DESIGN
-// §4.5). Fields in code name the list; what staff may change in it depends on
-// the field's control, which validateConfig checks.
+// §4.5, decision 0040). The file holds the rows; the list's structure (its own
+// columns and any fixed keys) is defined in code with `defineChoiceList`, and
+// validateConfig checks each row against it.
+import { choiceKey, choiceOptionShape } from "@workspace/objects";
 import { z } from "zod";
 
 import { defineConfigType } from "./config-type.ts";
 
-const key = z
-  .string()
-  .regex(
-    /^[a-z][a-z0-9-]*$/u,
-    "Use lower case letters, digits and dashes, starting with a letter"
-  );
+const key = choiceKey;
 
-export const choiceOptionSchema = z.strictObject({
-  key,
-  label: z.string().min(1),
-  category: key.optional(),
-  archived: z.boolean().optional(),
-});
+/**
+ * One option as read: the built-in columns, and any of the list's own, which
+ * validateConfig checks against the list's definition.
+ */
+export const choiceOptionSchema = z.looseObject(choiceOptionShape);
+
+/** An option of a list no code defines: the built-in columns only. */
+export const plainChoiceOption = z.strictObject(choiceOptionShape);
 
 export const choiceListSchema = z
   .strictObject({
@@ -43,7 +42,7 @@ export type ChoiceList = z.infer<typeof choiceListSchema>;
 export const choiceConfigType = defineConfigType<ChoiceList>({
   type: "choices",
   schema: choiceListSchema,
-  // Code names the lists; a list names nothing.
+  // Code defines the lists; a list names nothing.
   references: () => [],
 });
 

@@ -63,8 +63,20 @@ describe("record helpers", () => {
       key: "stage",
       type: "choice",
       options: [
-        { key: "lead", label: "Lead", category: "open", archived: false },
-        { key: "lost", label: "Lost", category: "lost", archived: true },
+        {
+          key: "lead",
+          label: "Lead",
+          description: null,
+          archived: false,
+          columns: { category: "open" },
+        },
+        {
+          key: "lost",
+          label: "Lost",
+          description: null,
+          archived: true,
+          columns: { category: "lost" },
+        },
       ],
     } as unknown as ObjectDescription["fields"][number];
     expect(displayValue(stage, { stage: "lost" }, {}, undefined)).toBe("Lost");

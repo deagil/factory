@@ -188,10 +188,7 @@ export const deal = defineObject({
     organisation: f.ref("organisation", { required: true }),
     contact: f.ref("contact"),
     value: f.money(),
-    stage: f.choice("deal-stages", {
-      control: "mapped",
-      categories: ["open", "won", "lost"],
-    }),
+    stage: f.choice(dealStages), // defineChoiceList, section 4.5
     expectedClose: f.date(),
     owner: f.ref("actor"),
   },
@@ -227,7 +224,7 @@ export const moveDealStage = defineAction({
   output: z.object({ deal: deal.schemas.record }),
   emits: { "deal.stageChanged": stageChangedSchema },
   async handler(ctx, { dealId, stage, reason }) {
-    const option = ctx.config.choice("deal-stages").get(stage); // validated, not archived
+    const option = ctx.config.choice(dealStages).get(stage); // validated, not archived
     if (option.category === "lost" && !reason) {
       return ctx.invalid("A reason is required for lost deals");
     }
@@ -332,25 +329,43 @@ The config service uses plain git (clone, branch, commit, push, fetch) against a
 
 **What it does.** Dropdown-style fields whose options staff can manage, without breaking code that depends on them.
 
-**How it works.** Each option has a key (stored on records), a label (what people see), an optional category, and an archived flag. The field's `control` decides what staff can change:
+**How it works.** A choice list is defined in code: its key, its own columns (each a Zod schema) and, when code acts on specific options, its fixed keys. Its rows live in `config/choices/<list>.yaml`, where staff edit them. Every option has a key (stored on records), a label (what people see), an optional description (hints, tooltips and agents) and an archived flag, plus the list's own columns (decision 0040).
 
-| Control | Staff can | Code acts on | Example |
+```ts
+export const dealStages = defineChoiceList({
+  key: "deal-stages",
+  columns: { category: z.enum(["open", "won", "lost"]) }, // code acts on the category
+});
+export const bookingStatus = defineChoiceList({
+  key: "booking-status",
+  keys: ["pending", "confirmed", "cancelled"], // code acts on each key
+});
+export const industries = defineChoiceList({ key: "industries" }); // code acts on nothing
+```
+
+| The list has | Staff can | Code acts on | Example |
 | --- | --- | --- | --- |
-| `system` | Rename labels | Specific keys | Booking status |
-| `mapped` | Add, rename, reorder, archive; each option picks a category | Categories only | Deal stages: open, won, lost |
-| `custom` | Anything | Nothing | Activity type, industry |
+| Fixed `keys` | Rename labels, change column values | Specific keys | Booking status |
+| Columns code reads | Add, rename, reorder, archive; set each option's columns | Column values | Deal stages: open, won, lost |
+| Neither | Anything | Nothing | Activity type, industry |
 
 ```yaml
 # config/choices/deal-stages.yaml
 key: deal-stages
 options:
   - { key: lead, label: Lead, category: open }
-  - { key: qualified, label: Qualified, category: open }
+  - {
+      key: qualified,
+      label: Qualified,
+      category: open,
+      description: Budget and decision-maker confirmed,
+    }
   - { key: proposal, label: Proposal sent, category: open }
   - { key: won, label: Won, category: won }
   - { key: lost, label: Lost, category: lost }
 ```
 
+- Staff change rows, never a list's structure: a new column ships with the code that reads it, as optional first, like a migration.
 - A new value whose behaviour is in code ships with that code. A new value whose behaviour is config (a workflow or approval rule) is added by staff in the same draft as that config.
 - Options in use are archived, never deleted. Archiving one that config still references is blocked.
 
@@ -633,8 +648,8 @@ A one-week trial after phase 1 rebuilds the action pipeline, one route, one MCP 
 | **Record** | One instance of an object: a row in its table. |
 | **Field type** | A kind of field (text, money, date, choice, reference and so on) that knows its column, validation, input and display. |
 | **Custom fields** | Fields staff add to an object through config, stored in the record's `custom_fields` column. |
-| **Choice field** | A dropdown field. Its options are `system` (code owns the values; staff rename only), `mapped` (staff add options, each in a category code knows), or `custom` (staff own them entirely). |
-| **Category** | One of the few outcomes code acts on for a mapped choice field, such as open, won or lost. |
+| **Choice field** | A dropdown field whose options come from a choice list. |
+| **Choice list** | A list of options defined in code with `defineChoiceList` (its own columns, and any keys code acts on) whose rows staff edit in `config/choices/`. |
 | **Action** | Anything that changes data, defined with `defineAction`. Generated ones (create, update, archive, restore) come with each object. |
 | **Query** | Anything that reads data, defined with `defineQuery`. |
 | **Action pipeline** | The fixed sequence every action runs through: identify, validate, retry check, authorise, approve, run, record, commit. |

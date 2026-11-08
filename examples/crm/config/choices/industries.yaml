@@ -1,5 +1,5 @@
-# organisation.industry. A custom choice: staff add, rename and archive
-# industries freely; no code acts on them.
+# organisation.industry. Staff add, rename and archive industries freely; no
+# code acts on them.
 key: industries
 options:
   - key: software

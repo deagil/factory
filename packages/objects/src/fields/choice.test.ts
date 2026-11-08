@@ -1,11 +1,18 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { z } from "zod";
 
-import { checkChoice } from "./choice.ts";
-import type { ChoiceField, ChoiceOptions } from "./choice.ts";
+import { checkChoice, defineChoiceList } from "./choice.ts";
+import type { ChoiceOptions, OptionOf } from "./choice.ts";
 import type { ValueOf } from "./field.ts";
 import { filterSchema, filterWhere } from "./filters.ts";
 import { f } from "./index.ts";
 import { build, render, where } from "./test-helpers.ts";
+
+const dealStages = defineChoiceList({
+  key: "deal-stages",
+  columns: { category: z.enum(["open", "won", "lost"]) },
+});
+const industries = defineChoiceList({ key: "industries" });
 
 const stages: ChoiceOptions = (list) =>
   list === "deal-stages"
@@ -17,19 +24,35 @@ const stages: ChoiceOptions = (list) =>
       ]
     : undefined;
 
-describe("f.choice", () => {
-  it("stores the option key in a text column", () => {
-    expect(
-      build(f.choice("industries", { control: "custom" }), "industry").shape
-    ).toStrictEqual([{ name: "industry", type: "text", notNull: false }]);
+describe(defineChoiceList, () => {
+  it("types each option's own columns", () => {
+    expectTypeOf<OptionOf<typeof dealStages>["category"]>().toEqualTypeOf<
+      "open" | "won" | "lost"
+    >();
   });
 
-  it("takes only the keys code acts on when its control is system", () => {
-    const status = f.choice("booking-status", {
-      control: "system",
-      keys: ["pending", "confirmed"],
-      required: true,
-    });
+  it("refuses a column the core reserves", () => {
+    expect(() =>
+      defineChoiceList({ key: "plans", columns: { color: z.string() } })
+    ).toThrow(/"color" is reserved/u);
+  });
+});
+
+describe("f.choice", () => {
+  it("stores the option key in a text column", () => {
+    expect(build(f.choice(industries), "industry").shape).toStrictEqual([
+      { name: "industry", type: "text", notNull: false },
+    ]);
+  });
+
+  it("takes only a list's fixed keys, when it has them", () => {
+    const status = f.choice(
+      defineChoiceList({
+        key: "booking-status",
+        keys: ["pending", "confirmed"],
+      }),
+      { required: true }
+    );
     expectTypeOf<ValueOf<typeof status>>().toEqualTypeOf<
       "pending" | "confirmed"
     >();
@@ -37,38 +60,33 @@ describe("f.choice", () => {
     expect(status.input.safeParse("cancelled").success).toBeFalsy();
   });
 
-  it("filters by key, and a mapped field by category", () => {
-    const custom = f.choice("industries", { control: "custom" });
-    const stage = f.choice("deal-stages", {
-      control: "mapped",
-      categories: ["open", "won", "lost"],
-    });
-    const byCategory = (category: string) =>
+  it("filters by key, and by a list's own columns", () => {
+    const stage = f.choice(dealStages);
+    const byColumns = (match: unknown) =>
       render(
         filterWhere(
           stage,
           build(stage).columns,
-          filterSchema(stage).parse({ category }),
+          filterSchema(stage).parse({ where: match }),
           { choices: stages }
         )
       );
-    expect(where(custom, { in: ["retail", "software"] }).params).toStrictEqual([
-      "retail",
-      "software",
-    ]);
     expect(
-      filterSchema(custom).safeParse({ category: "open" }).success
+      where(f.choice(industries), { in: ["retail", "software"] }).params
+    ).toStrictEqual(["retail", "software"]);
+    expect(
+      filterSchema(f.choice(industries)).safeParse({ where: {} }).success
     ).toBeFalsy();
-    expect(byCategory("open").params).toStrictEqual(["lead", "proposal"]);
-    expect(byCategory("none").sql).toBe("false");
+    expect(byColumns({ category: "lost" }).params).toStrictEqual(["stale"]);
+    expect(byColumns({ category: "won" }).params).toStrictEqual(["won"]);
+    expect(
+      filterSchema(stage).safeParse({ where: { category: "maybe" } }).success
+    ).toBeFalsy();
   });
 });
 
 describe(checkChoice, () => {
-  const stage = f.choice("deal-stages", {
-    control: "mapped",
-    categories: ["open", "won", "lost"],
-  }) as ChoiceField;
+  const stage = f.choice(dealStages);
   const check = (value: unknown, current?: unknown) => () =>
     checkChoice("stage", stage, value, { choices: stages, current });
 
