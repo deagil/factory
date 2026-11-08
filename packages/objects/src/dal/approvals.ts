@@ -5,7 +5,7 @@
 import type { Executor } from "@workspace/db";
 import { actionLog, actors, approvals, drafts } from "@workspace/db/schema";
 import type { approvalStatuses, approvalSubjects } from "@workspace/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { iso, isoOrNull } from "./logs.ts";
@@ -31,6 +31,25 @@ export interface ApprovalEntry {
 const requester = alias(actors, "requester");
 const decider = alias(actors, "decider");
 
+/** An actor, and the person it is or acts for. */
+export interface Someone {
+  actorId: string;
+  userId: string | null;
+}
+
+/** Approvals asked by `who` or for them: their own, their agents', drafts they began. */
+const askedBy = (who: Someone) =>
+  or(
+    eq(approvals.requestedBy, who.actorId),
+    eq(drafts.createdBy, who.actorId),
+    ...(who.userId === null
+      ? []
+      : [
+          eq(requester.userId, who.userId),
+          eq(actionLog.originUserId, who.userId),
+        ])
+  );
+
 export const createApprovalReader = (executor: Executor) => {
   /** Approvals, newest first, optionally in one status. */
   const approvalList = async (
@@ -38,9 +57,22 @@ export const createApprovalReader = (executor: Executor) => {
       status?: ApprovalEntry["status"];
       /** Only the approvals on this action or draft. */
       subjectId?: string;
+      /** Only those on pending actions that name this record as `input.id`. */
+      recordId?: string;
+      /** Only those asked by this actor or for its person (decision 0044). */
+      askedBy?: Someone;
+      /**
+       * Only pending ones this actor could decide: on a role it holds, not
+       * asked by or for it, on a subject it hasn't already approved.
+       */
+      decidableBy?: Someone & { roles: readonly string[] };
       limit?: number;
     } = {}
   ): Promise<ApprovalEntry[]> => {
+    const { decidableBy } = filter;
+    if (decidableBy && decidableBy.roles.length === 0) {
+      return [];
+    }
     const rows = await executor
       .select({
         approval: approvals,
@@ -70,6 +102,22 @@ export const createApprovalReader = (executor: Executor) => {
           filter.status ? eq(approvals.status, filter.status) : undefined,
           filter.subjectId
             ? eq(approvals.subjectId, filter.subjectId)
+            : undefined,
+          filter.recordId
+            ? and(
+                eq(approvals.subject, "action"),
+                sql`${actionLog.input} ->> 'id' = ${filter.recordId}`
+              )
+            : undefined,
+          filter.askedBy ? askedBy(filter.askedBy) : undefined,
+          decidableBy
+            ? and(
+                eq(approvals.status, "pending"),
+                inArray(approvals.approverRole, [...decidableBy.roles]),
+                // A left join's nulls would make the test null, not false.
+                sql`not coalesce(${askedBy(decidableBy)}, false)`,
+                sql`not exists (select 1 from ${approvals} as given where given.subject_id = ${approvals.subjectId} and given.status = 'approved' and given.decided_by = ${decidableBy.actorId})`
+              )
             : undefined
         )
       )

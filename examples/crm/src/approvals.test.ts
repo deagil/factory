@@ -1,6 +1,7 @@
 // Approval rules (P2.09): the CRM's rule on organisation.archive makes a
 // sales user's archive wait until an admin approves, and approving runs it
-// exactly once, with both people in action_log.
+// exactly once, with both people in action_log. approval.check says so
+// beforehand, and whoever asked can withdraw it (decision 0044).
 import type {
   AnyActionDefinition,
   AnyQueryDefinition,
@@ -27,12 +28,16 @@ describe("approval rules", () => {
       input,
       caller
     );
-  const query = (name: string, input: unknown) =>
+  const query = (name: string, input: unknown, caller = admin) =>
     server.pipeline.query(
       crm.registry.get(name) as AnyQueryDefinition,
       input,
-      admin
+      caller
     );
+  const subjects = (result: unknown) =>
+    (
+      result as { output: { approvals: { subjectId: string }[] } }
+    ).output.approvals.map((each) => each.subjectId);
 
   beforeAll(async () => {
     database = await createSystemDatabase(crm);
@@ -156,6 +161,86 @@ describe("approval rules", () => {
       rejected: { ok: true, output: { approval: { status: "rejected" } } },
       row: { status: "rejected" },
       gamma: { output: { record: { archivedAt: null } } },
+    });
+  });
+
+  it("says beforehand who must approve, lists requests by record, mine and decidable, and lets the requester withdraw", async () => {
+    const created = await run("organisation.create", { name: "Delta" }, sales);
+    const { id } = (created as { output: { record: { id: string } } }).output
+      .record;
+    const check = (caller: { actorId: string }) =>
+      query(
+        "approval.check",
+        { action: "organisation.archive", input: { id } },
+        caller
+      );
+    const [forSales, forAdmin] = await Promise.all([
+      check(sales),
+      check(admin),
+    ]);
+
+    const waiting = await run("organisation.archive", { id }, sales);
+    const pendingId = waiting.actionId ?? "";
+    const [onRecord, salesMine, adminMine, adminDecides, salesDecides] =
+      await Promise.all([
+        query("approval.list", { recordId: id }),
+        query("approval.list", { mine: true, status: "pending" }, sales),
+        query("approval.list", { mine: true }),
+        query("approval.list", { decidable: true }),
+        query("approval.list", { decidable: true }, sales),
+      ]);
+    const byAdmin = await run(
+      "approval.withdraw",
+      { subjectId: pendingId },
+      admin
+    );
+    const withdrawn = await run(
+      "approval.withdraw",
+      { subjectId: pendingId },
+      sales
+    );
+    const [row] = await database.db
+      .select({ status: actionLog.status })
+      .from(actionLog)
+      .where(eq(actionLog.id, pendingId));
+    expect({
+      forSales,
+      forAdmin,
+      onRecord: subjects(onRecord),
+      salesMine: subjects(salesMine),
+      adminMine: subjects(adminMine),
+      adminDecides: subjects(adminDecides),
+      salesDecides: subjects(salesDecides),
+      byAdmin,
+      withdrawn,
+      row,
+      left: subjects(await query("approval.list", { decidable: true })),
+      record: await query("organisation.get", { id }),
+    }).toMatchObject({
+      forSales: {
+        ok: true,
+        output: {
+          signOffs: [
+            {
+              rule: "archive-organisations",
+              label: "Archiving an organisation",
+              approverRole: "admin",
+              approvals: 1,
+            },
+          ],
+        },
+      },
+      forAdmin: { ok: true, output: { signOffs: [] } },
+      onRecord: [pendingId],
+      salesMine: [pendingId],
+      adminMine: expect.not.arrayContaining([pendingId]),
+      adminDecides: expect.arrayContaining([pendingId]),
+      salesDecides: [],
+      byAdmin: { ok: false, error: { code: "permission" } },
+      withdrawn: { ok: true, output: { withdrawn: 1 } },
+      row: { status: "withdrawn" },
+      left: expect.not.arrayContaining([pendingId]),
+      record: { output: { record: { archivedAt: null } } },
     });
   });
 });

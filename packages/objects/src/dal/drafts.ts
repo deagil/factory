@@ -4,7 +4,7 @@
 import type { Executor } from "@workspace/db";
 import { actors, drafts } from "@workspace/db/schema";
 import type { draftStatuses } from "@workspace/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { iso, isoOrNull } from "./logs.ts";
 
@@ -12,11 +12,15 @@ export interface DraftEntry {
   id: string;
   branch: string;
   title: string;
+  /** Written from its files on each save, until someone names it. */
+  autoTitle: boolean;
   files: string[];
   status: (typeof draftStatuses)[number];
   baseSha: string;
   publishedSha: string | null;
   syncedSha: string | null;
+  /** The parked draft.publish its last approval runs (decision 0044). */
+  publishActionId: string | null;
   createdBy: { id: string; name: string };
   createdAt: string;
   publishedAt: string | null;
@@ -26,11 +30,13 @@ const columns = {
   id: drafts.id,
   branch: drafts.branch,
   title: drafts.title,
+  autoTitle: drafts.autoTitle,
   files: drafts.files,
   status: drafts.status,
   baseSha: drafts.baseSha,
   publishedSha: drafts.publishedSha,
   syncedSha: drafts.syncedSha,
+  publishActionId: drafts.publishActionId,
   createdById: drafts.createdBy,
   createdByName: actors.name,
   createdAt: drafts.createdAt,
@@ -60,6 +66,14 @@ const toEntry = ({
   publishedAt: isoOrNull(publishedAt),
 });
 
+/** The statuses of a draft that can still change. */
+export const openStatuses: DraftEntry["status"][] = [
+  "draft",
+  "valid",
+  "invalid",
+  "awaiting_approval",
+];
+
 export const createDraftReader = (executor: Executor) => {
   const select = () =>
     executor
@@ -67,12 +81,26 @@ export const createDraftReader = (executor: Executor) => {
       .from(drafts)
       .leftJoin(actors, eq(drafts.createdBy, actors.id));
 
-  /** Drafts, newest first, optionally in one status. */
+  /**
+   * Drafts, newest first: optionally in one status, only open ones (not
+   * published or abandoned), or only one actor's.
+   */
   const draftList = async (
-    filter: { status?: DraftEntry["status"]; limit?: number } = {}
+    filter: {
+      status?: DraftEntry["status"];
+      open?: boolean;
+      createdBy?: string;
+      limit?: number;
+    } = {}
   ): Promise<DraftEntry[]> => {
     const rows = await select()
-      .where(filter.status ? eq(drafts.status, filter.status) : undefined)
+      .where(
+        and(
+          filter.status ? eq(drafts.status, filter.status) : undefined,
+          filter.open ? inArray(drafts.status, openStatuses) : undefined,
+          filter.createdBy ? eq(drafts.createdBy, filter.createdBy) : undefined
+        )
+      )
       .orderBy(desc(drafts.createdAt), desc(drafts.id))
       .limit(filter.limit ?? 50);
     return rows.map(toEntry);

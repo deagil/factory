@@ -1,7 +1,8 @@
 // Drafts over git (P2.08): against a bare test remote, a draft that edits two
 // files publishes in one commit, the loader picks it up, and main has the
 // same changes. A draft the config-changes rule covers waits for an admin's
-// approval (P2.09).
+// approval (P2.09), and the last approval publishes it. Each person's saves
+// go into their working draft, which they can undo or discard (decision 0044).
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,11 +12,12 @@ import type {
   AnyActionDefinition,
   AnyQueryDefinition,
 } from "@workspace/actions";
-import { bootstrapStaff } from "@workspace/db";
+import { actionLog, bootstrapStaff, drafts } from "@workspace/db";
 import { createServer, defineSystem } from "@workspace/server";
 import type { Server } from "@workspace/server";
 import { createSystemDatabase } from "@workspace/server/testing";
 import type { SystemDatabase } from "@workspace/server/testing";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { crm } from "./system.ts";
@@ -268,69 +270,251 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     ).resolves.toMatchObject({ ok: false, error: { code: "validation" } });
   });
 
-  it("waits for another admin to approve a draft an agent submits", async () => {
-    // Ada's agent acts for her, but agents always need a person's approval,
-    // and not Ada's: it's her request.
+  const query = (name: string, input: object, by = admin) =>
+    server.pipeline.query(
+      system.registry.get(name) as AnyQueryDefinition,
+      input,
+      by
+    );
+  const role = (key: string) =>
+    `key: ${key}\nlabel: ${key}\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n`;
+  const agentFor = async (name: string) => {
     const created = await server.pipeline.run(
       action("actor.createAgent"),
-      { name: "Ada's agent" },
+      { name },
       admin
     );
-    const agent = {
+    return {
       actorId: (created as { output: { actorId: string } }).output.actorId,
     };
-    const id = await open("Add an auditor role", agent);
-    await save(
-      id,
-      "config/roles/auditor.yaml",
-      "key: auditor\nlabel: Auditor\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n",
-      agent
+  };
+  const pendingOn = async (id: string) => {
+    const listed = await query("approval.list", { subjectId: id });
+    return (
+      listed as { output: { approvals: { id: string; status: string }[] } }
+    ).output.approvals;
+  };
+  const statusOf = async (actionId: string) => {
+    const [row] = await server.db
+      .select({ status: actionLog.status, actorId: actionLog.actorId })
+      .from(actionLog)
+      .where(eq(actionLog.id, actionId));
+    return row;
+  };
+
+  it("saves into each person's working draft, and undoes or discards it", async () => {
+    const first = await server.pipeline.run(
+      action("draft.save"),
+      { path: "config/roles/clerk.yaml", content: role("clerk") },
+      bea
     );
-    const submitted = await server.pipeline.run(
-      action("draft.submit"),
+    const second = await server.pipeline.run(
+      action("draft.save"),
+      { path: "config/roles/reader.yaml", content: role("reader") },
+      bea
+    );
+    const { id } = (first as { output: { draft: { id: string } } }).output
+      .draft;
+    const mine = await query("draft.mine", {}, bea);
+    const reverted = await server.pipeline.run(
+      action("draft.revert"),
+      { id, path: "config/roles/clerk.yaml" },
+      bea
+    );
+    const notChanged = await server.pipeline.run(
+      action("draft.revert"),
+      { id, path: "config/roles/clerk.yaml" },
+      bea
+    );
+    const branches = () => git(bare, "branch", "--list", `draft/${id}`);
+    const before = branches();
+    const discarded = await server.pipeline.run(
+      action("draft.discard"),
       { id },
+      bea
+    );
+    expect({
+      first,
+      second,
+      mine,
+      reverted,
+      notChanged,
+      before,
+      discarded,
+      after: branches(),
+      gone: await query("draft.mine", {}, bea),
+    }).toMatchObject({
+      first: {
+        ok: true,
+        output: { draft: { title: "Edit clerk", status: "valid" } },
+      },
+      second: {
+        ok: true,
+        output: {
+          draft: {
+            id,
+            title: "Edit clerk and reader",
+            files: ["config/roles/clerk.yaml", "config/roles/reader.yaml"],
+          },
+        },
+      },
+      mine: { ok: true, output: { draft: { id } } },
+      reverted: {
+        ok: true,
+        output: {
+          draft: { title: "Edit reader", files: ["config/roles/reader.yaml"] },
+        },
+      },
+      notChanged: { ok: false, error: { code: "validation" } },
+      before: expect.stringContaining(`draft/${id}`),
+      discarded: { ok: true, output: { draft: { status: "abandoned" } } },
+      after: "",
+      gone: { ok: true, output: { draft: null } },
+    });
+  });
+
+  it("asks for approval when an agent publishes, and the last approval publishes it as the agent", async () => {
+    // Ada's agent acts for her, but agents always need a person's approval,
+    // and not Ada's: it's her request.
+    const agent = await agentFor("Ada's agent");
+    const id = await open("Add an auditor role", agent);
+    await save(id, "config/roles/auditor.yaml", role("auditor"), agent);
+    const check = await query("approval.check", { draftId: id }, agent);
+    const asked = await server.pipeline.run(
+      action("draft.publish"),
+      { id, title: "Add an auditor" },
       agent
     );
-    const early = await server.pipeline.run(
+    const again = await server.pipeline.run(
       action("draft.publish"),
       { id },
       agent
     );
-    const listed = await server.pipeline.query(
-      system.registry.get("approval.list") as AnyQueryDefinition,
-      { status: "pending" },
-      admin
-    );
-    const approval = (
-      listed as { output: { approvals: { id: string; subjectId: string }[] } }
-    ).output.approvals.find((each) => each.subjectId === id);
+    const [approval] = await pendingOn(id);
+    const parked = await query("draft.get", { id });
     const byAda = await server.pipeline.run(
       action("approval.approve"),
       { id: approval?.id },
       admin
     );
+    const before = git(bare, "rev-parse", "production");
     const approved = await server.pipeline.run(
       action("approval.approve"),
       { id: approval?.id },
       bea
     );
-    const published = await server.pipeline.run(
-      action("draft.publish"),
-      { id },
-      agent
-    );
-    expect({ submitted, early, byAda, approved, published }).toMatchObject({
-      submitted: {
+    const { ran } = (approved as { output: { ran: { actionId: string } } })
+      .output;
+    expect({
+      check,
+      asked,
+      again,
+      byAda,
+      approved,
+      run: await statusOf(ran.actionId),
+      draft: await query("draft.get", { id }),
+      commits: git(bare, "rev-list", "--count", `${before}..production`),
+      author: git(bare, "log", "-1", "--format=%an %s", "production"),
+      roles: server.config.service.roles.map((each) => each.key),
+      parked,
+    }).toMatchObject({
+      check: {
         ok: true,
-        output: { draft: { status: "awaiting_approval" } },
+        output: {
+          signOffs: [{ rule: "config-changes", approverRole: "admin" }],
+        },
       },
-      early: {
+      asked: {
+        ok: true,
+        output: {
+          draft: { status: "awaiting_approval", title: "Add an auditor" },
+        },
+      },
+      again: {
         ok: false,
         error: { code: "approval_required", rule: "config-changes" },
       },
       byAda: { ok: false, error: { code: "permission" } },
-      approved: { ok: true, output: { approval: { status: "approved" } } },
-      published: { ok: true, output: { draft: { status: "published" } } },
+      approved: {
+        ok: true,
+        output: { approval: { status: "approved" }, ran: { ok: true } },
+      },
+      run: { status: "succeeded", actorId: agent.actorId },
+      draft: { output: { draft: { status: "published" } } },
+      commits: "1",
+      author: "Ada's agent Add an auditor",
+      roles: expect.arrayContaining(["auditor"]),
+      parked: { output: { draft: { status: "awaiting_approval" } } },
+    });
+  });
+
+  it("lets the person an agent asked for withdraw, and a save or a rejection ends a request", async () => {
+    const agent = await agentFor("Ada's other agent");
+    const publish = (id: string) =>
+      server.pipeline.run(action("draft.publish"), { id }, agent);
+    const parkedOf = async (id: string) => {
+      const found = await server.db
+        .select({ id: drafts.publishActionId })
+        .from(drafts)
+        .where(eq(drafts.id, id));
+      return found[0]?.id ?? "";
+    };
+
+    // Withdrawn by Ada, whom the agent acts for; Bea can't.
+    const one = await open("Add a counter role", agent);
+    await save(one, "config/roles/counter.yaml", role("counter"), agent);
+    await publish(one);
+    const firstParked = await parkedOf(one);
+    const byBea = await server.pipeline.run(
+      action("approval.withdraw"),
+      { subjectId: one },
+      bea
+    );
+    const withdrawn = await server.pipeline.run(
+      action("approval.withdraw"),
+      { subjectId: one },
+      admin
+    );
+
+    // A save while it waits withdraws the request.
+    await publish(one);
+    const secondParked = await parkedOf(one);
+    const resaved = await save(
+      one,
+      "config/roles/counter.yaml",
+      role("counter").replace("label: counter", "label: Counter"),
+      agent
+    );
+
+    // A rejection closes the parked publish.
+    await publish(one);
+    const thirdParked = await parkedOf(one);
+    const [approval] = (await pendingOn(one)).filter(
+      (each) => each.status === "pending"
+    );
+    const rejected = await server.pipeline.run(
+      action("approval.reject"),
+      { id: approval?.id },
+      bea
+    );
+    expect({
+      byBea,
+      withdrawn,
+      first: await statusOf(firstParked),
+      resaved,
+      second: await statusOf(secondParked),
+      rejected,
+      third: await statusOf(thirdParked),
+      draft: await query("draft.get", { id: one }),
+    }).toMatchObject({
+      byBea: { ok: false, error: { code: "permission" } },
+      withdrawn: { ok: true, output: { withdrawn: 1 } },
+      first: { status: "withdrawn" },
+      resaved: { ok: true, output: { draft: { status: "valid" } } },
+      second: { status: "withdrawn" },
+      rejected: { ok: true },
+      third: { status: "rejected" },
+      draft: { output: { draft: { status: "valid" } } },
     });
   });
 });

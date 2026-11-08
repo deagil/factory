@@ -466,6 +466,18 @@ export const createGitConfigService = (options: GitConfigOptions) => {
         );
       }),
 
+    remove: (branch) =>
+      serial(async () => {
+        await fetch();
+        try {
+          await headOf(branch);
+        } catch {
+          return;
+        }
+        await inRepo(["push", "--quiet", "origin", `:refs/heads/${branch}`]);
+        await inRepo(["update-ref", "-d", `refs/heads/${branch}`]);
+      }),
+
     files: (ref) =>
       serial(async () => {
         await fetch();

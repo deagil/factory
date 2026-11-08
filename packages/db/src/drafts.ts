@@ -9,11 +9,15 @@ import { drafts } from "./schema/core.ts";
 export type DraftStatus = (typeof draftStatuses)[number];
 
 export interface DraftChanges {
+  title?: string;
+  autoTitle?: boolean;
   status?: DraftStatus;
   files?: string[];
   publishedSha?: string;
   syncedSha?: string | null;
   publishedAt?: Date;
+  /** The parked draft.publish the last approval runs, or null for none. */
+  publishActionId?: string | null;
 }
 
 export const createDraftStore = (executor: Executor) => ({
@@ -32,6 +36,7 @@ export const createDraftStore = (executor: Executor) => ({
     id: string;
     branch: string;
     title: string;
+    autoTitle?: boolean;
     baseSha: string;
     createdBy: string;
   }) => {

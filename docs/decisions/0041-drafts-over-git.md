@@ -1,6 +1,6 @@
 # 0041. Drafts over git
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0044](0044-working-drafts-and-requests.md)
 - **Date:** 2026-11-08
 
 ## Context

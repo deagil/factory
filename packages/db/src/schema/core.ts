@@ -120,6 +120,7 @@ export const actionStatuses = [
   "succeeded",
   "failed",
   "rejected",
+  "withdrawn",
 ] as const;
 
 /** Every action run: who, for whom, input, result, config version. */
@@ -251,7 +252,10 @@ export const draftStatuses = [
  * production, with one commit per saved file. `files` are the config files
  * the draft changes; `base_sha` is the production commit it began from.
  * Publishing writes one commit to production (`published_sha`) and copies it
- * to main (`synced_sha`). Only the draft actions write it.
+ * to main (`synced_sha`). A draft opened by a save has `auto_title`, written
+ * from its files on each save. One waiting for approval has its parked
+ * `draft.publish` in `publish_action_id`, which the last approval runs
+ * (decision 0044). Only the draft and approval actions write it.
  */
 export const drafts = pgTable(
   "drafts",
@@ -259,6 +263,7 @@ export const drafts = pgTable(
     id: id(),
     branch: text("branch").notNull(),
     title: text("title").notNull(),
+    autoTitle: boolean("auto_title").notNull().default(false),
     files: text("files")
       .array()
       .notNull()
@@ -267,6 +272,7 @@ export const drafts = pgTable(
     baseSha: text("base_sha").notNull(),
     publishedSha: text("published_sha"),
     syncedSha: text("synced_sha"),
+    publishActionId: uuid("publish_action_id").references(() => actionLog.id),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => actors.id),
@@ -276,6 +282,7 @@ export const drafts = pgTable(
   (t) => [
     uniqueIndex("drafts_branch_unique").on(t.branch),
     index("drafts_status_idx").on(t.status),
+    index("drafts_created_by_idx").on(t.createdBy, t.status),
   ]
 );
 

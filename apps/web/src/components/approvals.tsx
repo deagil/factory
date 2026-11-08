@@ -47,9 +47,14 @@ export const progress = (approvals: readonly ApprovalEntry[]) => {
 /** Every query an approval decision can change. */
 const refresh = (client: ReturnType<typeof useQueryClient>) =>
   Promise.all(
-    ["approval.list", "draft.get", "draft.list", "actionLog.list"].map((key) =>
-      client.invalidateQueries({ queryKey: [key] })
-    )
+    // Approving a draft can publish it, which changes what describe shows.
+    [
+      "approval.list",
+      "draft.get",
+      "draft.list",
+      "actionLog.list",
+      "system.describe",
+    ].map((key) => client.invalidateQueries({ queryKey: [key] }))
   );
 
 const Decide = ({ approval }: { approval: ApprovalEntry }) => {

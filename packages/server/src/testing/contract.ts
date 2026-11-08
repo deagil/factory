@@ -416,6 +416,7 @@ export const configSamples = (): Record<string, () => Promise<unknown>> => {
   return {
     "approval.approve": () => Promise.resolve({ id }),
     "approval.reject": () => Promise.resolve({ id, comment: "Not now" }),
+    "approval.withdraw": () => Promise.resolve({ subjectId: id }),
     "draft.open": () => Promise.resolve({ title: "Sample draft" }),
     "draft.save": () =>
       Promise.resolve({
@@ -423,7 +424,9 @@ export const configSamples = (): Record<string, () => Promise<unknown>> => {
         path: "config/roles/sample.yaml",
         content: "key: sample\n",
       }),
-    "draft.submit": () => Promise.resolve({ id }),
+    "draft.revert": () =>
+      Promise.resolve({ id, path: "config/roles/sample.yaml" }),
+    "draft.discard": () => Promise.resolve({ id }),
     "draft.publish": () => Promise.resolve({ id }),
   };
 };

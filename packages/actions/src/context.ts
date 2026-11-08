@@ -6,6 +6,7 @@ import type { DraftStore, IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";
 import { z } from "zod";
 
+import type { SignOff } from "./approval-rules.ts";
 import type {
   ActionContext,
   Actor,
@@ -29,6 +30,7 @@ export interface QueryServices {
   clock: Clock;
   actor: Actor;
   originUserId: string | null;
+  signOffs?: (action: string, input: unknown) => Promise<SignOff[]>;
 }
 
 export interface ActionServices extends QueryServices {
@@ -56,6 +58,7 @@ export const createQueryContext = (services: QueryServices): QueryContext =>
     clock: services.clock,
     actor: services.actor,
     originUserId: services.originUserId,
+    ...(services.signOffs ? { signOffs: services.signOffs } : {}),
   });
 
 /**
