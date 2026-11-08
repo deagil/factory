@@ -6,9 +6,10 @@
 import type { IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
 import type {
-  ChoiceOption,
+  AnyChoiceList,
   ChoiceOptions,
   DataAccess,
+  OptionOf,
   Repository,
 } from "@workspace/objects";
 import type { z } from "zod";
@@ -47,32 +48,35 @@ export interface ConfigService {
   /** The options of each choice list, by list key (P2.06). */
   readonly choices?: ChoiceOptions;
   /**
-   * One choice list as this run sees it (P2.07). The pipeline adds it from
-   * `choices` when a run starts, so `get` reads the pinned version.
+   * One choice list as this run sees it (P2.07), with its columns typed. The
+   * pipeline adds it from `choices` when a run starts, so `get` reads the
+   * pinned version.
    */
-  readonly choice?: (list: string) => ChoiceListAccess;
+  readonly choice?: <TList extends AnyChoiceList>(
+    list: TList
+  ) => ChoiceListAccess<OptionOf<TList>>;
   /** Checks `config/` on disk against its schemas and the running code. */
   readonly validate?: () => ConfigCheck;
 }
 
 /** One choice list: `get` returns the option that can be chosen now. */
-export interface ChoiceListAccess {
+export interface ChoiceListAccess<TOption> {
   /**
    * The option with `key`, when it exists and isn't archived. An archived
    * option stays valid on a record that already has it, but can't be chosen.
    */
-  readonly get: (key: string) => ChoiceOption | undefined;
+  readonly get: (key: string) => TOption | undefined;
 }
 
 /** `ctx.config.choice(list)`, from the options pinned for a run. */
-export const choiceList = (
+export const choiceList = <TList extends AnyChoiceList>(
   choices: ChoiceOptions | undefined,
-  list: string
-): ChoiceListAccess => ({
+  list: TList
+): ChoiceListAccess<OptionOf<TList>> => ({
   get: (key) =>
-    choices?.(list)?.find(
+    choices?.(list.key)?.find(
       (option) => option.key === key && option.archived !== true
-    ),
+    ) as OptionOf<TList> | undefined,
 });
 
 /** What a permission on an object lets an actor do. */

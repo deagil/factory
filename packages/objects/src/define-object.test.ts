@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import type { z } from "zod";
 
 import { defineObject } from "./define-object.ts";
+import { defineChoiceList } from "./fields/choice.ts";
 import { f } from "./fields/index.ts";
 import type { Money } from "./fields/money.ts";
 import { getObject, listObjects } from "./registry.ts";
@@ -87,7 +88,7 @@ describe(defineObject, () => {
         name: "lead",
         fields: {
           company: f.ref("company"),
-          source: f.choice("lead-sources", { control: "custom" }),
+          source: f.choice(defineChoiceList({ key: "lead-sources" })),
         },
       });
       expect(

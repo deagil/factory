@@ -1,19 +1,25 @@
-# deal.stage. A mapped choice: staff add, rename, reorder and archive
-# stages, and each one is open, won or lost. Code acts on the category.
+# deal.stage. Staff add, rename, reorder and archive stages; each one's
+# category is open, won or lost, and code acts on the category. The list's
+# columns are defined in src/choices.ts.
 key: deal-stages
 options:
   - key: lead
     label: Lead
+    description: A possible deal, not yet qualified
     category: open
   - key: qualified
     label: Qualified
+    description: Budget, need and decision-maker confirmed
     category: open
   - key: proposal
     label: Proposal sent
+    description: A proposal has gone to the buyer
     category: open
   - key: won
     label: Won
+    description: The buyer has signed
     category: won
   - key: lost
     label: Lost
+    description: The buyer said no, or went quiet; needs a reason
     category: lost

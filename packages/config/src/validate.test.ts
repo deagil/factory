@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { defineChoiceList } from "@workspace/objects";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   choiceConfigType,
@@ -19,7 +21,7 @@ const catalog: ConfigCatalog = {
     ["contact.create", { object: "contact", can: "create" }],
   ]),
   events: new Set(["contact.created"]),
-  choiceFields: [],
+  choiceLists: [],
 };
 
 describe(validateConfig, () => {
@@ -69,52 +71,80 @@ const listOf = (options: string) => {
   return dir;
 };
 
-const check = (control: "system" | "mapped" | "custom", options: string) =>
-  validateConfig(listOf(options), [choiceConfigType], {
+/** The problems with `options` when code defines stages as `list`. */
+const check = (
+  options: string,
+  list?: Parameters<typeof defineChoiceList>[0]
+) => {
+  const defined = list && defineChoiceList(list);
+  return validateConfig(listOf(options), [choiceConfigType], {
     ...catalog,
-    choiceFields: [
-      {
-        object: "deal",
-        field: "stage",
-        list: "stages",
-        control,
-        keys: ["open", "won"],
-        categories: ["open", "won"],
-      },
-    ],
+    choiceLists: defined
+      ? [
+          {
+            key: defined.key,
+            keys: defined.keys,
+            option: defined.option,
+            usedBy: ["deal.stage"],
+          },
+        ]
+      : [],
   }).problems.map(formatProblem);
+};
 
 const options = `  - { key: open, label: Open, category: open }
   - { key: won, label: Won, category: won, archived: true }
   - { key: later, label: Later, category: someday }
 `;
 
-describe("choice lists and their fields' control", () => {
-  it("lets staff change anything in a custom list", () => {
-    expect(check("custom", options)).toStrictEqual([]);
-  });
-
-  it("holds a mapped list to the categories code acts on", () => {
-    expect(check("mapped", options)).toStrictEqual([
-      'config/choices/stages.yaml:5 options.2.category: "someday" isn\'t a category deal.stage acts on. Categories: open, won.',
+describe("choice lists against their definitions", () => {
+  it("checks each row's own columns against the list's schema", () => {
+    expect(
+      check(options, {
+        key: "stages",
+        columns: { category: z.enum(["open", "won", "lost"]) },
+      })
+    ).toStrictEqual([
+      'config/choices/stages.yaml:5 options.2.category: Invalid option: expected one of "open"|"won"|"lost"',
     ]);
   });
 
-  it("holds a system list to exactly the keys code acts on, none archived", () => {
-    expect(check("system", options)).toStrictEqual([
-      "config/choices/stages.yaml:4 options.1.archived: deal.stage is a system choice, so its options can't be archived: code acts on each one.",
-      'config/choices/stages.yaml:5 options.2.key: deal.stage is a system choice, and code only acts on open, won, so "later" can\'t be added here. New keys ship with the code that handles them.',
+  it("refuses a column the list doesn't define", () => {
+    expect(check(options)).toStrictEqual(
+      [3, 4, 5].map(
+        (line) =>
+          `config/choices/stages.yaml:${line} options.${line - 3}.category: "category" isn't a column of stages. Columns: archived, description, key, label. New columns are defined in code.`
+      )
+    );
+  });
+
+  it("holds a list with fixed keys to exactly those, none archived", () => {
+    expect(
+      check(options, {
+        key: "stages",
+        keys: ["open", "won"],
+        columns: { category: z.string() },
+      })
+    ).toStrictEqual([
+      'config/choices/stages.yaml:4 options.1.archived: Code acts on each key of stages, so "won" can\'t be archived.',
+      'config/choices/stages.yaml:5 options.2.key: Code acts on each key of stages (open, won), so "later" can\'t be added here. New keys ship with the code that handles them.',
     ]);
   });
 
-  it("names a list a field uses that doesn't exist", () => {
+  it("names a list code uses that doesn't exist", () => {
     expect(
       validateConfig(listOf(options), [choiceConfigType], {
         ...catalog,
-        choiceFields: [
-          { object: "deal", field: "kind", list: "kinds", control: "custom" },
+        choiceLists: [
+          {
+            key: "kinds",
+            option: defineChoiceList({ key: "kinds" }).option,
+            usedBy: ["deal.kind"],
+          },
         ],
-      }).problems.map(formatProblem)
+      })
+        .problems.map(formatProblem)
+        .filter((problem) => problem.includes("kinds"))
     ).toStrictEqual([
       "config/choices/kinds.yaml deal.kind uses this list, but the file doesn't exist.",
     ]);

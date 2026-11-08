@@ -147,6 +147,11 @@ describe("example CRM", () => {
       { object: "deal", id },
       seeded.admin
     );
+    const lostDeals = await server.pipeline.query(
+      crm.registry.get("deal.list") as AnyQueryDefinition,
+      { filter: { stage: { where: { category: "lost" } } } },
+      seeded.admin
+    );
     expect(
       [startWon, viaUpdate, unknown, lostBare].map(
         (result) => result.error?.code
@@ -156,6 +161,10 @@ describe("example CRM", () => {
       { stage: "qualified" },
       { stage: "lost" },
     ]);
+    expect(lostDeals).toMatchObject({
+      ok: true,
+      output: { records: [{ id, stage: "lost" }] },
+    });
     expect(event).toMatchObject({
       type: "deal.stageChanged",
       payload: {

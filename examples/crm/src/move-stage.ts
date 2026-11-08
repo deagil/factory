@@ -3,6 +3,7 @@
 import { defineAction } from "@workspace/actions";
 import { z } from "zod";
 
+import { dealStages } from "./choices.ts";
 import { deal } from "./objects.ts";
 
 export const moveStage = defineAction({
@@ -23,16 +24,13 @@ export const moveStage = defineAction({
       dealId: z.uuid(),
       from: z.string(),
       to: z.string(),
-      category: z.string(),
+      category: dealStages.columns.category,
     }),
   },
   handler: async (ctx, input) => {
-    const option = ctx.config.choice?.("deal-stages").get(input.stage);
+    const option = ctx.config.choice?.(dealStages).get(input.stage);
     if (!option) {
       return ctx.invalid(`"${input.stage}" isn't a stage that can be chosen.`);
-    }
-    if (!option.category) {
-      return ctx.invalid(`The stage "${option.label}" has no category.`);
     }
     if (option.category === "lost" && !input.reason?.trim()) {
       return ctx.invalid("A reason is required for lost deals.");

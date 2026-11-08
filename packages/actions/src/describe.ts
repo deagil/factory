@@ -4,6 +4,7 @@
 import type {
   AnyField,
   AnyObjectDefinition,
+  ChoiceField,
   ChoiceOptions,
 } from "@workspace/objects";
 import { z } from "zod";
@@ -34,11 +35,18 @@ const fieldSchema = z.object({
       z.object({
         key: z.string(),
         label: z.string(),
-        category: z.string().nullable(),
+        description: z.string().nullable(),
         archived: z.boolean(),
+        /** The list's own columns, such as a deal stage's `category`. */
+        columns: z.record(z.string(), z.unknown()),
       })
     )
     .nullable(),
+  /**
+   * A choice list's own columns, as JSON Schema. Null when the field isn't a
+   * choice or its list has none.
+   */
+  optionColumns: jsonSchema.nullable(),
   schema: jsonSchema,
 });
 
@@ -75,18 +83,34 @@ const toJson = (schema: z.ZodType, io: "input" | "output" = "output") => {
   return rest;
 };
 
+const builtInColumns = new Set(["key", "label", "description", "archived"]);
+
 /** A choice field's options, or null when `field` isn't a choice. */
 const choiceOptions = (field: AnyField, choices: ChoiceOptions | undefined) => {
-  if (field.kind !== "choice" || !("list" in field)) {
+  if (field.kind !== "choice") {
     return null;
   }
-  const list = choices?.(String(field.list));
-  return (list ?? []).map((option) => ({
+  const { list } = field as unknown as ChoiceField;
+  return (choices?.(list.key) ?? []).map((option) => ({
     key: option.key,
     label: option.label,
-    category: option.category ?? null,
+    description: option.description ?? null,
     archived: option.archived === true,
+    columns: Object.fromEntries(
+      Object.entries(option).filter(([name]) => !builtInColumns.has(name))
+    ),
   }));
+};
+
+/** A choice list's own columns as JSON Schema, or null. */
+const optionColumns = (field: AnyField) => {
+  if (field.kind !== "choice") {
+    return null;
+  }
+  const { columns } = (field as unknown as ChoiceField).list;
+  return Object.keys(columns).length > 0
+    ? toJson(z.strictObject(columns), "input")
+    : null;
 };
 
 const describeField = (
@@ -104,6 +128,7 @@ const describeField = (
   target: "target" in field ? String(field.target) : null,
   filters: Object.keys(field.filters),
   options: choiceOptions(field, choices),
+  optionColumns: optionColumns(field),
   schema: toJson(field.input, "input"),
 });
 

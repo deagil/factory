@@ -1,3 +1,6 @@
+import type { z } from "zod";
+
+import { plainChoiceOption } from "./choices.ts";
 import type { ChoiceList } from "./choices.ts";
 // validateConfig (P2.04, SYSTEM_DESIGN §4.4): every file against its type's
 // schema, then every reference against what the running system has. Each
@@ -11,16 +14,15 @@ import type {
 import { configExtension, readConfig } from "./read.ts";
 import type { ConfigFile, ConfigProblem, ConfigRead } from "./read.ts";
 
-/** A choice field in code, and the list it uses. */
-export interface ChoiceFieldUse {
-  readonly object: string;
-  readonly field: string;
-  readonly list: string;
-  readonly control: "system" | "mapped" | "custom";
-  /** `system`: the keys code acts on. */
+/** A choice list defined in code (decision 0040). */
+export interface ChoiceListUse {
+  readonly key: string;
+  /** Keys code acts on: the list must have exactly these, none archived. */
   readonly keys?: readonly string[] | undefined;
-  /** `mapped`: the categories code acts on. */
-  readonly categories?: readonly string[] | undefined;
+  /** One option: the built-in columns and the list's own. */
+  readonly option: z.ZodObject;
+  /** The fields that use it, as `object.field`. */
+  readonly usedBy: readonly string[];
 }
 
 /** What the running system has, for checking references. */
@@ -36,8 +38,8 @@ export interface ConfigCatalog {
   >;
   /** Every event an action emits. */
   readonly events: ReadonlySet<string>;
-  /** Every choice field, for checking the lists they use (P2.06). */
-  readonly choiceFields: readonly ChoiceFieldUse[];
+  /** Every choice list code defines, for checking its file (P2.06). */
+  readonly choiceLists: readonly ChoiceListUse[];
 }
 
 /** The config type whose file keys a reference of this kind names. */
@@ -129,97 +131,103 @@ const unresolved = (
   }
 };
 
-/** What one field's control allows in its list, as problems. */
-const controlProblems = (
-  use: ChoiceFieldUse,
-  list: ChoiceList
-): { path: ConfigPath; message: string }[] => {
-  const uses = `${use.object}.${use.field}`;
-  if (use.control === "system") {
-    const keys = use.keys ?? [];
-    const missing = keys
-      .filter((key) => !list.options.some((option) => option.key === key))
-      .map((key) => ({
-        path: ["options"],
-        message: `${uses} is a system choice, so the list needs the option "${key}": code acts on it.`,
-      }));
-    const extra = list.options.flatMap((option, index) => [
-      ...(keys.includes(option.key)
-        ? []
-        : [
-            {
-              path: ["options", index, "key"],
-              message: `${uses} is a system choice, and code only acts on ${listed(keys)}, so "${option.key}" can't be added here. New keys ship with the code that handles them.`,
-            },
-          ]),
-      ...(option.archived
-        ? [
-            {
-              path: ["options", index, "archived"],
-              message: `${uses} is a system choice, so its options can't be archived: code acts on each one.`,
-            },
-          ]
-        : []),
-    ]);
-    return [...missing, ...extra];
-  }
-  if (use.control === "mapped") {
-    const categories = use.categories ?? [];
-    return list.options.flatMap((option, index) => {
-      if (option.category === undefined) {
-        return [
-          {
-            path: ["options", index],
-            message: `${uses} acts on categories, so "${option.key}" needs a category: ${listed(categories)}.`,
-          },
-        ];
-      }
-      return categories.includes(option.category)
-        ? []
-        : [
-            {
-              path: ["options", index, "category"],
-              message: `"${option.category}" isn't a category ${uses} acts on. Categories: ${listed(categories)}.`,
-            },
-          ];
-    });
-  }
-  return [];
-};
+interface ListProblem {
+  path: ConfigPath;
+  message: string;
+}
 
-/** The problems with the lists choice fields use, given each field's control. */
+/** Each row against the list's columns, built-in and its own. */
+const rowProblems = (
+  list: ChoiceList,
+  option: z.ZodType,
+  columns: readonly string[]
+): ListProblem[] =>
+  list.options.flatMap((row, index) => {
+    const parsed = option.safeParse(row);
+    if (parsed.success) {
+      return [];
+    }
+    return parsed.error.issues.flatMap((issue): ListProblem[] => {
+      const at: ConfigPath = ["options", index, ...(issue.path as ConfigPath)];
+      if (issue.code === "unrecognized_keys") {
+        return issue.keys.map((name) => ({
+          path: [...at, name],
+          message: `"${name}" isn't a column of ${list.key}. Columns: ${listed(columns)}. New columns are defined in code.`,
+        }));
+      }
+      return [{ path: at, message: issue.message }];
+    });
+  });
+
+/** A list with fixed keys has exactly those, none archived. */
+const fixedKeyProblems = (
+  list: ChoiceList,
+  keys: readonly string[]
+): ListProblem[] => [
+  ...keys
+    .filter((key) => !list.options.some((option) => option.key === key))
+    .map((key) => ({
+      path: ["options"],
+      message: `${list.key} needs the option "${key}": code acts on it.`,
+    })),
+  ...list.options.flatMap((option, index) => [
+    ...(keys.includes(option.key)
+      ? []
+      : [
+          {
+            path: ["options", index, "key"],
+            message: `Code acts on each key of ${list.key} (${listed(keys)}), so "${option.key}" can't be added here. New keys ship with the code that handles them.`,
+          },
+        ]),
+    ...(option.archived
+      ? [
+          {
+            path: ["options", index, "archived"],
+            message: `Code acts on each key of ${list.key}, so "${option.key}" can't be archived.`,
+          },
+        ]
+      : []),
+  ]),
+];
+
+/**
+ * Each choice list file against its definition in code: every row's columns,
+ * and the keys code acts on. A list code uses must have a file; a file no
+ * code defines may have the built-in columns only.
+ */
 export const checkChoiceLists = (
   files: readonly ConfigFile[],
   catalog: ConfigCatalog
 ): ConfigProblem[] => {
-  const problems = catalog.choiceFields.flatMap((use): ConfigProblem[] => {
-    const file = files.find(
-      (each) => each.type === "choices" && each.key === use.list
-    );
-    if (!file) {
+  const missing = catalog.choiceLists.flatMap((use): ConfigProblem[] =>
+    files.some((file) => file.type === "choices" && file.key === use.key)
+      ? []
+      : [
+          {
+            file: `config/choices/${use.key}${configExtension}`,
+            path: [],
+            line: null,
+            message: `${listed(use.usedBy)} ${use.usedBy.length === 1 ? "uses" : "use"} this list, but the file doesn't exist.`,
+          },
+        ]
+  );
+  const rows = files
+    .filter((file) => file.type === "choices")
+    .flatMap((file): ConfigProblem[] => {
+      const list = file.value as ChoiceList;
+      const use = catalog.choiceLists.find((each) => each.key === list.key);
+      const option = use?.option ?? plainChoiceOption;
       return [
-        {
-          file: `config/choices/${use.list}${configExtension}`,
-          path: [],
-          line: null,
-          message: `${use.object}.${use.field} uses this list, but the file doesn't exist.`,
-        },
-      ];
-    }
-    return controlProblems(use, file.value as ChoiceList).map((problem) => ({
-      file: file.file,
-      path: problem.path,
-      line: file.lineOf(problem.path),
-      message: problem.message,
-    }));
-  });
-  const seen = new Set<string>();
-  return problems.filter((problem) => {
-    const id = `${problem.file}|${problem.path.join(".")}|${problem.message}`;
-    const fresh = !seen.has(id);
-    seen.add(id);
-    return fresh;
-  });
+        ...rowProblems(list, option, Object.keys(option.shape)),
+        ...(use?.keys ? fixedKeyProblems(list, use.keys) : []),
+      ].map((problem) => ({
+        file: file.file,
+        path: problem.path,
+        line: file.lineOf(problem.path),
+        message: problem.message,
+      }));
+    });
+  return [...missing, ...rows];
 };
 
 /** The problems with each file's references. */

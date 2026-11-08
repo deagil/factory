@@ -365,6 +365,9 @@ importers:
       '@workspace/actions':
         specifier: workspace:*
         version: link:../actions
+      '@workspace/objects':
+        specifier: workspace:*
+        version: link:../objects
       yaml:
         specifier: ^2.9.1
         version: 2.9.1

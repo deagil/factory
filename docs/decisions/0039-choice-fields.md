@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-08
+- **Amended by:** [0040](0040-choice-lists-define-their-columns.md): lists define their own columns in code, and fields lose `control`.
 
 ## Context
 

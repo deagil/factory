@@ -4,6 +4,7 @@
 import { defineAction } from "@workspace/actions";
 import { z } from "zod";
 
+import { dealStages } from "./choices.ts";
 import { deal } from "./objects.ts";
 
 // The object's create schema is a strict object at run time, typed by what
@@ -19,7 +20,7 @@ export const createDeal = defineAction({
   output: z.object({ record: deal.schemas.record }),
   emits: { "deal.created": z.object({ record: deal.schemas.record }) },
   handler: async (ctx, values) => {
-    const option = ctx.config.choice?.("deal-stages").get(values.stage);
+    const option = ctx.config.choice?.(dealStages).get(values.stage);
     if (!option) {
       return ctx.invalid(`"${values.stage}" isn't a stage that can be chosen.`);
     }

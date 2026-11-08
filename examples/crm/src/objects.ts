@@ -1,8 +1,10 @@
 // The CRM's objects. drizzle-kit loads this file on its own, so it exports
 // the tables as well as the objects, and imports only from
-// `@workspace/objects/define`.
+// `@workspace/objects/define` and the CRM's choice lists.
 
 import { defineObject, f } from "@workspace/objects/define";
+
+import { dealStages, industries } from "./choices.ts";
 
 export const organisation = defineObject({
   name: "organisation",
@@ -11,8 +13,7 @@ export const organisation = defineObject({
     name: f.text({ required: true, maxLength: 200 }),
     website: f.text(),
     employees: f.number({ integer: true, min: 0 }),
-    // Staff own the industries: code acts on none of them (P2.06).
-    industry: f.choice("industries", { control: "custom" }),
+    industry: f.choice(industries),
     owner: f.ref("actor", { label: "Account owner" }),
   },
   customFields: true,
@@ -43,12 +44,7 @@ export const deal = defineObject({
     organisation: f.ref("organisation", { required: true }),
     value: f.money(),
     owner: f.ref("actor"),
-    // Staff add stages; code acts only on the category (P2.07).
-    stage: f.choice("deal-stages", {
-      control: "mapped",
-      categories: ["open", "won", "lost"],
-      required: true,
-    }),
+    stage: f.choice(dealStages, { required: true }),
   },
   list: ["name", "organisation", "value", "stage", "owner"],
   // deal.create starts a deal in an open stage; deal.moveStage owns it after.

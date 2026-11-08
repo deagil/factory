@@ -19,6 +19,7 @@ import {
   createDataAccess,
   createRepository,
 } from "@workspace/objects";
+import type { AnyChoiceList } from "@workspace/objects";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -227,7 +228,11 @@ const pin = (config: ConfigService): ConfigService => {
     // A loader's `choices` reads the version live when it's read, so this
     // keeps that version's lookup. `choice` reads the same snapshot.
     ...(choices
-      ? { choices, choice: (list: string) => choiceList(choices, list) }
+      ? {
+          choices,
+          choice: <TList extends AnyChoiceList>(list: TList) =>
+            choiceList(choices, list),
+        }
       : {}),
     ...(config.validate ? { validate: config.validate } : {}),
   };
