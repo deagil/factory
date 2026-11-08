@@ -16,6 +16,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { crm } from "./system.ts";
 
+/** The subject ids of an approval.list result. */
+const subjects = (result: unknown) =>
+  (
+    result as { output: { approvals: { subjectId: string }[] } }
+  ).output.approvals.map((each) => each.subjectId);
+
 describe("approval rules", () => {
   let database: SystemDatabase;
   let server: Server;
@@ -34,10 +40,6 @@ describe("approval rules", () => {
       input,
       caller
     );
-  const subjects = (result: unknown) =>
-    (
-      result as { output: { approvals: { subjectId: string }[] } }
-    ).output.approvals.map((each) => each.subjectId);
 
   beforeAll(async () => {
     database = await createSystemDatabase(crm);

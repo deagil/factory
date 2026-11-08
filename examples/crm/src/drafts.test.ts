@@ -39,6 +39,10 @@ const git = (cwd: string, ...args: string[]) =>
     stdio: "pipe",
   }).trim();
 
+/** A role file that can view deals. */
+const role = (key: string) =>
+  `key: ${key}\nlabel: ${key}\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n`;
+
 // Each test runs dozens of git commands, slow when every suite runs at once.
 describe("drafts over git", { timeout: 30_000 }, () => {
   const configDir = path.resolve(import.meta.dirname, "../config");
@@ -276,8 +280,6 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       input,
       by
     );
-  const role = (key: string) =>
-    `key: ${key}\nlabel: ${key}\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n`;
   const agentFor = async (name: string) => {
     const created = await server.pipeline.run(
       action("actor.createAgent"),
@@ -489,9 +491,8 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     // A rejection closes the parked publish.
     await publish(one);
     const thirdParked = await parkedOf(one);
-    const [approval] = (await pendingOn(one)).filter(
-      (each) => each.status === "pending"
-    );
+    const rows = await pendingOn(one);
+    const approval = rows.find((each) => each.status === "pending");
     const rejected = await server.pipeline.run(
       action("approval.reject"),
       { id: approval?.id },
