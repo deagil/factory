@@ -150,6 +150,8 @@ describe("example CRM", () => {
     });
   });
 
+  // It runs every action and query over both surfaces, which takes seconds
+  // on CI, so it gets more than the default 5s.
   it("gives the same results and log rows over HTTP and MCP", async () => {
     const caller = seeded.admin;
     const request = (url: string, init: RequestInit) =>
@@ -194,5 +196,5 @@ describe("example CRM", () => {
       },
     });
     expect(problems).toStrictEqual([]);
-  });
+  }, 20_000);
 });
