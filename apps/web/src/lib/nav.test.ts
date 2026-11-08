@@ -69,6 +69,17 @@ describe(navFrom, () => {
     ]);
   });
 
+  it("puts approvals in Inbox and drafts in Config", () => {
+    const nav = navFrom(described([], ["approval.list", "draft.list"]));
+    expect(
+      nav.map((section) => [section.key, section.pages[0]?.link])
+    ).toStrictEqual([
+      ["inbox", { to: "/inbox/approvals" }],
+      ["config", { to: "/config/drafts" }],
+      ["settings", { to: "/settings/reference" }],
+    ]);
+  });
+
   it("leaves out a section with no pages, and always has Settings", () => {
     expect(navFrom(described([])).map((section) => section.key)).toStrictEqual([
       "settings",

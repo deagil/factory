@@ -1,6 +1,6 @@
 # Example system: CRM
 
-Organisations and contacts, with one hand-written action, `contact.moveToOrganisation`, which owns a contact's organisation and emits `contact.moved`. Roles: `admin`, `sales`, `support` and `website` (for the website integration).
+Organisations and contacts, with one hand-written action, `contact.moveToOrganisation`, which owns a contact's organisation and emits `contact.moved`. Roles: `admin`, `sales`, `manager` (sales, plus config drafts), `support` and `website` (for the website integration).
 
 Used to design and test the core, and as a starting point for real clients. Deals, activities and CSV import come later.
 
@@ -28,7 +28,11 @@ Call the API with the integration key:
 curl -X POST http://localhost:4000/actions/organisation.create -H "Authorization: Bearer <integration key>" -H "content-type: application/json" -d '{"name":"Signed up online"}'
 ```
 
-Seed data: `admin@example.com` (admin), `sarah@example.com` (sales), `sam@example.com` (support: contacts only), the Claude agent and the Website integration, three organisations and four contacts.
+Seed data: `admin@example.com` (admin), `sarah@example.com` (sales), `sam@example.com` (support: contacts only), `mo@example.com` (manager: sales, plus config drafts), the Claude agent and the Website integration, three organisations and four contacts.
+
+### Drafts and approvals
+
+Config is read from `config/` and reloaded on save, so there are no drafts. To try them, add `CONFIG_REMOTE=local` to `.env`: the server makes a bare git repository in `.factory/config.git` from `config/` the first time, and reads config from it. Then, in the web app, Mo Manager starts a draft under Config → Drafts and submits it, and Admin approves it under Inbox → Approvals (switch with the dev bar's Session menu). Delete `.factory/` to start again from `config/`.
 
 ## Look at the data
 

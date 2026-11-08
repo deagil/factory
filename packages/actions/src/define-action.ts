@@ -157,6 +157,10 @@ export interface GitService {
   }) => Promise<{ status: "committed"; sha: string } | { status: "conflict" }>;
   /** The config files that differ between two commits, with both versions. */
   readonly diff: (from: string, to: string) => Promise<ConfigFileDiff[]>;
+  /** Every config file at `ref`, with its content (P2.10). */
+  readonly files: (
+    ref: string
+  ) => Promise<{ readonly path: string; readonly content: string }[]>;
   /** Checks the config at `ref` against the running code. */
   readonly check: (ref: string) => Promise<ConfigCheck>;
   /** Writes the draft on `branch` to production in one commit, then to main. */

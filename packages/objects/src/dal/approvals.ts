@@ -34,7 +34,12 @@ const decider = alias(actors, "decider");
 export const createApprovalReader = (executor: Executor) => {
   /** Approvals, newest first, optionally in one status. */
   const approvalList = async (
-    filter: { status?: ApprovalEntry["status"]; limit?: number } = {}
+    filter: {
+      status?: ApprovalEntry["status"];
+      /** Only the approvals on this action or draft. */
+      subjectId?: string;
+      limit?: number;
+    } = {}
   ): Promise<ApprovalEntry[]> => {
     const rows = await executor
       .select({
@@ -60,7 +65,14 @@ export const createApprovalReader = (executor: Executor) => {
         drafts,
         and(eq(approvals.subject, "draft"), eq(approvals.subjectId, drafts.id))
       )
-      .where(filter.status ? eq(approvals.status, filter.status) : undefined)
+      .where(
+        and(
+          filter.status ? eq(approvals.status, filter.status) : undefined,
+          filter.subjectId
+            ? eq(approvals.subjectId, filter.subjectId)
+            : undefined
+        )
+      )
       .orderBy(desc(approvals.createdAt), desc(approvals.id))
       .limit(filter.limit ?? 50);
     return rows.map(({ approval, ...row }) => ({

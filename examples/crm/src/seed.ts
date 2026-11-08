@@ -60,6 +60,11 @@ export const seed = async (
     email: "sam@example.com",
     roles: ["support"],
   });
+  await bootstrapStaff(db, {
+    name: "Mo Manager",
+    email: "mo@example.com",
+    roles: ["manager"],
+  });
   const admin = { actorId: boss.id, originUserId: boss.userId };
   const sales = { actorId: sarah.id, originUserId: sarah.userId };
 

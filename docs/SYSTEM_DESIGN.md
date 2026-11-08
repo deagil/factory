@@ -329,7 +329,7 @@ A rule names an action, with conditions on its input (`input.…`) or its record
 - **Validation.** One `validateConfig` function validates every file against its schema, then cross-checks references against the running code: objects, fields, choice options, actions, events, templates and roles. It runs in the dev server, in CI, in the web surface on every draft, and in the loader.
 - **The loader.** On start-up and on each new commit to the branch it runs (`production` in production, `main` on staging), the instance fetches `config/`, validates it against its own code, and swaps an in-memory index in one go. It records the commit in `config_versions`. Config that fails validation is refused; the last good version stays live and the failure is flagged.
 - **Pinning.** Workflow runs and actions record the config commit they ran under.
-- **Locally,** the dev server watches `config/` and reloads instantly, with no git involved.
+- **Locally,** the dev server watches `config/` and reloads instantly, with no git involved. To try drafts locally, `CONFIG_REMOTE=local` makes a bare repository in `.factory/` from `config/` the first time and runs against it instead; edits to `config/` are then not seen until that folder is removed.
 
 **A staff draft can change several files at once, and publishes them together:**
 
@@ -341,6 +341,8 @@ A rule names an action, with conditions on its input (`input.…`) or its record
 5. Publish: the draft's files go onto production in one commit; a bot copies them back to main
 6. The loader sees the commit, validates, swaps the index; new runs use it in seconds
 ```
+
+In the web surface, Config → Drafts edits choice lists and roles as forms and shows a draft's changes in plain English ("Adds the option “Negotiation”", "Can now archive deal"); a save sends the file's value and the server writes the YAML (`draft.save` with `value`, read back with `draft.files`). Other types are edited as YAML through the API for now.
 
 The config service uses plain git (clone, branch, commit, push, fetch) against any remote, so it is not tied to GitHub. Publishing refuses a draft whose files production changed since it began, and the copy to main is skipped, not forced, when main changed them (decision 0041).
 
@@ -490,11 +492,13 @@ The web app has no data access of its own: every screen calls the HTTP API as th
 | Section | What it has |
 | --- | --- |
 | Data | A list, record and create screen per object; archive and restore; each record's history |
+| Inbox | Approvals: each pending action or draft, what it would do, who asked, and Approve and Reject |
 | Activity | The action log (each action's input, result, changes and events), every change across records, and the event log |
 | Access | Users (invite, roles, disable), agents, integrations and their keys, and roles |
+| Config | Drafts: start one, edit choice lists and roles, see its changes in plain English, submit and publish |
 | Settings | Reference (the system as `system.describe` gives it to you) and API & MCP |
 
-The account menu has My agents, where staff connect an MCP client with a key of their own. Approvals, config editors, drafts and the run inspector join these sections in phase 2.
+The account menu has My agents, where staff connect an MCP client with a key of their own. The run inspector joins these sections with workflows.
 
 Local development adds a dev bar above the app, and production builds leave it out. It is for working on the factory, never for configuring a system. Its menus are:
 

@@ -4,6 +4,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { ensureLocalRemote } from "@workspace/config";
 import { redactUrl, runMigrations } from "@workspace/db";
 import { createServer } from "@workspace/server";
 
@@ -39,6 +40,24 @@ if (!dev) {
   console.info(`Migrations applied to ${redactUrl(databaseUrl)}`);
 }
 
+// Drafts need a config remote. CONFIG_REMOTE is its URL, or `local` for a
+// bare repository in .factory/, made from config/ the first time (P2.10).
+// Without it, config/ is read from the working tree and reloaded on save.
+const factoryDir = path.resolve(import.meta.dirname, "../../../.factory");
+const remoteSetting = process.env.CONFIG_REMOTE;
+const remoteUrl =
+  remoteSetting === "local"
+    ? path.join(factoryDir, "config.git")
+    : remoteSetting;
+if (
+  remoteSetting === "local" &&
+  remoteUrl &&
+  crm.config &&
+  (await ensureLocalRemote(remoteUrl, crm.config))
+) {
+  console.info(`Made a local config remote at ${remoteUrl}`);
+}
+
 const server = await createServer(crm, {
   databaseUrl,
   authSecret,
@@ -48,8 +67,17 @@ const server = await createServer(crm, {
   trustedOrigins: [`http://localhost:${port}`],
   // `pnpm dev` sets FACTORY_DEV, so the dev bar can sign in as anyone.
   devOutbox: dev && process.env.NODE_ENV !== "production",
-  // Locally, config/ is read from the working tree and reloaded on save.
-  watchConfig: dev,
+  // Locally, config/ is read from the working tree and reloaded on save,
+  // unless there's a config remote.
+  watchConfig: dev && !remoteUrl,
+  ...(remoteUrl
+    ? {
+        configRemote: {
+          url: remoteUrl,
+          cacheDir: path.join(factoryDir, "config-cache.git"),
+        },
+      }
+    : {}),
 });
 const seeded = await seed(crm, server.db, server.pipeline);
 const listening = server.listen(port);

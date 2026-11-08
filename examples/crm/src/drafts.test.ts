@@ -189,6 +189,64 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     });
   });
 
+  it("saves a file as a value and reads the draft back as values", async () => {
+    const query = (name: string, input: object) =>
+      server.pipeline.query(
+        system.registry.get(name) as AnyQueryDefinition,
+        input,
+        admin
+      );
+    const id = await open("Add a closing stage");
+    const listed = await query("draft.files", { id });
+    const { files } = (
+      listed as { output: { files: { path: string; value: unknown }[] } }
+    ).output;
+    const stages = files.find(
+      (file) => file.path === "config/choices/deal-stages.yaml"
+    )?.value as { key: string; options: object[] };
+    const saved = await server.pipeline.run(
+      action("draft.save"),
+      {
+        id,
+        path: "config/choices/deal-stages.yaml",
+        value: {
+          ...stages,
+          options: [
+            ...stages.options,
+            { key: "closing", label: "Closing", category: "open" },
+          ],
+        },
+      },
+      admin
+    );
+    const got = await query("draft.get", { id });
+    expect({
+      paths: files.map((file) => file.path),
+      saved,
+      got,
+    }).toMatchObject({
+      paths: expect.arrayContaining(["config/roles/sales.yaml"]),
+      saved: { ok: true, output: { draft: { status: "valid" } } },
+      got: {
+        ok: true,
+        output: {
+          changes: [
+            {
+              type: "choices",
+              key: "deal-stages",
+              afterValue: {
+                options: expect.arrayContaining([
+                  expect.objectContaining({ key: "closing" }),
+                ]),
+              },
+            },
+          ],
+          approvals: [],
+        },
+      },
+    });
+  });
+
   it("marks an invalid draft and won't publish it", async () => {
     const id = await open("Break sales");
     const saved = await save(

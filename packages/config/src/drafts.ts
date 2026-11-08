@@ -5,6 +5,7 @@
 // `drafts` table. A system that reads `config/` from its working tree has no
 // `ctx.git`, and refuses them.
 import {
+  approvalEntrySchema,
   defineAction,
   defineQuery,
   describeSignOffs,
@@ -20,6 +21,7 @@ import type {
   QueryContext,
 } from "@workspace/actions";
 import type { DraftEntry } from "@workspace/objects";
+import { parse, stringify } from "yaml";
 import { z } from "zod";
 
 import { configExtension } from "./read.ts";
@@ -177,12 +179,18 @@ export const draftOpen = defineAction({
 export const draftSave = defineAction({
   name: "draft.save",
   description:
-    "Save one config file in a draft, or delete it with content null. Each save is one commit, and checks the draft's whole set of files against the running system.",
-  input: z.strictObject({
-    id: z.uuid(),
-    path: configFile,
-    content: z.string().max(200_000).nullable(),
-  }),
+    "Save one config file in a draft: its YAML as content, or its value as an object, which is written as YAML; content null deletes it. Each save is one commit, and checks the draft's whole set of files against the running system.",
+  input: z
+    .strictObject({
+      id: z.uuid(),
+      path: configFile,
+      content: z.string().max(200_000).nullable().optional(),
+      value: z.record(z.string(), z.unknown()).optional(),
+    })
+    .refine(
+      (input) => (input.content === undefined) !== (input.value === undefined),
+      { message: "Give either content or value", path: ["content"] }
+    ),
   output: checkedSchema,
   handler: async (ctx, input) => {
     const opened = await openDraft(ctx, input.id);
@@ -190,11 +198,15 @@ export const draftSave = defineAction({
       return opened;
     }
     const { draft, git } = opened;
+    const content =
+      input.value === undefined
+        ? (input.content ?? null)
+        : stringify(input.value, { lineWidth: 0 });
     const committed = await git.commit({
       branch: draft.branch,
       path: input.path,
-      content: input.content,
-      message: `${input.content === null ? "Delete" : "Save"} ${input.path}${trailers(ctx, draft.id)}`,
+      content,
+      message: `${content === null ? "Delete" : "Save"} ${input.path}${trailers(ctx, draft.id)}`,
       author: authorOf(ctx),
     });
     if (committed.status === "conflict") {
@@ -346,18 +358,84 @@ export const draftList = defineQuery({
   },
 });
 
+/** A file's YAML as a value, or null when it's missing or doesn't parse. */
+const valueOf = (content: string | null): unknown => {
+  if (content === null) {
+    return null;
+  }
+  try {
+    return parse(content) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** `config/<type>/<key>.yaml` → its type and key. */
+const typeAndKey = (file: string) => {
+  const [, type = "", name = ""] = file.split("/");
+  return { type, key: name.replace(configExtension, "") };
+};
+
+/** The commit a draft's files are at: published, or its branch's head. */
+const draftCommit = async (git: GitService | undefined, draft: DraftEntry) =>
+  draft.publishedSha ?? (await branchHead(git, draft.branch));
+
 export const draftGet = defineQuery({
   name: "draft.get",
   description:
-    "One config draft, with each file it changes before and after (null where the file doesn't exist).",
+    "One config draft: each file it changes before and after, as YAML and as values (null where the file doesn't exist), and its approvals.",
   input: z.strictObject({ id: z.uuid() }),
   output: z.object({
     draft: draftSchema,
     changes: z.array(
       z.object({
         path: z.string(),
+        type: z.string(),
+        key: z.string(),
         before: z.string().nullable(),
         after: z.string().nullable(),
+        beforeValue: z.unknown(),
+        afterValue: z.unknown(),
+      })
+    ),
+    approvals: z.array(approvalEntrySchema),
+  }),
+  handler: async (ctx, { id }) => {
+    const draft = await ctx.dal.draftDetail(id);
+    if (!draft) {
+      return ctx.notFound("draft", id);
+    }
+    const to = await draftCommit(ctx.git, draft);
+    const [diff, approvals] = await Promise.all([
+      ctx.git && to ? ctx.git.diff(draft.baseSha, to) : [],
+      ctx.dal.approvalList({ subjectId: id, limit: 200 }),
+    ]);
+    return {
+      draft: toDraft(draft),
+      changes: diff.map((change) => ({
+        ...change,
+        ...typeAndKey(change.path),
+        beforeValue: valueOf(change.before),
+        afterValue: valueOf(change.after),
+      })),
+      approvals,
+    };
+  },
+});
+
+export const draftFiles = defineQuery({
+  name: "draft.files",
+  description:
+    "Every config file as a draft has it, with its YAML and its value, for editing it.",
+  input: z.strictObject({ id: z.uuid() }),
+  output: z.object({
+    files: z.array(
+      z.object({
+        path: z.string(),
+        type: z.string(),
+        key: z.string(),
+        content: z.string(),
+        value: z.unknown(),
       })
     ),
   }),
@@ -366,9 +444,20 @@ export const draftGet = defineQuery({
     if (!draft) {
       return ctx.notFound("draft", id);
     }
-    const to = draft.publishedSha ?? (await branchHead(ctx.git, draft.branch));
-    const changes = ctx.git && to ? await ctx.git.diff(draft.baseSha, to) : [];
-    return { draft: toDraft(draft), changes };
+    const at = await draftCommit(ctx.git, draft);
+    if (!ctx.git || !at) {
+      return ctx.invalid(noRemote);
+    }
+    const files = await ctx.git.files(at);
+    return {
+      files: files
+        .filter((file) => configFile.safeParse(file.path).success)
+        .map((file) => ({
+          ...file,
+          ...typeAndKey(file.path),
+          value: valueOf(file.content),
+        })),
+    };
   },
 });
 
@@ -380,4 +469,5 @@ export const draftDefinitions = [
   draftPublish,
   draftList,
   draftGet,
+  draftFiles,
 ] as const;

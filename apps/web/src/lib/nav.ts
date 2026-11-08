@@ -1,14 +1,21 @@
 // Navigation from system.describe: the system's functions in sections, each
 // with the pages the caller can use. A section with no pages is left out
 // (decision 0033). Phase 1b adds Activity, Access and Settings; phase 2
-// adds Inbox, Automation and Config.
+// adds Inbox and Config (P2.10), and Automation with workflows.
 import type { SystemDescription } from "./api.ts";
 
-export type SectionKey = "data" | "activity" | "access" | "settings";
+export type SectionKey =
+  | "data"
+  | "inbox"
+  | "activity"
+  | "access"
+  | "config"
+  | "settings";
 
 /** Where a page lives. Each section adds its own routes. */
 export type NavLink =
   | { to: "/o/$object"; params: { object: string } }
+  | { to: "/inbox/approvals" }
   | { to: "/activity/actions" }
   | { to: "/activity/changes" }
   | { to: "/activity/events" }
@@ -16,6 +23,7 @@ export type NavLink =
   | { to: "/access/agents" }
   | { to: "/access/integrations" }
   | { to: "/access/roles" }
+  | { to: "/config/drafts" }
   | { to: "/settings/reference" }
   | { to: "/settings/api" };
 
@@ -59,6 +67,22 @@ const sections: {
           `Every ${object.label.toLowerCase()} in the system.`,
         link: { to: "/o/$object", params: { object: object.name } },
       })),
+  },
+  {
+    key: "inbox",
+    label: "Inbox",
+    pages: (description) =>
+      has(description, "approval.list")
+        ? [
+            {
+              key: "inbox:approvals",
+              label: "Approvals",
+              description:
+                "Actions and config drafts waiting for someone to sign them off.",
+              link: { to: "/inbox/approvals" },
+            },
+          ]
+        : [],
   },
   {
     key: "activity",
@@ -144,6 +168,22 @@ const sections: {
       ]
         .filter(({ query }) => has(description, query))
         .map(({ page }) => page as NavPage),
+  },
+  {
+    key: "config",
+    label: "Config",
+    pages: (description) =>
+      has(description, "draft.list")
+        ? [
+            {
+              key: "config:drafts",
+              label: "Drafts",
+              description:
+                "Change choices, roles and other config in a draft, then publish it.",
+              link: { to: "/config/drafts" },
+            },
+          ]
+        : [],
   },
   {
     key: "settings",
