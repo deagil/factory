@@ -36,6 +36,13 @@
       "when": 1794049662185,
       "tag": "0004_p1_10_sign_in",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794141899778,
+      "tag": "0005_p2_05_config_loader_and_config_versions",
+      "breakpoints": true
     }
   ]
 }
