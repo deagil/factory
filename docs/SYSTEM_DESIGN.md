@@ -344,7 +344,7 @@ A rule names an action, with conditions on its input (`input.…`) or its record
 
 Whoever asked for approval, or the person their agent acts for, can withdraw the request, and `approval.check` says beforehand whether an action or a draft needs sign-off and from whom (decision 0044).
 
-In the web surface, Config → Drafts edits choice lists and roles as forms and shows a draft's changes in plain English ("Adds the option “Negotiation”", "Can now archive deal"); a save sends the file's value and the server writes the YAML (`draft.save` with `value`, read back with `draft.files`). Other types are edited as YAML through the API for now.
+In the web surface, a pill in the header shows the caller's unpublished edits, or that they wait for approval, with Undo, Publish (or "Request approval from …") and Discard; Config → Drafts edits choice lists and roles as forms and shows a draft's changes in plain English ("Adds the option “Negotiation”", "Can now archive deal"); a save sends the file's value and the server writes the YAML (`draft.save` with `value`, read back with `draft.files`). Other types are edited as YAML through the API for now.
 
 The config service uses plain git (clone, branch, commit, push, fetch) against any remote, so it is not tied to GitHub. Publishing refuses a draft whose files production changed since it began, and the copy to main is skipped, not forced, when main changed them (decision 0041).
 
@@ -497,7 +497,7 @@ The web app has no data access of its own: every screen calls the HTTP API as th
 | Inbox | Approvals: each pending action or draft, what it would do, who asked, and Approve and Reject |
 | Activity | The action log (each action's input, result, changes and events), every change across records, and the event log |
 | Access | Users (invite, roles, disable), agents, integrations and their keys, and roles |
-| Config | Drafts: start one, edit choice lists and roles, see its changes in plain English, publish (or request approval), withdraw and discard |
+| Config | Drafts: edit choice lists and roles into your working draft, review a draft's changes in plain English, publish (or request approval), withdraw and discard. The header's draft pill shows your unpublished edits |
 | Settings | Reference (the system as `system.describe` gives it to you) and API & MCP |
 
 The account menu has My agents, where staff connect an MCP client with a key of their own. The run inspector joins these sections with workflows.

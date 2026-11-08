@@ -364,6 +364,7 @@ const ShellHeader = ({
   sections,
   currentSection,
   user,
+  status,
   navPending,
   navError,
   onSignOut,
@@ -378,6 +379,7 @@ const ShellHeader = ({
   sections: NavSection[];
   currentSection: SectionKey | null;
   user: { name: string; email: string };
+  status: ReactNode;
   navPending: boolean;
   navError: string | null;
   onSignOut: () => void;
@@ -421,6 +423,7 @@ const ShellHeader = ({
           pending={navPending}
           error={navError}
         />
+        {status}
         <AccountMenu
           name={user.name}
           email={user.email}
@@ -450,6 +453,7 @@ export const AppShell = ({
   user,
   sections,
   currentSection,
+  status,
   navPending = false,
   navError = null,
   onSignOut,
@@ -457,6 +461,8 @@ export const AppShell = ({
 }: {
   user: { name: string; email: string };
   sections: NavSection[];
+  /** Shown before the account menu, such as the caller's draft (P2.10b). */
+  status?: ReactNode;
   currentSection: SectionKey | null;
   navPending?: boolean;
   navError?: string | null;
@@ -673,6 +679,7 @@ export const AppShell = ({
             sections={sections}
             currentSection={currentSection}
             user={user}
+            status={status}
             navPending={navPending}
             navError={navError}
             onSignOut={onSignOut}

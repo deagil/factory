@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 
 import { AppShell } from "../components/app-shell.tsx";
+import { DraftPill } from "../components/working-draft.tsx";
 import { describeSystem } from "../lib/api.ts";
 import { sessionQuery, signOut } from "../lib/auth.ts";
 import { navFrom } from "../lib/nav.ts";
@@ -38,6 +39,7 @@ const Shell = () => {
     <AppShell
       user={{ name: session.user.name, email: session.user.email }}
       onSignOut={leave}
+      status={<DraftPill />}
       sections={described.data ? navFrom(described.data) : []}
       currentSection={currentSection}
       navPending={described.isPending}
