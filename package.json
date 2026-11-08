@@ -16,6 +16,7 @@
     "db:migrate": "pnpm --filter @workspace/db db:migrate",
     "db:lint-migrations": "pnpm -r --workspace-concurrency=1 --if-present run db:lint-migrations",
     "db:check-migrations": "pnpm -r --workspace-concurrency=1 --if-present run db:check-migrations",
+    "config:validate": "pnpm -r --workspace-concurrency=1 --if-present run config:validate",
     "db:studio": "pnpm --filter @workspace/example-crm db:studio",
     "fx": "node tools/fx/src/cli.ts"
   },

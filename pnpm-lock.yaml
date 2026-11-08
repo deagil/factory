@@ -440,6 +440,9 @@ importers:
       '@workspace/auth':
         specifier: workspace:*
         version: link:../auth
+      '@workspace/config':
+        specifier: workspace:*
+        version: link:../config
       '@workspace/db':
         specifier: workspace:*
         version: link:../db

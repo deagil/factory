@@ -22,3 +22,5 @@ export type { ConfigFile, ConfigProblem, ConfigRead } from "./read.ts";
 export { roleConfigType, roleReferences } from "./roles.ts";
 
 export { coreConfigTypes } from "./core-types.ts";
+export { checkReferences, validateConfig } from "./validate.ts";
+export type { ConfigCatalog } from "./validate.ts";
