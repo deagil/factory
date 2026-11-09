@@ -30,7 +30,6 @@
 // actor and the caller its origin user (AGENTS.md rule 13). Approvals come
 // with P2.21.
 import { randomUUID } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
 import { isDeepStrictEqual } from "node:util";
 
 import { failures, runExternalStep, runInternalStep } from "@workspace/actions";
@@ -1656,8 +1655,11 @@ export const createRunner = ({
   ): Promise<WorkflowResult> => {
     await start();
     const { runId } = args;
-    const paused = Promise.withResolvers<"running" | "waiting">();
-    waiters.set(runId, paused.resolve);
+    // The pause resolves this from the segment, so the caller can return.
+    // oxlint-disable-next-line promise/avoid-new -- a deferred, resolved elsewhere
+    const paused = new Promise<"running" | "waiting">((resolve) => {
+      waiters.set(runId, resolve);
+    });
     const handle = await startDurable(id, args);
     const finished = (handle.getResult() as Promise<WorkflowResult>).finally(
       () => {
@@ -1666,17 +1668,18 @@ export const createRunner = ({
     );
     // A stop while it waits rejects this; the next start picks the run up.
     finished.catch(() => null);
-    const controller = new AbortController();
-    const timeout = delay(durable?.waitMs ?? 10_000, "running" as const, {
-      signal: controller.signal,
-    }).catch(() => "running" as const);
+    let timer: NodeJS.Timeout | undefined;
+    // oxlint-disable-next-line promise/avoid-new -- raced against the run
+    const timeout = new Promise<"running">((resolve) => {
+      timer = setTimeout(() => resolve("running"), durable?.waitMs ?? 10_000);
+    });
     try {
-      const first = await Promise.race([finished, paused.promise, timeout]);
+      const first = await Promise.race([finished, paused, timeout]);
       return typeof first === "string"
         ? { ok: true, runId, pending: true, status: first }
         : first;
     } finally {
-      controller.abort();
+      clearTimeout(timer);
       waiters.delete(runId);
     }
   };
