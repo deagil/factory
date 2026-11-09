@@ -23,5 +23,6 @@ The schema check (SYSTEM_DESIGN section 6, Guardrails) runs at start-up and in C
 
 ## Consequences
 
-- Removing an object is two steps, like a column: first a contract step drops its table, then the code goes. A table the code no longer defines fails the check.
+- Removing a column is two deploys. The code stops using it first, which the check allows and lists, and a later contract step drops it.
+- Removing an object cannot be split that way. A table the code still defines and the database lacks fails the check, and so does a table the code no longer defines. The contract step that drops the table and the code that stops defining the object land in the same change.
 - A raw table for something outside the core, such as a reporting table, needs `defineObject` or its own schema.

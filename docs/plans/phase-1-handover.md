@@ -1,6 +1,8 @@
 # Phase 1 handover
 
-Written 2026-11-06, after P1.05a ([#25](https://github.com/deagil/factory/pull/25)). It's for whoever picks up phase 1 next, person or agent. The plan ([phase-1.md](phase-1.md)) is still the source of truth for tasks; this note covers what the plan's log doesn't put in one place: the shape of the code so far, how the work has been run, and the traps.
+**Historical.** Written 2026-11-06, after P1.05a ([#25](https://github.com/deagil/factory/pull/25)), while phase 1 was still open. Phases 1 and 1b are done. Current work is phase 2: start from its **Resume here** and [AGENTS.md](../../AGENTS.md). The notes below describe the code as it was then, including "the next task is P1.06" and packages that were still placeholders. They are not the current state.
+
+This note records what the plan's log doesn't put in one place: the shape of the code so far, how the work was run, and the traps. The plan ([phase-1.md](phase-1.md)) stays the record of the tasks.
 
 ## Where things stand
 
