@@ -10,6 +10,7 @@ const action = {
   emits: {
     "deal.closed": z.object({ dealId: z.string(), at: z.coerce.date() }),
   },
+  errors: {},
 };
 
 describe("the action context", () => {

@@ -10,6 +10,7 @@ const moved = z.object({ contactId: z.string() });
 const action = (name: string, emits: EventSchemas = {}) =>
   defineAction({
     name,
+    kind: "internal",
     description: `The ${name} action`,
     input: z.object({ id: z.string() }),
     output: z.object({}),

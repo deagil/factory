@@ -71,7 +71,7 @@ describe("HTTP API", () => {
   it("reaches every registered action and query", async () => {
     const routes = await Promise.all(
       registry.list().map(async (definition) => {
-        const kind = definition.kind === "action" ? "actions" : "queries";
+        const kind = definition.kind === "query" ? "queries" : "actions";
         const { body } = await send("POST", `/${kind}/${definition.name}`, {});
         return body.error?.message.startsWith("Nothing at") ?? false;
       })

@@ -71,7 +71,7 @@ export const seed = async (
   const run = async (name: string, input: unknown) => {
     const definition = system.registry.get(name);
     const result =
-      definition?.kind === "action"
+      definition && definition.kind !== "query"
         ? await pipeline.run(definition, input, admin, {
             retryKey: `seed:${name}:${JSON.stringify(input)}`,
           })

@@ -15,7 +15,12 @@ import type {
 import type { z } from "zod";
 
 import type { ApprovalRule, SignOff } from "./approval-rules.ts";
-import type { ActionError, ActionFailure, ErrorHelpers } from "./errors.ts";
+import type {
+  ActionError,
+  ActionFailure,
+  DeclaredError,
+  ErrorHelpers,
+} from "./errors.ts";
 import type { Granted, Role } from "./permissions.ts";
 
 /** Time, from the context, so tests and dry runs control it. */
@@ -260,9 +265,31 @@ export interface QueryContext extends ErrorHelpers {
   readonly signOffs?: (action: string, input: unknown) => Promise<SignOff[]>;
 }
 
+/**
+ * The two kinds of action (decision 0045). An internal one touches only our
+ * own database, so a rollback undoes it; it gets the segment's repository.
+ * An external one reaches another system, which a rollback can't undo; it
+ * runs outside the transaction, with a retry key.
+ */
+export const actionKinds = ["internal", "external"] as const;
+export type ActionKind = (typeof actionKinds)[number];
+
+/** An action's own error codes, each with its plain-English message. */
+export type ErrorMessages = Record<string, string>;
+
+/** No declared errors: `fail` takes nothing. */
+export type NoErrors = Record<never, never>;
+
+/** Fails with one of the action's declared codes, with its message or `message`. */
+export type Fail<TErrors extends ErrorMessages> = (
+  code: keyof TErrors & string,
+  message?: string
+) => ActionFailure<DeclaredError>;
+
 /** What an action handler gets: a query's context, plus writes and events. */
 export interface ActionContext<
   TEmits extends EventSchemas = EventSchemas,
+  TErrors extends ErrorMessages = ErrorMessages,
 > extends QueryContext {
   readonly repo: Repository;
   /** Actors and API keys, for the core's identity actions. */
@@ -283,7 +310,37 @@ export interface ActionContext<
    * grants, mints or revokes authority they don't hold.
    */
   readonly grantsBeyond: (roles: readonly string[]) => string | null;
+  /** Fails with one of the action's declared `errors`. */
+  readonly fail: Fail<TErrors>;
 }
+
+/**
+ * What an external action's handler gets: no repository and no reads, since
+ * it runs outside the segment's transaction, but the step's retry key to
+ * send so a retried step acts once (decision 0046).
+ */
+export interface ExternalContext<
+  TErrors extends ErrorMessages = ErrorMessages,
+> extends ErrorHelpers {
+  /** The run id and the step id: the same on every attempt of this step. */
+  readonly retryKey: string;
+  readonly config: ConfigService;
+  readonly clock: Clock;
+  readonly actor: Actor;
+  readonly originUserId: string | null;
+  /** In a dry run or an example case, reach nothing: return what would happen. */
+  readonly dryRun: boolean;
+  readonly fail: Fail<TErrors>;
+}
+
+/** The context an action of `TKind` gets. */
+export type ContextFor<
+  TKind extends ActionKind,
+  TEmits extends EventSchemas,
+  TErrors extends ErrorMessages,
+> = TKind extends "external"
+  ? ExternalContext<TErrors>
+  : ActionContext<TEmits, TErrors>;
 
 /** Inputs and outputs are objects, so every surface can carry them as JSON. */
 export type ObjectSchema = z.ZodObject;
@@ -291,22 +348,31 @@ export type ObjectSchema = z.ZodObject;
 /** What a handler returns, now or as a promise: the output, or a typed error. */
 export type HandlerResult<TOutput extends ObjectSchema> =
   | z.input<TOutput>
-  | ActionFailure;
+  | ActionFailure<ActionError | DeclaredError>;
 
 export interface ActionOptions<
   TName extends string,
   TInput extends ObjectSchema,
   TOutput extends ObjectSchema,
   TEmits extends EventSchemas,
+  TErrors extends ErrorMessages = NoErrors,
+  TKind extends ActionKind = ActionKind,
 > {
-  /** `<object>.<verb>`, such as `deal.moveStage`. */
+  /** snake_case, such as `deal_update`; phase 1's `deal.moveStage` until P2.26. */
   name: TName;
+  /** `internal` (our database only) or `external` (another system). */
+  kind: TKind;
   /** What it does, for people and agents. Surfaces show it. */
   description: string;
   input: TInput;
   output: TOutput;
   /** The events it may emit, past tense, such as `deal.stageChanged`. */
   emits?: TEmits;
+  /**
+   * Its own error codes and their messages, such as
+   * `{ not_yours: "This record isn't yours." }`, for `ctx.fail`.
+   */
+  errors?: TErrors;
   /**
    * Output keys whose values are secrets, such as a new API key. The caller
    * gets them once; action_log stores "[redacted]".
@@ -318,7 +384,7 @@ export interface ActionOptions<
    */
   everyone?: boolean;
   handler: (
-    ctx: ActionContext<TEmits>,
+    ctx: ContextFor<TKind, TEmits, TErrors>,
     input: z.output<TInput>
   ) => HandlerResult<TOutput> | Promise<HandlerResult<TOutput>>;
 }
@@ -344,14 +410,16 @@ export interface QueryOptions<
   ) => HandlerResult<TOutput> | Promise<HandlerResult<TOutput>>;
 }
 
-export interface ActionDefinition<
+export type ActionDefinition<
   TName extends string = string,
   TInput extends ObjectSchema = ObjectSchema,
   TOutput extends ObjectSchema = ObjectSchema,
   TEmits extends EventSchemas = EventSchemas,
-> extends Required<ActionOptions<TName, TInput, TOutput, TEmits>> {
-  readonly kind: "action";
-}
+  TErrors extends ErrorMessages = ErrorMessages,
+  TKind extends ActionKind = ActionKind,
+> = Readonly<
+  Required<ActionOptions<TName, TInput, TOutput, TEmits, TErrors, TKind>>
+>;
 
 export interface QueryDefinition<
   TName extends string = string,
@@ -365,12 +433,13 @@ export interface QueryDefinition<
    handlers take any context and input, so every definition fits them. */
 /** Any action. */
 export interface AnyActionDefinition {
-  readonly kind: "action";
+  readonly kind: ActionKind;
   readonly name: string;
   readonly description: string;
   readonly input: ObjectSchema;
   readonly output: ObjectSchema;
   readonly emits: EventSchemas;
+  readonly errors: Readonly<ErrorMessages>;
   readonly redact: readonly string[];
   readonly everyone?: boolean;
   readonly handler: (ctx: any, input: any) => unknown;
@@ -401,6 +470,40 @@ export type AnyDefinition = AnyActionDefinition | AnyQueryDefinition;
 export const namePattern =
   /^(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)*|[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*)$/u;
 
+/** Codes the core's own errors use, which an action can't declare, and their helpers. */
+const builtInCodes: Record<string, string> = {
+  validation: "ctx.invalid",
+  permission: "ctx.forbidden",
+  approval_required: "ctx.needsApproval",
+  conflict: "ctx.conflict",
+  not_found: "ctx.notFound",
+  internal: "a thrown error",
+};
+
+/** `defineAction("deal_update")`, for messages. */
+const labelOf = (kind: string, name: string) => `${kind}("${name}")`;
+
+const checkErrors = (name: string, errors: ErrorMessages) => {
+  const label = labelOf("defineAction", name);
+  for (const [code, message] of Object.entries(errors)) {
+    if (!/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u.test(code)) {
+      throw new Error(
+        `${label}: the error "${code}" must be snake_case, such as "reason_required"`
+      );
+    }
+    if (Object.hasOwn(builtInCodes, code)) {
+      throw new Error(
+        `${label}: "${code}" is a built-in error; use ${builtInCodes[code]} instead`
+      );
+    }
+    if (message.trim() === "") {
+      throw new Error(
+        `${label}: the error "${code}" needs a message people can read`
+      );
+    }
+  }
+};
+
 const check = (
   kind: "defineAction" | "defineQuery",
   options: { name: string; description: string; emits?: EventSchemas }
@@ -425,23 +528,38 @@ const check = (
   }
 };
 
-/** Defines an action: the only way to change data (AGENTS.md rule 1). */
+/**
+ * Defines an action: typed code a workflow step runs, internal or external
+ * (decision 0045). The only way to change data (AGENTS.md rule 1).
+ */
 export const defineAction = <
   const TName extends string,
   TInput extends ObjectSchema,
   TOutput extends ObjectSchema,
   TEmits extends EventSchemas = NoEvents,
+  const TErrors extends ErrorMessages = NoErrors,
+  const TKind extends ActionKind = ActionKind,
 >(
-  options: ActionOptions<TName, TInput, TOutput, TEmits>
-): ActionDefinition<TName, TInput, TOutput, TEmits> => {
+  options: ActionOptions<TName, TInput, TOutput, TEmits, TErrors, TKind>
+): ActionDefinition<TName, TInput, TOutput, TEmits, TErrors, TKind> => {
   check("defineAction", options);
+  checkErrors(options.name, options.errors ?? {});
+  if (
+    options.kind === "external" &&
+    Object.keys(options.emits ?? {}).length > 0
+  ) {
+    throw new Error(
+      `${labelOf("defineAction", options.name)}: an external action can't emit events; a workflow's emit step does that`
+    );
+  }
   return Object.freeze({
-    kind: "action",
+    kind: options.kind,
     name: options.name,
     description: options.description,
     input: options.input,
     output: options.output,
     emits: Object.freeze({ ...options.emits }) as TEmits,
+    errors: Object.freeze({ ...options.errors }) as TErrors,
     redact: Object.freeze([...(options.redact ?? [])]),
     everyone: options.everyone ?? false,
     handler: options.handler,

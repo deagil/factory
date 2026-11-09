@@ -66,7 +66,7 @@ export const catalogOf = (
   ),
   events: new Set(
     definitions.flatMap((definition) =>
-      definition.kind === "action" ? Object.keys(definition.emits) : []
+      definition.kind === "query" ? [] : Object.keys(definition.emits)
     )
   ),
   choiceLists: choiceListsOf(objects),

@@ -42,15 +42,15 @@ export const createRegistry = (
     const taken = byName.get(definition.name);
     if (taken) {
       const kinds =
-        taken.kind === definition.kind
-          ? `two ${definition.kind === "action" ? "actions" : "queries"}`
+        (taken.kind === "query") === (definition.kind === "query")
+          ? `two ${definition.kind === "query" ? "queries" : "actions"}`
           : "an action and a query";
       throw new Error(
         `"${definition.name}" is registered twice, as ${kinds}. Names must be unique across actions and queries.`
       );
     }
     byName.set(definition.name, definition);
-    if (definition.kind !== "action") {
+    if (definition.kind === "query") {
       continue;
     }
     for (const [type, schema] of Object.entries(definition.emits)) {
@@ -72,7 +72,7 @@ export const createRegistry = (
   return Object.freeze({
     list: () => [...all],
     actions: () =>
-      all.filter((d): d is AnyActionDefinition => d.kind === "action"),
+      all.filter((d): d is AnyActionDefinition => d.kind !== "query"),
     queries: () =>
       all.filter((d): d is AnyQueryDefinition => d.kind === "query"),
     get: (name: string) => byName.get(name),

@@ -76,7 +76,7 @@ const must = async (
   caller: Caller
 ) => {
   const definition = registry.get(name);
-  if (definition?.kind !== "action") {
+  if (!definition || definition.kind === "query") {
     throw new Error(`No action ${name}`);
   }
   const result = await pipeline.run(definition, input, caller);

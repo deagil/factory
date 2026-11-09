@@ -17,6 +17,7 @@ const input = deal.schemas.create as unknown as z.ZodObject &
 
 export const createDeal = defineAction({
   name: "deal_create",
+  kind: "internal",
   description:
     "Create a deal. It starts in an open stage; move it on with deal.moveStage.",
   input,

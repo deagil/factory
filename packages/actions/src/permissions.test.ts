@@ -83,9 +83,9 @@ describe("roles and permissions", () => {
     if (!definition) {
       throw new Error(`No ${name}`);
     }
-    return definition.kind === "action"
-      ? pipeline.run(definition, input, caller)
-      : pipeline.query(definition, input, caller);
+    return definition.kind === "query"
+      ? pipeline.query(definition, input, caller)
+      : pipeline.run(definition, input, caller);
   };
 
   beforeAll(async () => {

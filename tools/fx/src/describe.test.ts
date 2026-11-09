@@ -41,6 +41,22 @@ describe("fx describe", () => {
   );
 
   it(
+    "shows each action's kind, and the actions workflow steps run",
+    { timeout: 30_000 },
+    async () => {
+      const contact = formatDescribe(await describeSystem(repoRoot, "contact"));
+      const check = formatDescribe(
+        await describeSystem(repoRoot, "record_in_state")
+      );
+      expect(contact).toMatch(/contact_update \(internal\)/u);
+      expect(contact).toMatch(/Step actions[\s\S]*contact_get \(internal\)/u);
+      expect(check).toContain(
+        "wrong_state: The record isn't in the expected state."
+      );
+    }
+  );
+
+  it(
     "shows one action's schemas, and refuses an unknown name",
     { timeout: 30_000 },
     async () => {

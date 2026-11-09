@@ -9,6 +9,7 @@ import { deal } from "./objects.ts";
 
 export const moveStage = defineAction({
   name: "deal.moveStage",
+  kind: "internal",
   description:
     "Move a deal to another stage. The only way to change a deal's stage. A lost stage needs a reason.",
   input: z.strictObject({

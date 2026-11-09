@@ -16,8 +16,10 @@ import {
   identityQueries,
   logQueries,
   objectEndpoints,
+  stepActions,
 } from "@workspace/actions";
 import type {
+  AnyActionDefinition,
   AnyDefinition,
   ObjectEndpoint,
   Registry,
@@ -43,8 +45,13 @@ export interface SystemOptions {
   /** The system's name, such as `acme-crm`. */
   name: string;
   objects: readonly AnyObjectDefinition[];
-  /** Hand-written actions and queries. */
+  /** Hand-written actions and queries, on /actions and /queries until P2.26. */
   actions?: readonly AnyDefinition[];
+  /**
+   * Actions of the system's own for workflow steps (P2.15), beside each
+   * object's record actions and the ready-made checks. Never on a surface.
+   */
+  stepActions?: readonly AnyActionDefinition[];
   /**
    * The system's migrations folder, absolute, which `fx ship` writes from
    * its objects. Applied after the core's (decision 0036).
@@ -62,6 +69,8 @@ export interface System {
   readonly objects: readonly AnyObjectDefinition[];
   /** Every action and query, generated and hand-written. */
   readonly registry: Registry;
+  /** The actions workflow steps run, by name. None is on a surface. */
+  readonly stepActions: ReadonlyMap<string, AnyActionDefinition>;
   /** Each object's REST endpoints (decision 0045). */
   readonly endpoints: readonly ObjectEndpoint[];
   /** The system's migrations folder, if it has one. */
@@ -122,10 +131,23 @@ export const defineSystem = (options: SystemOptions): System => {
     }),
   ]);
   built.catalog = catalogOf(options.objects, registry.list());
+  const steps = new Map<string, AnyActionDefinition>();
+  for (const action of [
+    ...stepActions(options.objects),
+    ...(options.stepActions ?? []),
+  ]) {
+    if (steps.has(action.name)) {
+      throw new Error(
+        `The step action "${action.name}" is defined twice. Names must be unique.`
+      );
+    }
+    steps.set(action.name, action);
+  }
   return Object.freeze({
     name: options.name,
     objects: options.objects,
     registry,
+    stepActions: steps,
     endpoints: options.objects.flatMap((object) => objectEndpoints(object)),
     migrations: options.migrations,
     config: options.config,
@@ -140,6 +162,7 @@ export const defineSystem = (options: SystemOptions): System => {
         {
           objects: options.objects,
           definitions: registry.list(),
+          stepActions: [...steps.values()],
           choices: choiceOptions(options.config),
         },
         allGranted

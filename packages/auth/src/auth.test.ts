@@ -11,6 +11,7 @@ import type { Auth } from "./auth.ts";
 
 const touch = defineAction({
   name: "test.touch",
+  kind: "internal",
   description: "Does nothing, as whoever calls it",
   input: z.object({}),
   output: z.object({}),

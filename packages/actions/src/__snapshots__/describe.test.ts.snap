@@ -8,6 +8,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "organisation_created",
       ],
+      "errors": {},
       "input": {
         "$defs": {
           "__schema0": {
@@ -94,6 +95,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "organisation_create",
       "output": {
         "additionalProperties": false,
@@ -196,6 +198,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "organisation_updated",
       ],
+      "errors": {},
       "input": {
         "$defs": {
           "__schema0": {
@@ -292,6 +295,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "organisation_update",
       "output": {
         "additionalProperties": false,
@@ -394,6 +398,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "organisation_archived",
       ],
+      "errors": {},
       "input": {
         "additionalProperties": false,
         "properties": {
@@ -408,6 +413,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "organisation_archive",
       "output": {
         "additionalProperties": false,
@@ -510,6 +516,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "organisation_restored",
       ],
+      "errors": {},
       "input": {
         "additionalProperties": false,
         "properties": {
@@ -524,6 +531,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "organisation_restore",
       "output": {
         "additionalProperties": false,
@@ -626,6 +634,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "contact_created",
       ],
+      "errors": {},
       "input": {
         "additionalProperties": false,
         "properties": {
@@ -699,6 +708,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "contact_create",
       "output": {
         "additionalProperties": false,
@@ -822,6 +832,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "contact_updated",
       ],
+      "errors": {},
       "input": {
         "additionalProperties": false,
         "properties": {
@@ -903,6 +914,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "contact_update",
       "output": {
         "additionalProperties": false,
@@ -1026,6 +1038,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "contact_archived",
       ],
+      "errors": {},
       "input": {
         "additionalProperties": false,
         "properties": {
@@ -1040,6 +1053,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "contact_archive",
       "output": {
         "additionalProperties": false,
@@ -1163,6 +1177,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       "emits": [
         "contact_restored",
       ],
+      "errors": {},
       "input": {
         "additionalProperties": false,
         "properties": {
@@ -1177,6 +1192,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
+      "kind": "internal",
       "name": "contact_restore",
       "output": {
         "additionalProperties": false,
@@ -4337,12 +4353,28 @@ exports[`system.describe > describes everything to an admin 1`] = `
                   },
                   "type": "array",
                 },
+                "errors": {
+                  "additionalProperties": {
+                    "type": "string",
+                  },
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
                 "input": {
                   "additionalProperties": {},
                   "propertyNames": {
                     "type": "string",
                   },
                   "type": "object",
+                },
+                "kind": {
+                  "enum": [
+                    "internal",
+                    "external",
+                  ],
+                  "type": "string",
                 },
                 "name": {
                   "type": "string",
@@ -4360,7 +4392,9 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "description",
                 "input",
                 "output",
+                "kind",
                 "emits",
+                "errors",
               ],
               "type": "object",
             },
@@ -4633,6 +4667,66 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "description",
                 "input",
                 "output",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+          "stepActions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string",
+                },
+                "emits": {
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
+                "errors": {
+                  "additionalProperties": {
+                    "type": "string",
+                  },
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "input": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "kind": {
+                  "enum": [
+                    "internal",
+                    "external",
+                  ],
+                  "type": "string",
+                },
+                "name": {
+                  "type": "string",
+                },
+                "output": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+              },
+              "required": [
+                "name",
+                "description",
+                "input",
+                "output",
+                "kind",
+                "emits",
+                "errors",
               ],
               "type": "object",
             },

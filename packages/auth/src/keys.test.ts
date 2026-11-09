@@ -68,9 +68,9 @@ describe("API keys, agents and integrations", () => {
     if (!(definition && caller)) {
       throw new Error(`No ${name}, or no caller`);
     }
-    return definition.kind === "action"
-      ? pipeline.run(definition, input, caller)
-      : pipeline.query(definition, input, caller);
+    return definition.kind === "query"
+      ? pipeline.query(definition, input, caller)
+      : pipeline.run(definition, input, caller);
   };
 
   /** Runs a call that must succeed; returns its output. */

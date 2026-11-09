@@ -288,6 +288,61 @@ describe("example CRM", () => {
     });
   });
 
+  /** A request as the seeded agent, as an MCP client sends it. */
+  const asAgent = (url: string, init: RequestInit = {}) =>
+    server.app.request(url, {
+      ...init,
+      headers: {
+        ...bearer(seeded.agentKey),
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-06-18",
+      },
+    });
+
+  /** One MCP JSON-RPC call as the seeded agent. */
+  const rpc = async (method: string, params?: unknown) => {
+    const response = await asAgent("/mcp", {
+      method: "POST",
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    return (await response.json()) as {
+      result?: { tools?: { name: string }[]; isError?: boolean };
+      error?: { message: string };
+    };
+  };
+
+  it("keeps the actions workflow steps run off HTTP and MCP", async () => {
+    const hidden = [...crm.stepActions.keys()].filter(
+      (name) => !crm.registry.get(name)
+    );
+    const statuses = await Promise.all(
+      hidden.flatMap((name) => [
+        asAgent(`/actions/${name}`, { method: "POST", body: "{}" }),
+        asAgent(`/queries/${name}`, { method: "POST", body: "{}" }),
+      ])
+    );
+    const listed = await rpc("tools/list");
+    const called = await rpc("tools/call", {
+      name: "within_limit",
+      arguments: { value: 1, max: 2 },
+    });
+    expect(hidden).toStrictEqual(
+      expect.arrayContaining([
+        "record_belongs_to_caller",
+        "within_limit",
+        "record_in_state",
+      ])
+    );
+    expect(new Set(statuses.map((response) => response.status))).toStrictEqual(
+      new Set([404])
+    );
+    expect(
+      (listed.result?.tools ?? []).filter((tool) => hidden.includes(tool.name))
+    ).toStrictEqual([]);
+    expect(called.error ?? called.result?.isError).toBeTruthy();
+    expect(listed.result?.tools?.length).toBeGreaterThan(0);
+  });
+
   it("moves a contact only through contact.moveToOrganisation", async () => {
     const [from, to] = await Promise.all([
       call("organisation_create", { name: "From" }),
@@ -334,7 +389,7 @@ describe("example CRM", () => {
       });
     const run = (name: string, input: unknown) => {
       const action = crm.registry.get(name);
-      return action?.kind === "action"
+      return action && action.kind !== "query"
         ? server.pipeline.run(action, input, caller)
         : Promise.reject(new Error(name));
     };

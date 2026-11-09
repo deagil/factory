@@ -11,7 +11,7 @@ import { errorBodySchema, statusFor } from "./errors.ts";
 import type { ApiError } from "./errors.ts";
 
 export const pathOf = (definition: AnyDefinition) =>
-  `/${definition.kind === "action" ? "actions" : "queries"}/${definition.name}`;
+  `/${definition.kind === "query" ? "queries" : "actions"}/${definition.name}`;
 
 /** Schemas hoisted out of each JSON Schema's `$defs`, by name. */
 type Components = Record<string, unknown>;
@@ -72,7 +72,7 @@ const actionResult = (output: z.ZodType) =>
   });
 
 const operation = (definition: AnyDefinition, components: Components) => {
-  const isAction = definition.kind === "action";
+  const isAction = definition.kind !== "query";
   const success = isAction
     ? actionResult(definition.output)
     : z.object({ output: definition.output });
@@ -85,7 +85,7 @@ const operation = (definition: AnyDefinition, components: Components) => {
     ...(isAction ? (["conflict", "approval_required"] as const) : []),
   ];
   return {
-    operationId: `${definition.kind === "action" ? "actions" : "queries"}.${definition.name}`,
+    operationId: `${definition.kind === "query" ? "queries" : "actions"}.${definition.name}`,
     description: definition.description,
     parameters: [
       { $ref: "#/components/parameters/RequestId" },
@@ -251,12 +251,12 @@ export const openApiDocument = (
     ...Object.entries(rest),
     ...registry.list().map((definition) => [
       pathOf(definition),
-      definition.kind === "action"
-        ? { post: operation(definition, schemas) }
-        : {
+      definition.kind === "query"
+        ? {
             post: operation(definition, schemas),
             get: getOperation(definition, schemas),
-          },
+          }
+        : { post: operation(definition, schemas) },
     ]),
   ]);
   return {

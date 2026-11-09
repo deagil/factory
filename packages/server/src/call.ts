@@ -13,6 +13,6 @@ export const callDefinition = (
   caller: Caller,
   options: RunOptions = {}
 ) =>
-  definition.kind === "action"
-    ? pipeline.run(definition, input, caller, options)
-    : pipeline.query(definition, input, caller);
+  definition.kind === "query"
+    ? pipeline.query(definition, input, caller)
+    : pipeline.run(definition, input, caller, options);

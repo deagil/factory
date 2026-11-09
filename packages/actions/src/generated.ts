@@ -32,7 +32,7 @@ const related = z.record(z.string(), z.record(z.string(), z.unknown()));
 const customFieldsInput = z.record(z.string(), z.json());
 
 /** The schemas an object's generated definitions share. */
-const schemasOf = (object: AnyObjectDefinition) => {
+export const schemasOf = (object: AnyObjectDefinition) => {
   const full = object.schemas.record as ObjectSchema;
   // What a caller gets back leaves out fields its role can't read (P2.14),
   // so each field may be missing; events carry the whole record.
@@ -90,10 +90,11 @@ const unreadableIn = (
   );
 };
 
-const createAction = (object: AnyObjectDefinition) => {
+export const createAction = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   return defineAction({
     name: `${object.name}_create`,
+    kind: "internal",
     description: `Create a ${object.label.toLowerCase()}`,
     input: schemas.create,
     output: schemas.output,
@@ -110,7 +111,7 @@ const createAction = (object: AnyObjectDefinition) => {
   });
 };
 
-const updateAction = (object: AnyObjectDefinition) => {
+export const updateAction = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   const updated = z.object({
     record: schemas.event.shape.record,
@@ -119,6 +120,7 @@ const updateAction = (object: AnyObjectDefinition) => {
   });
   return defineAction({
     name: `${object.name}_update`,
+    kind: "internal",
     description: `Change fields on a ${object.label.toLowerCase()}`,
     input: schemas.update,
     output: schemas.output,
@@ -166,10 +168,11 @@ const updateAction = (object: AnyObjectDefinition) => {
   });
 };
 
-const archiveAction = (object: AnyObjectDefinition) => {
+export const archiveAction = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   return defineAction({
     name: `${object.name}_archive`,
+    kind: "internal",
     description: `Archive a ${object.label.toLowerCase()}. Archived records are hidden, not deleted.`,
     input: schemas.byId,
     output: schemas.output,
@@ -196,10 +199,11 @@ const archiveAction = (object: AnyObjectDefinition) => {
 };
 
 /** Undoes `.archive`; it comes with it and needs the same permission. */
-const restoreAction = (object: AnyObjectDefinition) => {
+export const restoreAction = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   return defineAction({
     name: `${object.name}_restore`,
+    kind: "internal",
     description: `Restore an archived ${object.label.toLowerCase()}, so it shows in lists again.`,
     input: schemas.byId,
     output: schemas.output,

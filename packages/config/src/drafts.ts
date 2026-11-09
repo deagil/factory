@@ -213,6 +213,7 @@ const recheck = async (ctx: Ctx, git: GitService, draft: DraftEntry) => {
 
 export const draftOpen = defineAction({
   name: "draft.open",
+  kind: "internal",
   description:
     "Open a new draft: a set of config changes made on a branch from production, published together. draft.save without an id saves into your working draft instead, opening one if you have none.",
   input: z.strictObject({ title: z.string().min(1).max(200) }),
@@ -240,6 +241,7 @@ export const draftMine = defineQuery({
 
 export const draftSave = defineAction({
   name: "draft.save",
+  kind: "internal",
   description:
     "Save one config file in a draft: its YAML as content, or its value as an object, which is written as YAML; content null deletes it. Without an id it saves into your working draft, opening one if you have none. Each save is one commit, and checks the draft's whole set of files against the running system. Saving a draft that waits for approval withdraws the request.",
   input: z
@@ -296,6 +298,7 @@ export const draftSave = defineAction({
 
 export const draftRevert = defineAction({
   name: "draft.revert",
+  kind: "internal",
   description:
     "Undo a draft's change to one file: it goes back to how it was when the draft began, so the draft no longer changes it. Withdraws a request for approval, like a save.",
   input: z.strictObject({ id: z.uuid(), path: configFile }),
@@ -330,6 +333,7 @@ export const draftRevert = defineAction({
 
 export const draftDiscard = defineAction({
   name: "draft.discard",
+  kind: "internal",
   description:
     "Throw a draft away: it's abandoned, its branch is deleted and any request for approval is withdrawn. Nothing it changed is published.",
   input: z.strictObject({ id: z.uuid() }),
@@ -353,6 +357,7 @@ export const draftDiscard = defineAction({
 
 export const draftPublish = defineAction({
   name: "draft.publish",
+  kind: "internal",
   description:
     "Publish a valid draft: its files go onto production as one commit, which is copied to main, and the running system loads it. When an approval rule covers its files, it asks the rule's approvers instead and the draft waits in awaiting_approval; the last approval publishes it, as you. A title names the published commit.",
   input: z.strictObject({

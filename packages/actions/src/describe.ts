@@ -9,8 +9,8 @@ import type {
 } from "@workspace/objects";
 import { z } from "zod";
 
-import { defineQuery } from "./define-action.ts";
-import type { AnyDefinition } from "./define-action.ts";
+import { actionKinds, defineQuery } from "./define-action.ts";
+import type { AnyActionDefinition, AnyDefinition } from "./define-action.ts";
 import { objectEndpoints } from "./generated.ts";
 import { everythingRole, grantedBy } from "./permissions.ts";
 import type { Granted, ObjectGrant } from "./permissions.ts";
@@ -62,6 +62,14 @@ const definitionSchema = z.object({
   output: jsonSchema,
 });
 
+const actionSchema = definitionSchema.extend({
+  /** `internal` or `external` (decision 0045). */
+  kind: z.enum(actionKinds),
+  emits: z.array(z.string()),
+  /** Its own error codes, with their messages. */
+  errors: z.record(z.string(), z.string()),
+});
+
 export const describeOutput = z.object({
   objects: z.array(
     z.object({
@@ -85,9 +93,14 @@ export const describeOutput = z.object({
       ),
     })
   ),
-  actions: z.array(definitionSchema.extend({ emits: z.array(z.string()) })),
+  actions: z.array(actionSchema),
   queries: z.array(definitionSchema),
   events: z.array(z.object({ type: z.string(), payload: jsonSchema })),
+  /**
+   * The actions workflow steps run (P2.15): never callable, so only a whole
+   * system's description, as `fx describe` shows it, lists them.
+   */
+  stepActions: z.array(actionSchema).optional(),
 });
 
 export type SystemDescription = z.infer<typeof describeOutput>;
@@ -160,8 +173,17 @@ const describeDefinition = (definition: AnyDefinition) => ({
   output: toJson(definition.output),
 });
 
+const describeAction = (action: AnyActionDefinition) => ({
+  ...describeDefinition(action),
+  kind: action.kind,
+  emits: Object.keys(action.emits),
+  errors: { ...action.errors },
+});
+
 export interface DescribeOptions {
   objects: readonly AnyObjectDefinition[];
+  /** The actions workflow steps run; left out of what callers are told. */
+  stepActions?: readonly AnyActionDefinition[];
   /** Every other definition in the system; `system.describe` adds itself. */
   definitions: readonly AnyDefinition[];
   /** Loaded choice lists, so a choice field can name its options (P2.07). */
@@ -176,13 +198,13 @@ export const allGranted: Granted = {
 
 /** What of `objects` and `definitions` a caller granted `granted` may use. */
 export const describeFor = (
-  { objects, definitions, choices }: DescribeOptions,
+  { objects, definitions, choices, stepActions }: DescribeOptions,
   granted: Granted
 ): SystemDescription => {
   const usable = definitions.filter(
     (definition) => granted.authorise(definition) === null
   );
-  const actions = usable.filter((definition) => definition.kind === "action");
+  const actions = usable.filter((definition) => definition.kind !== "query");
   const names = new Set(usable.map((definition) => definition.name));
   const events = new Map<string, z.ZodType>();
   for (const action of actions) {
@@ -214,10 +236,7 @@ export const describeFor = (
           .filter((endpoint) => names.has(endpoint.name))
           .map(({ method, path, name }) => ({ method, path, name })),
       })),
-    actions: actions.map((action) => ({
-      ...describeDefinition(action),
-      emits: Object.keys(action.emits),
-    })),
+    actions: actions.map(describeAction),
     queries: usable
       .filter((definition) => definition.kind === "query")
       .map(describeDefinition),
@@ -225,6 +244,7 @@ export const describeFor = (
       type,
       payload: toJson(payload),
     })),
+    ...(stepActions ? { stepActions: stepActions.map(describeAction) } : {}),
   };
 };
 

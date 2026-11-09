@@ -45,6 +45,17 @@ export interface NotFoundError {
   id: string;
 }
 
+/**
+ * An error an action declares itself (decision 0045), such as
+ * `reason_required`, with its plain-English message. `declared` tells it
+ * apart from the built-in errors, whose codes are fixed.
+ */
+export interface DeclaredError {
+  code: string;
+  message: string;
+  declared: true;
+}
+
 /** Every typed error, told apart by `code`. Plain JSON. */
 export type ActionError =
   | ValidationError
@@ -70,12 +81,14 @@ const failureBrand: unique symbol = Symbol("ActionFailure");
  * A typed error, as a handler returns it. The brand tells it apart from an
  * output that happens to look like an error.
  */
-export interface ActionFailure<TError extends ActionError = ActionError> {
+export interface ActionFailure<
+  TError extends ActionError | DeclaredError = ActionError,
+> {
   readonly [failureBrand]: true;
   readonly error: TError;
 }
 
-const fail = <TError extends ActionError>(
+const fail = <TError extends ActionError | DeclaredError>(
   error: TError
 ): ActionFailure<TError> =>
   Object.freeze({ [failureBrand]: true as const, error });
@@ -133,3 +146,16 @@ export const failures = {
 };
 
 export type ErrorHelpers = typeof failures;
+
+/** `ctx.fail` for an action declaring `errors`: one of its own codes. */
+export const declaredFailure =
+  (errors: Readonly<Record<string, string>>) =>
+  (code: string, message?: string): ActionFailure<DeclaredError> => {
+    const declared = errors[code];
+    if (declared === undefined) {
+      throw new Error(
+        `"${code}" isn't one of this action's errors. Declare it in errors.`
+      );
+    }
+    return fail({ code, message: message ?? declared, declared: true });
+  };
