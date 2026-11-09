@@ -410,7 +410,7 @@ export const createPipeline = ({
     runId: await writeRow(state, { status: "failed", error }),
   });
 
-  /** 3. Retry key: the earlier success with this key, if there is one. */
+  /** 4. Retry key: the earlier success with this key, if there is one. */
   const replay = async (state: RunState): Promise<ActionResult | null> => {
     const { retryKey, dryRun } = state.options;
     if (retryKey === undefined || dryRun) {
@@ -802,15 +802,15 @@ export const createPipeline = ({
     if (!parsed.success) {
       return fail(state, failures.invalidInput(parsed.error).error);
     }
-    // 3. Retry key.
-    const earlier = await replay(state);
-    if (earlier) {
-      return earlier;
-    }
-    // 4. Authorise.
+    // 3. Authorise, before a retry can hand back an earlier result.
     const denied = granted.authorise(action);
     if (denied) {
       return fail(state, denied.error);
+    }
+    // 4. Retry key.
+    const earlier = await replay(state);
+    if (earlier) {
+      return earlier;
     }
     // 5. Approve: a matching rule parks the action until it's decided.
     const signOffs = await signOffsNow(state, parsed.data, db);

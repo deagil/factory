@@ -125,6 +125,48 @@ describe("workflow endpoints (P2.18)", () => {
     });
   });
 
+  it("refuses a retry after the caller loses the workflow", async () => {
+    const { record } = await newDeal();
+    const made = await server.pipeline.run(
+      crm.registry.get("actor.createIntegration") as never,
+      { name: "Mover", roles: ["manager"] },
+      seeded.admin
+    );
+    const { actorId } = (made.ok ? made.output : {}) as { actorId: string };
+    const keyed = await server.pipeline.run(
+      crm.registry.get("apiKey.create") as never,
+      { actorId, label: "mover" },
+      seeded.admin
+    );
+    const { key } = (keyed.ok ? keyed.output : {}) as { key: string };
+    const input = { deal: record.id, stage: "won" };
+    const idem = { "idempotency-key": `lose-${record.id}` };
+    const first = await request(
+      "/workflows/deal_move_stage",
+      { method: "POST", body: JSON.stringify(input), headers: idem },
+      key
+    );
+    const changed = await server.pipeline.run(
+      crm.registry.get("actor.setRoles") as never,
+      { id: actorId, roles: ["sales"] },
+      seeded.admin
+    );
+    const second = await request(
+      "/workflows/deal_move_stage",
+      { method: "POST", body: JSON.stringify(input), headers: idem },
+      key
+    );
+    const body = (await second.json()) as {
+      replayed?: boolean;
+      error?: { code: string };
+    };
+    expect(first.status).toBe(200);
+    expect(changed.ok).toBeTruthy();
+    expect(second.status).toBe(403);
+    expect(body).toMatchObject({ error: { code: "permission" } });
+    expect(body.replayed).toBeUndefined();
+  });
+
   it("replays a retry key, and refuses one used for a different call", async () => {
     const { record } = await newDeal();
     const key = { "idempotency-key": `move-${record.id}` };

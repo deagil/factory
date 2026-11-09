@@ -1,4 +1,5 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { listDatabases, withAdmin } from "@workspace/testing/databases";
@@ -36,6 +37,23 @@ const squashMerge = (repo: string, branch: string) => {
 
 const databasesOf = (repoName: string) =>
   withAdmin((client) => listDatabases(client, `${repoName}_`));
+
+/** `gh` on PATH prints one merged pull request headed by `head`. */
+const withStubGh = async (head: string, work: () => Promise<void>) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "fx-gh-"));
+  writeFileSync(
+    path.join(dir, "gh"),
+    `#!/bin/sh\nprintf '%s\\n' '[{"headRefOid":"${head}"}]'\n`,
+    { mode: 0o755 }
+  );
+  const previous = process.env.PATH;
+  process.env.PATH = `${dir}${path.delimiter}${previous ?? ""}`;
+  try {
+    await work();
+  } finally {
+    process.env.PATH = previous;
+  }
+};
 
 describe("fx done", () => {
   afterAll(removeTempRepos);
@@ -171,6 +189,69 @@ describe("fx done", () => {
       expect(result.main?.fastForwarded).toBeFalsy();
       expect(result.main?.note).toContain("wip.txt");
       expect(existsSync(change.worktree)).toBeFalsy();
+    }
+  );
+
+  it(
+    "does not treat a merged pull request as this tip when the heads differ",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, change } = await shippedChange();
+      const tip = gitAs(change.worktree, "rev-parse", "HEAD");
+      await withStubGh("0".repeat(40), async () => {
+        await expect(done(repo, "try it", keepTemplates)).rejects.toMatchObject(
+          { code: "change_not_merged" }
+        );
+      });
+      expect(existsSync(change.worktree)).toBeTruthy();
+      expect(gitAs(repo, "rev-parse", change.branch)).toBe(tip);
+      expect(
+        gitAs(repo, "ls-remote", "--heads", "origin", change.branch)
+      ).toContain(tip);
+    }
+  );
+
+  it(
+    "counts the branch merged when the pull request head is the local tip",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, change } = await shippedChange();
+      const tip = gitAs(change.worktree, "rev-parse", "HEAD");
+      await withStubGh(tip, async () => {
+        const result = await done(repo, "try it", keepTemplates);
+        expect(result).toMatchObject({
+          merged: true,
+          deletedRemoteBranch: true,
+        });
+      });
+      expect(gitAs(repo, "ls-remote", "--heads", "origin", change.branch)).toBe(
+        ""
+      );
+    }
+  );
+
+  it(
+    "leaves a remote branch that moved past the merged tip",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, change } = await shippedChange();
+      squashMerge(repo, change.branch);
+      const extra = path.join(path.dirname(repo), "extra");
+      const origin = gitAs(repo, "remote", "get-url", "origin");
+      gitAs(repo, "clone", "-q", "--branch", change.branch, origin, extra);
+      writeFileSync(path.join(extra, "extra.txt"), "later\n");
+      gitAs(extra, "add", "-A");
+      gitAs(extra, "commit", "-q", "-m", "feat: later");
+      gitAs(extra, "push", "-q", "origin", change.branch);
+      const later = gitAs(extra, "rev-parse", "HEAD");
+
+      await expect(done(repo, "try it", keepTemplates)).rejects.toMatchObject({
+        code: "change_not_merged",
+      });
+      expect(existsSync(change.worktree)).toBeTruthy();
+      expect(
+        gitAs(repo, "ls-remote", "--heads", "origin", change.branch)
+      ).toContain(later);
     }
   );
 });

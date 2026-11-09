@@ -318,6 +318,35 @@ describe("the action pipeline", () => {
       await expect(orgsNamed("Raced")).resolves.toHaveLength(1);
     });
 
+    it("checks permission before replaying an earlier result", async () => {
+      const { action, counter } = slowCreate("org.retryAuth");
+      const options = { retryKey: "k-auth" };
+      const first = await pipeline.run(
+        action,
+        { name: "Kept" },
+        caller,
+        options
+      );
+      const strict = createPipeline({
+        db: crm.db,
+        config: { sha: null, roles: [] },
+        clock: { now: () => clock },
+        permissions: { load: () => Promise.resolve(grantedBy([])) },
+      });
+      const second = await strict.run(
+        action,
+        { name: "Kept" },
+        caller,
+        options
+      );
+      expect(first.ok).toBeTruthy();
+      expect(counter.runs).toBe(1);
+      expect(second).toMatchObject({
+        ok: false,
+        error: { code: "permission", permission: "org.retryAuth" },
+      });
+    });
+
     it("refuse a key reused for a different input", async () => {
       const { action } = slowCreate("org.reused");
       const options = { retryKey: "k3" };
