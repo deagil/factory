@@ -35,8 +35,24 @@ import {
   validateConfig,
   valuesOf,
 } from "@workspace/config";
-import type { ConfigCatalog, ConfigRead } from "@workspace/config";
+import type {
+  AnyConfigType,
+  ConfigCatalog,
+  ConfigRead,
+} from "@workspace/config";
 import type { AnyObjectDefinition, ChoiceOptions } from "@workspace/objects";
+import {
+  contextOf,
+  validateWorkflow,
+  workflowConfigType,
+  workflowsIn,
+} from "@workspace/workflows";
+import type {
+  Segment,
+  StartsWhen,
+  WorkflowDefinition,
+  WorkflowProblem,
+} from "@workspace/workflows";
 
 import { catalogOf } from "./catalog.ts";
 import { configValidateQuery } from "./config.ts";
@@ -53,6 +69,11 @@ export interface SystemOptions {
    */
   stepActions?: readonly AnyActionDefinition[];
   /**
+   * Workflows in code (P2.16): the core's and modules', in the shape
+   * `config/workflows` holds. They may run only other code workflows.
+   */
+  workflows?: readonly WorkflowDefinition[];
+  /**
    * The system's migrations folder, absolute, which `fx ship` writes from
    * its objects. Applied after the core's (decision 0036).
    */
@@ -64,6 +85,20 @@ export interface SystemOptions {
   config?: string;
 }
 
+/** A workflow as `fx describe` shows it, with where its runs may commit. */
+export interface WorkflowSummary {
+  readonly key: string;
+  readonly label: string | null;
+  readonly description: string;
+  /** `code`, or the file under `config/workflows`. */
+  readonly source: string;
+  readonly startsWhen: StartsWhen;
+  readonly readOnly: boolean;
+  readonly segments: readonly Segment[];
+  readonly problems: readonly WorkflowProblem[];
+  readonly warnings: readonly WorkflowProblem[];
+}
+
 export interface System {
   readonly name: string;
   readonly objects: readonly AnyObjectDefinition[];
@@ -71,6 +106,10 @@ export interface System {
   readonly registry: Registry;
   /** The actions workflow steps run, by name. None is on a surface. */
   readonly stepActions: ReadonlyMap<string, AnyActionDefinition>;
+  /** Workflows in code, by key. Config's are under `config/workflows`. */
+  readonly workflows: ReadonlyMap<string, WorkflowDefinition>;
+  /** The config types: the core's, and `workflows` (P2.16). */
+  readonly configTypes: readonly AnyConfigType[];
   /** Each object's REST endpoints (decision 0045). */
   readonly endpoints: readonly ObjectEndpoint[];
   /** The system's migrations folder, if it has one. */
@@ -83,8 +122,13 @@ export interface System {
   readonly validateConfig: () => ConfigRead;
   /** The object tables, for the schema check. */
   readonly tables: readonly AnyObjectDefinition["table"][];
-  /** Everything in the system, as `system.describe` shows it to an admin. */
-  readonly describe: () => SystemDescription;
+  /**
+   * Everything in the system, as `system.describe` shows it to an admin,
+   * and every workflow with its segments.
+   */
+  readonly describe: () => SystemDescription & {
+    workflows: WorkflowSummary[];
+  };
 }
 
 /**
@@ -130,7 +174,6 @@ export const defineSystem = (options: SystemOptions): System => {
       definitions: [...definitions, ...configQueries],
     }),
   ]);
-  built.catalog = catalogOf(options.objects, registry.list());
   const steps = new Map<string, AnyActionDefinition>();
   for (const action of [
     ...stepActions(options.objects),
@@ -143,22 +186,77 @@ export const defineSystem = (options: SystemOptions): System => {
     }
     steps.set(action.name, action);
   }
+  const workflows = new Map<string, WorkflowDefinition>();
+  for (const workflow of options.workflows ?? []) {
+    if (workflows.has(workflow.key)) {
+      throw new Error(
+        `The workflow "${workflow.key}" is defined twice. Keys must be unique.`
+      );
+    }
+    workflows.set(workflow.key, workflow);
+  }
+  built.catalog = catalogOf(options.objects, registry.list(), {
+    stepActions: steps,
+    workflows,
+  });
+  for (const workflow of workflows.values()) {
+    const { problems } = validateWorkflow(workflow, {
+      catalog: built.catalog,
+      workflows,
+    });
+    if (problems.length > 0) {
+      throw new Error(
+        `The workflow "${workflow.key}" doesn't line up with the system:\n${problems.map(({ path, message }) => `  ${path.join(".")}: ${message}`).join("\n")}`
+      );
+    }
+  }
+  const configTypes = [...coreConfigTypes, workflowConfigType];
+  /** Each workflow, in code and in config, with its segments. */
+  const summaries = (): WorkflowSummary[] => {
+    const files = options.config
+      ? readConfig(options.config, configTypes).files
+      : [];
+    const context = contextOf(catalogNow(), files);
+    const all = [
+      ...[...workflows.values()].map((workflow) => ({
+        workflow,
+        source: "code",
+      })),
+      ...files
+        .filter((file) => file.type === "workflows")
+        .map((file) => ({
+          workflow: workflowsIn([file]).get(file.key) as WorkflowDefinition,
+          source: file.file,
+        })),
+    ];
+    return all.map(({ workflow, source }) => ({
+      key: workflow.key,
+      label: workflow.label ?? null,
+      description: workflow.description,
+      source,
+      startsWhen: workflow.starts_when,
+      readOnly: workflow.read_only ?? false,
+      ...validateWorkflow(workflow, context),
+    }));
+  };
   return Object.freeze({
     name: options.name,
     objects: options.objects,
     registry,
     stepActions: steps,
+    workflows,
+    configTypes,
     endpoints: options.objects.flatMap((object) => objectEndpoints(object)),
     migrations: options.migrations,
     config: options.config,
     catalog: catalogNow,
     validateConfig: () =>
       options.config
-        ? validateConfig(options.config, coreConfigTypes, catalogNow())
+        ? validateConfig(options.config, configTypes, catalogNow())
         : { files: [], problems: [] },
     tables: options.objects.map((object) => object.table),
-    describe: () =>
-      describeFor(
+    describe: () => ({
+      ...describeFor(
         {
           objects: options.objects,
           definitions: registry.list(),
@@ -167,5 +265,7 @@ export const defineSystem = (options: SystemOptions): System => {
         },
         allGranted
       ),
+      workflows: summaries(),
+    }),
   });
 };

@@ -68,6 +68,10 @@ const actionSchema = definitionSchema.extend({
   emits: z.array(z.string()),
   /** Its own error codes, with their messages. */
   errors: z.record(z.string(), z.string()),
+  /** It only reads, so a `read_only` workflow may run it. Left out when not. */
+  readOnly: z.literal(true).optional(),
+  /** Inputs a workflow must set with a fixed `value`. Left out when none. */
+  fixedInputs: z.array(z.string()).optional(),
 });
 
 export const describeOutput = z.object({
@@ -178,6 +182,10 @@ const describeAction = (action: AnyActionDefinition) => ({
   kind: action.kind,
   emits: Object.keys(action.emits),
   errors: { ...action.errors },
+  ...(action.readOnly ? { readOnly: true as const } : {}),
+  ...(action.fixedInputs.length > 0
+    ? { fixedInputs: [...action.fixedInputs] }
+    : {}),
 });
 
 export interface DescribeOptions {

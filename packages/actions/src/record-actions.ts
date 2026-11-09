@@ -28,6 +28,7 @@ const getAction = (object: AnyObjectDefinition) => {
   return defineAction({
     name: `${object.name}_get`,
     kind: "internal",
+    readOnly: true,
     description: `Read one ${object.label.toLowerCase()} by id, archived or not if asked.`,
     input: z.strictObject({
       id: z.uuid(),
@@ -54,6 +55,7 @@ const listAction = (object: AnyObjectDefinition) =>
   defineAction({
     name: `${object.name}_list`,
     kind: "internal",
+    readOnly: true,
     description: `A page of ${object.label.toLowerCase()} records, filtered and sorted.`,
     input: listInputSchema(object) as unknown as ObjectSchema,
     output: z.object({

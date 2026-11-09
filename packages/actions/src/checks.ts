@@ -55,6 +55,7 @@ export const checkActions = (
   const belongsToCaller = defineAction({
     name: "record_belongs_to_caller",
     kind: "internal",
+    readOnly: true,
     description:
       "Check that a record's owner is the person who called the workflow (for an agent, the person it acts for). Returns the record.",
     input: z.strictObject({
@@ -85,6 +86,7 @@ export const checkActions = (
   const withinLimit = defineAction({
     name: "within_limit",
     kind: "internal",
+    readOnly: true,
     description:
       "Check that a number is at least `min` and at most `max`. Give either or both.",
     input: z
@@ -118,6 +120,7 @@ export const checkActions = (
   const inState = defineAction({
     name: "record_in_state",
     kind: "internal",
+    readOnly: true,
     description:
       "Check that a record's field equals `is`, or is one of `one_of`. Give one of them. Returns the record.",
     input: z

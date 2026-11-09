@@ -56,6 +56,47 @@ describe("fx describe", () => {
     }
   );
 
+  it("lists each workflow with its segments", { timeout: 30_000 }, async () => {
+    const deal = formatDescribe(await describeSystem(repoRoot, "deal"));
+    const paused = formatDescribe({
+      system: "s",
+      dir: "d",
+      match: "workflow",
+      description: {
+        objects: [],
+        actions: [],
+        queries: [],
+        events: [],
+        workflows: [
+          {
+            key: "payment_make",
+            label: null,
+            description: "Pay later.",
+            source: "code",
+            startsWhen: "called",
+            readOnly: false,
+            segments: [
+              {
+                steps: ["check"],
+                queued: [],
+                ends: { step: "wait_a_day", why: "waits", conditional: false },
+              },
+              { steps: ["capture"], queued: ["notify"], ends: null },
+            ],
+            problems: [],
+            warnings: [],
+          },
+        ],
+      },
+    });
+    expect(deal).toContain(
+      "deal_move_stage (called)  Move a deal to another stage. A lost deal needs a reason.  config/workflows/deal_move_stage.yaml\n    1 segment: load, check_reason, update, announce"
+    );
+    expect(paused).toContain(
+      "    2 segments:\n      1. check\n         then wait_a_day: waits\n      2. capture; after it commits: notify"
+    );
+  });
+
   it(
     "shows one action's schemas, and refuses an unknown name",
     { timeout: 30_000 },

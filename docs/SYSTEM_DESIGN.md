@@ -278,6 +278,7 @@ export const scheduleFollowUp = defineAction({
 - **Actions never write logs.** Each step hands back its output or error, and the engine writes the run and its steps.
 - An external action gets no repository and can't emit events: a workflow's `emit` step does that. It gets `ctx.retryKey` (the run and step id, the same on every attempt) to send as `Idempotency-Key`.
 - `ctx.fail(code, message?)` returns one of the action's declared errors; the message given in `errors` is the default. Declared codes are snake_case and can't reuse a built-in one.
+- An action that only reads says `readOnly: true`, so a `read_only` workflow may run it; `fixedInputs` names inputs a workflow must write in its file, never take from data (`http_send`'s `url`).
 - Actions are never on a surface. Modules and systems add their own (`defineSystem({ stepActions })`); `fx describe` lists them with their kind, schemas and errors.
 - `testAction(db, action, input, { actor })` from `@workspace/actions/testing` runs one as a step against a test database, in a run of its own; a failure rolls back, as a segment's would.
 
@@ -426,11 +427,12 @@ options:
 - **Values** are `from` a path (`input.…`, `event.…`, `steps.<id>.output.…`) or a fixed `value`. Conditions are field, operator, value: no expression language.
 - **Checks are steps.** Any check a route would make ("this account is mine") is a step that fails with a declared error code.
 
-A sketch (P2.16 settles the format):
+The format (decision 0048), as the CRM's `deal_move_stage` has it:
 
 ```yaml
 # config/workflows/deal_move_stage.yaml
-name: deal_move_stage
+key: deal_move_stage
+label: Move stage
 description: Move a deal to another stage. A lost deal needs a reason.
 starts_when: called
 input:
@@ -439,6 +441,11 @@ input:
   reason: { type: text, optional: true }
 errors:
   reason_required: A lost deal needs a reason.
+events:
+  deal_stage_changed:
+    deal: { type: ref, object: deal }
+    from: { type: choice, list: deal_stages }
+    to: { type: choice, list: deal_stages }
 steps:
   - id: load
     action: deal_get
@@ -446,7 +453,7 @@ steps:
   - id: check_reason
     if:
       - { field: input.stage.category, is: lost }
-      - { field: input.reason, is: empty }
+      - { field: input.reason, empty: true }
     then:
       - fail: reason_required
   - id: update
@@ -454,16 +461,19 @@ steps:
     with:
       id: { from: input.deal }
       stage: { from: input.stage }
-      lost_reason: { from: input.reason }
   - id: announce
     emit: deal_stage_changed
     with:
       deal: { from: input.deal }
-      from: { from: steps.load.output.stage }
+      from: { from: steps.load.output.record.stage }
       to: { from: input.stage }
 output:
   deal: { from: steps.update.output.record }
 ```
+
+- `key` is the file name. Input fields are required unless `optional: true`. Every step has an `id` except `fail` and `output`, which end the run. A condition is a field and one operator: `is`, `is_not`, `one_of`, `not_one_of`, `above`, `at_least`, `below`, `at_most` or `empty`.
+- `starts_when` is `called`, `{ event, when }` or `{ schedule }` (five cron fields). `on_failure` (steps, or `leave`) goes on a step or on the workflow. `attention_role` names the inbox for runs that need attention. `cases` wait for P2.22.
+- **Validation** (`validateWorkflow`, run by `validateConfig` with file and line, and by `defineSystem` for code workflows) checks that every name resolves, each step's `with` matches what it takes, each `from` reads a step that has run on every path to it, fixed inputs (`http_send`'s `url`) are written in the file, steps that can fail after a commit have a way out, and a `read_only` workflow never writes. It warns when a record id has no ownership check, and returns the segments. `fx describe` lists every workflow with them.
 
 **How runs happen**
 

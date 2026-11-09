@@ -4362,6 +4362,12 @@ exports[`system.describe > describes everything to an admin 1`] = `
                   },
                   "type": "object",
                 },
+                "fixedInputs": {
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
                 "input": {
                   "additionalProperties": {},
                   "propertyNames": {
@@ -4385,6 +4391,10 @@ exports[`system.describe > describes everything to an admin 1`] = `
                     "type": "string",
                   },
                   "type": "object",
+                },
+                "readOnly": {
+                  "const": true,
+                  "type": "boolean",
                 },
               },
               "required": [
@@ -4694,6 +4704,12 @@ exports[`system.describe > describes everything to an admin 1`] = `
                   },
                   "type": "object",
                 },
+                "fixedInputs": {
+                  "items": {
+                    "type": "string",
+                  },
+                  "type": "array",
+                },
                 "input": {
                   "additionalProperties": {},
                   "propertyNames": {
@@ -4717,6 +4733,10 @@ exports[`system.describe > describes everything to an admin 1`] = `
                     "type": "string",
                   },
                   "type": "object",
+                },
+                "readOnly": {
+                  "const": true,
+                  "type": "boolean",
                 },
               },
               "required": [

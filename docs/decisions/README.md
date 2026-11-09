@@ -51,6 +51,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0045 | [Object endpoints and workflows](0045-object-endpoints-and-workflows.md) | Accepted |
 | 0046 | [Runs, segments and errors](0046-runs-segments-and-errors.md) | Accepted |
 | 0047 | [One snake_case name on every surface](0047-snake-case-names.md) | Accepted |
+| 0048 | [The workflow file and its validation](0048-workflow-file-format.md) | Accepted |
 
 ## Template
 

@@ -4,6 +4,8 @@
 export { defineConfigType, referenceKinds } from "./config-type.ts";
 export type {
   AnyConfigType,
+  ConfigCheckContext,
+  ConfigCheckProblem,
   ConfigPath,
   ConfigType,
   Keyed,
