@@ -22,6 +22,13 @@
       "when": 1794144956926,
       "tag": "0002_p2_07_deals_in_the_crm",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794254885037,
+      "tag": "0003_p2_19_events_and_the_dispatcher",
+      "breakpoints": true
     }
   ]
 }
