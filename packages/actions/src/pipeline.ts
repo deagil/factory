@@ -2,7 +2,7 @@
 // validate, authorise, approve, run, record and commit in one transaction.
 // Queries run identify, validate, authorise and run. An action an approval
 // rule matches is parked as pending_approval, and runs once it's approved
-// (P2.09). See docs/SYSTEM_DESIGN.md section 4.2 and decisions 0020, 0021
+//. See docs/SYSTEM_DESIGN.md section 4.2 and decisions 0020, 0021
 // and 0042.
 
 import { isDeepStrictEqual } from "node:util";
@@ -114,13 +114,13 @@ export type QueryResult =
 export interface PipelineOptions {
   db: Db;
   config: ConfigService;
-  /** The config remote, for drafts (P2.08); absent when config is local. */
+  /** The config remote, for drafts ; absent when config is local. */
   git?: GitService;
   clock: Clock;
   permissions?: Permissions;
   /**
-   * Finds an action by name, to run a pending one once it's approved
-   * (P2.09). Without it, an approved action fails as no longer known.
+   * Finds an action by name, to run a pending one once it's approved.
+   * Without it, an approved action fails as no longer known.
    */
   actions?: (name: string) => AnyActionDefinition | undefined;
   /**
@@ -232,7 +232,7 @@ interface RunState {
 
 /**
  * The config as it is now. A loader swaps versions while runs go on, so a
- * run takes one snapshot and reads only that (P2.05).
+ * run takes one snapshot and reads only that.
  */
 const pin = (config: ConfigService): ConfigService => {
   const { choices } = config;
@@ -489,7 +489,7 @@ export const createPipeline = ({
 
   /**
    * Runs the pending action `actionId` inside `tx`, the approving run's
-   * transaction, as the actor who asked (P2.09). Its permissions and input
+   * transaction, as the actor who asked. Its permissions and input
    * are checked again, since either may have changed while it waited. A
    * failure rolls back only its own savepoint and marks the row failed.
    */

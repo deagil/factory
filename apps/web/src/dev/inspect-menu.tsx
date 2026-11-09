@@ -1,4 +1,4 @@
-// Inspect: the TanStack devtools and the raw system description (P1b.10).
+// Inspect: the TanStack devtools and the raw system description.
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";

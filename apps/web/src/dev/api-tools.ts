@@ -1,4 +1,4 @@
-// The dev bar's API menu (P1b.10): what the web app's calls did, and ways
+// The dev bar's API menu: what the web app's calls did, and ways
 // to make the next ones misbehave. It plugs into `lib/api.ts` through
 // `setApiDevHooks`, which only the dev bar calls.
 import type { ApiError } from "@workspace/server";

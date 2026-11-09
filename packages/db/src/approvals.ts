@@ -1,4 +1,4 @@
-// Writes to `approvals` (P2.09, decision 0042), for the pipeline and the
+// Writes to `approvals` (decision 0042), for the pipeline and the
 // approval and draft actions through `ctx.approvals`. Bound to the run's
 // transaction. The approvals inbox reads through the data access layer.
 import { and, asc, eq, inArray } from "drizzle-orm";

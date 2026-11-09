@@ -1,4 +1,4 @@
-// Output schemas for the identity queries (P1b.04). They live apart from the
+// Output schemas for the identity queries. They live apart from the
 // queries because they need the core's enums, and files that define
 // handlers may not import @workspace/db (decision 0019).
 import { actorKinds, actorStatuses, userStatuses } from "@workspace/db/schema";

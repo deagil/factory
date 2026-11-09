@@ -1,4 +1,4 @@
-// API: recent calls, dry runs, added latency and forced errors (P1b.10).
+// API: recent calls, dry runs, added latency and forced errors.
 import { useNavigate } from "@tanstack/react-router";
 import {
   MenubarGroup,

@@ -1,4 +1,4 @@
-// Inbox → Approvals (P2.10): every pending action and config draft that
+// Inbox → Approvals: every pending action and config draft that
 // waits for a sign-off, with what it would do, who asked, and Approve and
 // Reject. "Decided" shows the ones settled lately.
 import { useQuery } from "@tanstack/react-query";

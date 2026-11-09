@@ -1,16 +1,13 @@
 // deal.create, hand-written so a new deal starts in an open stage. A deal
 // reaches won or lost only through deal.moveStage, which needs a reason for
 // lost and says so with deal.stageChanged.
-import { defineAction } from "@workspace/actions";
+import { defineAction, objectSchema } from "@workspace/actions";
 import { z } from "zod";
 
 import { dealStages } from "./choices.ts";
 import { deal } from "./objects.ts";
 
-// The object's create schema is a strict object at run time, typed by what
-// it parses to; defineAction needs it as an object schema.
-const input = deal.schemas.create as unknown as z.ZodObject &
-  z.ZodType<z.infer<typeof deal.schemas.create>>;
+const input = objectSchema(deal.schemas.create);
 
 export const createDeal = defineAction({
   name: "deal.create",

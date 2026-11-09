@@ -1,4 +1,4 @@
-// Pieces the drafts screens share (P2.10): a draft as draft.list and
+// Pieces the drafts screens share: a draft as draft.list and
 // draft.get return it, and its status.
 import { cn } from "@workspace/ui/lib/utils";
 

@@ -1,4 +1,4 @@
-// The Done-when test for P1.02: objects generate a migration through
+// The Done-when test for: objects generate a migration through
 // drizzle-kit, and the migration builds tables that store and return records.
 
 import { checkSchema, coreTables } from "@workspace/db";

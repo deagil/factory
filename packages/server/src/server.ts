@@ -1,6 +1,6 @@
-// `createServer` (P1.18, decision 0031): runs a system. It checks the
+// `createServer` (decision 0031): runs a system. It checks the
 // database matches the code (decision 0016), loads the system's config
-// (P2.05) from its working tree or a config remote (P2.08), then serves the
+// from its working tree or a config remote, then serves the
 // HTTP API, sign-in and MCP (decisions 0027 and 0028).
 import { promisify } from "node:util";
 
@@ -40,11 +40,11 @@ export interface ServerOptions {
   /**
    * Local development only: keep the codes printed, and serve them with
    * the people who can sign in at `GET /dev/session`, for the web app's dev
-   * bar (P1b.09). Never set it in production.
+   * bar. Never set it in production.
    */
   devOutbox?: boolean;
   /**
-   * Reload `config/` on every save (P2.05). For local development, where
+   * Reload `config/` on every save. For local development, where
    * config is read from the working tree.
    */
   watchConfig?: boolean;
@@ -52,7 +52,7 @@ export interface ServerOptions {
   log?: (line: string) => void;
   /**
    * Read config from a git remote's production branch instead of the
-   * working tree, and let staff change it in drafts (P2.08). Tests use a
+   * working tree, and let staff change it in drafts. Tests use a
    * bare repository on disk.
    */
   configRemote?: ConfigRemote;

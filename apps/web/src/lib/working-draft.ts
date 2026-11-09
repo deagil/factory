@@ -1,5 +1,5 @@
 // How a person's working draft reads in the header and on its review page
-// (P2.10b, decision 0044): how many edits aren't live yet, whether it waits
+// (decision 0044): how many edits aren't live yet, whether it waits
 // for approval or has problems, and what pressing Publish will do.
 
 /** A draft's status, as draft.mine and draft.get return it. */

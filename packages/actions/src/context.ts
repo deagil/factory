@@ -1,4 +1,4 @@
-// Builds `ctx` for one run of an action or query. The pipeline (P1.07) calls
+// Builds `ctx` for one run of an action or query. The pipeline calls
 // these inside the run's transaction, once the action_log row exists, so the
 // repository and data access layer are bound to that run. See decision 0019.
 

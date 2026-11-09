@@ -1,5 +1,5 @@
-// Config types and reading `config/` (P2.03, decision 0037), validateConfig
-// (P2.04), the loader (P2.05), and the git config service and drafts (P2.08).
+// Config types and reading `config/` (decision 0037), validateConfig
+//, the loader, and the git config service and drafts.
 // See docs/SYSTEM_DESIGN.md, section 4.4 Config.
 export { defineConfigType, referenceKinds } from "./config-type.ts";
 export type {

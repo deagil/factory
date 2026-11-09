@@ -1,4 +1,4 @@
-// A person's working draft (P2.10b, decision 0044): the header pill that says
+// A person's working draft (decision 0044): the header pill that says
 // they have edits that aren't live yet, and the pieces the pill and the
 // draft's review page share: its edits in plain English with Undo, and
 // Publish (or Request approval), Withdraw and Discard.

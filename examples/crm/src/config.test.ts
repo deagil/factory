@@ -1,4 +1,4 @@
-// The CRM's config, loaded by the running server (P2.05): editing a role
+// The CRM's config, loaded by the running server: editing a role
 // changes what people can do without a restart, every action_log row has the
 // config version it ran under, and a broken file leaves the last good one.
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";

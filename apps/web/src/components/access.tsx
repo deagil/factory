@@ -1,4 +1,4 @@
-// Pieces the Access screens share (P1b.06): actor lists, role pickers, a
+// Pieces the Access screens share: actor lists, role pickers, a
 // form built from an action's input schema, and a key shown once.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -433,7 +433,7 @@ export const useActors = (kind: ActorEntry["kind"]) =>
 
 /**
  * A list screen of one kind of actor, with a button that opens the
- * action that makes one (P1b.06).
+ * action that makes one.
  */
 export const ActorListScreen = ({
   kind,

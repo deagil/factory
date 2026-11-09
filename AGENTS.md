@@ -48,15 +48,17 @@ These are enforced by review and, as the core grows, by CI. Breaking one is a bu
 3. **Every table comes from `defineObject`.** No hand-written tables for client data.
 4. **Config is data, not code.** Files under `config/` are YAML validated by Zod schemas. Never put logic, expressions or secrets in them.
 5. **No database triggers** for business logic or history. Field history (`audit_log`) is written by the repository inside the action pipeline.
-6. **The web surface is just another client.** `apps/web` calls the HTTP API. Do not use TanStack Start server functions or loaders to reach the database.
-7. **Services come through the context.** Actions get the repository, config, clock and git service from `ctx`; never import them directly.
+6. **The web surface is just another client.** `apps/web` calls the HTTP API. Do not use TanStack Start server functions or loaders to reach the database. It may only `import type` from `@workspace/server`, `actions`, `db`, `objects` and `config`, and must not import `drizzle-orm` or `pg`. Oxlint cannot allow a type import while refusing a value import from the same package, so `webImportProblems` in `packages/actions/src/architecture.ts` checks it (`architecture.test.ts`).
+7. **Services come through the context.** Actions get the repository, config, clock and git service from `ctx`; never import them directly. `checkHandlerBoundary` in `packages/actions/src/boundary.ts` fails the test when a file that defines an action or query imports those services, builds them, or reads the clock.
 8. **Return typed errors.** Actions return typed error results (validation, permission, approval required, conflict, not found) instead of throwing for expected failures.
-9. **Dependencies point one way:** `server`, `apps/web` → `workflows`, `config` → `actions` → `objects` → `db`. Modules depend on packages, never the reverse.
+9. **Dependencies point one way:** `server`, `apps/web` → `workflows`, `config` → `actions` → `objects` → `db`. Auth sits with config: it depends on actions, objects and db, and server depends on it. Modules depend on packages, never the reverse. `dependencyProblems` in `packages/actions/src/architecture.ts` fails the test when a workspace dependency points the other way, or when anything in `packages/` depends on `modules/`.
 10. **Migrations expand, then contract.** Every migration must work with the code already running. No destructive change except as the marked contract step.
 11. **Every side effect is an action.** Sending email, calling a URL or charging a card is an action (`comms.send`, `http.send`, `payments.refund`), so it is permission-checked and logged. Workflow steps only run actions or control flow; there is no `defineStep`.
 12. **Workflows are the only listeners.** Nothing else subscribes to events. Work that must happen atomically with a change goes in the action; work that follows it goes in a workflow.
 13. **Workflows act as themselves.** Their permissions are derived from the actions they run, and the publisher must hold all of them. Record `actor_id` and `origin_user_id` on every action; never add an `acting_for` or `triggered_by` field.
 14. **`http.send` destinations are fixed.** URLs and hosts come from the workflow file, never from record data or event payloads.
+
+`commentProblems` in `packages/actions/src/architecture.ts` fails on plan ids (`P2.04`), `TODO`, `HACK`, `workaround`, `@ts-ignore` and `@ts-expect-error` in source comments. `castProblems` there fails on a new `as unknown as`; the allowlist is in `architecture.test.ts`. Narrow with a guard such as `isChoiceField` instead.
 
 ## Naming
 

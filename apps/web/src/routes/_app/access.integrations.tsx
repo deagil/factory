@@ -1,5 +1,5 @@
 // Access → Integrations: other systems with their own keys and roles
-// (P1b.06).
+//.
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ActorListScreen } from "../../components/access.tsx";

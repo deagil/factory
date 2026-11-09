@@ -1,6 +1,6 @@
 // What a list takes: filters, one sort, a cursor, a page size, whether to
 // show archived records, and which refs to follow. listInputSchema(object)
-// validates it; the generated `.list` query (P1.09) uses the same schema.
+// validates it; the generated `.list` query uses the same schema.
 
 import { eq, gt, gte, inArray, lt, lte, ne } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";

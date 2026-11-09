@@ -1,10 +1,10 @@
 // `system.describe`: the objects, fields, actions, queries and events a
 // caller may use, with their schemas. The web app builds screens from it and
-// agents read it to understand the system (P1.16, decision 0029).
+// agents read it to understand the system (decision 0029).
+import { isChoiceField } from "@workspace/objects";
 import type {
   AnyField,
   AnyObjectDefinition,
-  ChoiceField,
   ChoiceOptions,
 } from "@workspace/objects";
 import { z } from "zod";
@@ -89,10 +89,10 @@ const builtInColumns = new Set(["key", "label", "description", "archived"]);
 
 /** A choice field's options, or null when `field` isn't a choice. */
 const choiceOptions = (field: AnyField, choices: ChoiceOptions | undefined) => {
-  if (field.kind !== "choice") {
+  if (!isChoiceField(field)) {
     return null;
   }
-  const { list } = field as unknown as ChoiceField;
+  const { list } = field;
   return (choices?.(list.key) ?? []).map((option) => ({
     key: option.key,
     label: option.label,
@@ -106,10 +106,10 @@ const choiceOptions = (field: AnyField, choices: ChoiceOptions | undefined) => {
 
 /** A choice list's own columns as JSON Schema, or null. */
 const optionColumns = (field: AnyField) => {
-  if (field.kind !== "choice") {
+  if (!isChoiceField(field)) {
     return null;
   }
-  const { columns } = (field as unknown as ChoiceField).list;
+  const { columns } = field.list;
   return Object.keys(columns).length > 0
     ? toJson(z.strictObject(columns), "input")
     : null;
@@ -131,8 +131,7 @@ const describeField = (
   filters: Object.keys(field.filters),
   options: choiceOptions(field, choices),
   optionColumns: optionColumns(field),
-  list:
-    field.kind === "choice" ? (field as unknown as ChoiceField).list.key : null,
+  list: isChoiceField(field) ? field.list.key : null,
   schema: toJson(field.input, "input"),
 });
 
@@ -147,7 +146,7 @@ export interface DescribeOptions {
   objects: readonly AnyObjectDefinition[];
   /** Every other definition in the system; `system.describe` adds itself. */
   definitions: readonly AnyDefinition[];
-  /** Loaded choice lists, so a choice field can name its options (P2.07). */
+  /** Loaded choice lists, so a choice field can name its options. */
   choices?: ChoiceOptions | undefined;
 }
 

@@ -1,5 +1,5 @@
 // Filter operators shared by the field types, and the two functions the data
-// access layer (P1.04) uses: one validates a filter, the other turns it into
+// access layer uses: one validates a filter, the other turns it into
 // a condition.
 //
 // A filter on one field is an object of operators, such as

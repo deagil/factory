@@ -1,5 +1,5 @@
 // A record's history: each audit_log change, newest first, with who made
-// it and through which action, from the `record.history` query (P1.21).
+// it and through which action, from the `record.history` query.
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { HistoryEntry } from "@workspace/actions";

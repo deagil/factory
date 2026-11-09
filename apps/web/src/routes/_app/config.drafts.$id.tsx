@@ -1,4 +1,4 @@
-// Reviewing a config draft (P2.10b): what it changes in plain English, with
+// Reviewing a config draft: what it changes in plain English, with
 // Undo per file, its problems and its approvals, and Publish (or Request
 // approval), Withdraw and Discard. Its name becomes the published commit's
 // subject. Each save is a commit on the draft's branch and checks the whole

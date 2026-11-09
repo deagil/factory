@@ -1,5 +1,5 @@
 // Access → Roles: what each role lets its holders see and do, from
-// `role.list` (P1b.06). Roles come from config; phase 2 edits them there.
+// `role.list`. Roles come from config; phase 2 edits them there.
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useRoles } from "../../components/access.tsx";

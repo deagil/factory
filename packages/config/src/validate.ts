@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 import { plainChoiceOption } from "./choices.ts";
 import type { ChoiceList } from "./choices.ts";
-// validateConfig (P2.04, SYSTEM_DESIGN §4.4): every file against its type's
+// validateConfig (SYSTEM_DESIGN §4.4): every file against its type's
 // schema, then every reference against what the running system has. Each
 // problem names the file, the path in it, the line and what's wrong.
 import type {
@@ -38,7 +38,7 @@ export interface ConfigCatalog {
   >;
   /** Every event an action emits. */
   readonly events: ReadonlySet<string>;
-  /** Every choice list code defines, for checking its file (P2.06). */
+  /** Every choice list code defines, for checking its file. */
   readonly choiceLists: readonly ChoiceListUse[];
 }
 

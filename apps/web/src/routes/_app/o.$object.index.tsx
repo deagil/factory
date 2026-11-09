@@ -1,6 +1,6 @@
 // The generated list screen: one for every object, built from
 // system.describe and the object's `.list` query. Filters, sort and page
-// are in the URL (P1.20).
+// are in the URL.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@workspace/ui/components/button";

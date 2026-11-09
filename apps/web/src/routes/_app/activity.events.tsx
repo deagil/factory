@@ -1,5 +1,5 @@
 // Activity → Events: what actions emitted, newest first, with payloads
-// and the action behind each (P1b.03). In phase 2 workflows listen to
+// and the action behind each. In phase 2 workflows listen to
 // these. Needs the eventLog.list permission.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";

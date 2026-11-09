@@ -1,11 +1,10 @@
-// The log queries (P1b.02): `actionLog.list`, `actionLog.get`,
+// The log queries: `actionLog.list`, `actionLog.get`,
 // `auditLog.list` and `eventLog.list`. Each needs a permission on its own
 // name. Without it, anyone may still read their own actions: those they
 // performed, or that an agent or workflow did for them.
 import { z } from "zod";
 
 import { defineQuery } from "./define-action.ts";
-import type { AnyDefinition } from "./define-action.ts";
 import {
   actionLogDetailSchema,
   actionLogEntrySchema,
@@ -20,11 +19,7 @@ import type { Granted } from "./permissions.ts";
 
 /** Whether the caller holds the permission named `name`. */
 const holds = (granted: Granted, name: string) =>
-  granted.authorise({
-    kind: "query",
-    name,
-    everyone: false,
-  } as unknown as AnyDefinition) === null;
+  granted.authorise({ name, everyone: false }) === null;
 
 export const actionLogList = defineQuery({
   name: "actionLog.list",

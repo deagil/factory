@@ -1,5 +1,5 @@
 // Activity → Actions: every action that ran, newest first, filtered by
-// name, status or actor, with the filters and page in the URL (P1b.03).
+// name, status or actor, with the filters and page in the URL.
 // Without actionLog.list, the query shows only the caller's own actions.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";

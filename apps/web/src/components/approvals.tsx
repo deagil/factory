@@ -1,4 +1,4 @@
-// Pieces the approvals inbox and the draft view share (P2.10): a subject's
+// Pieces the approvals inbox and the draft view share: a subject's
 // approvals, one row per sign-off it needs, with Approve and Reject on the
 // ones still pending. The server decides who may decide (decision 0043), so
 // a refusal shows as the error it returns.

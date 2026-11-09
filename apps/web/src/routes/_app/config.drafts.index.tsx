@@ -1,7 +1,7 @@
-// Config → Drafts (P2.10, P2.10b): edit choice lists and roles straight
+// Config → Drafts: edit choice lists and roles straight
 // away, into your working draft, which your first save opens and the header
-// pill publishes (decision 0044); and every draft, newest first. P2.10c and
-// P2.10d move editing to each setting's own page.
+// pill publishes (decision 0044); and every draft, newest first. Later work
+// moves editing to each setting's own page.
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 

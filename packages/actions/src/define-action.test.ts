@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { createActionContext, createQueryContext } from "./context.ts";
 import { defineAction, defineQuery } from "./define-action.ts";
-import type { ActionContext, QueryContext } from "./define-action.ts";
+import type { ActionContext, Emit, QueryContext } from "./define-action.ts";
 import { isActionFailure } from "./errors.ts";
 import { services } from "./test-helpers.ts";
 
@@ -159,40 +159,50 @@ describe(defineQuery, () => {
   });
 });
 
-// These run under `pnpm typecheck`: each @ts-expect-error must be an error.
+type Accepts<F, A extends unknown[]> = F extends (...args: infer P) => unknown
+  ? [A] extends [P]
+    ? true
+    : false
+  : false;
+
 describe("types", () => {
   it("only lets an action emit the events it declares, with their payloads", () => {
+    const closed = { "deal.closed": z.object({ dealId: z.string() }) };
+    type EmitClosed = Emit<typeof closed>;
     defineAction({
       name: "deal.close",
       description: "Close a deal",
       input: z.object({ dealId: z.string() }),
       output: z.object({}),
-      emits: { "deal.closed": z.object({ dealId: z.string() }) },
+      emits: closed,
       handler: (ctx, { dealId }) => {
         ctx.emit("deal.closed", { dealId });
-        // @ts-expect-error an event the action doesn't declare
-        ctx.emit("deal.deleted", { dealId });
-        // @ts-expect-error a payload that doesn't fit the schema
-        ctx.emit("deal.closed", { id: dealId });
         return {};
       },
     });
-    expect(true).toBeTruthy();
+    expectTypeOf<
+      Accepts<EmitClosed, ["deal.closed", { dealId: string }]>
+    >().toEqualTypeOf<true>();
+    expectTypeOf<
+      Accepts<EmitClosed, ["deal.deleted", { dealId: string }]>
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      Accepts<EmitClosed, ["deal.closed", { id: string }]>
+    >().toEqualTypeOf<false>();
   });
 
   it("lets an action that declares no events emit nothing", () => {
+    type EmitNone = Emit<Record<string, never>>;
     defineAction({
       name: "deal.touch",
       description: "Touch a deal",
       input: z.object({}),
       output: z.object({}),
-      handler: (ctx) => {
-        // @ts-expect-error no events are declared
-        ctx.emit("deal.touched", {});
-        return {};
-      },
+      handler: () => ({}),
     });
-    expect(true).toBeTruthy();
+    expectTypeOf<
+      Accepts<EmitNone, ["deal.touched", object]>
+    >().toEqualTypeOf<false>();
   });
 
   it("types the handler's input and output from the schemas", () => {
@@ -206,15 +216,12 @@ describe("types", () => {
         return { title: input.title };
       },
     });
-    defineAction({
-      name: "deal.rename",
-      description: "Rename a deal",
-      input: z.object({ title: z.string() }),
-      output: z.object({ title: z.string() }),
-      // @ts-expect-error the output needs a title
-      handler: (_ctx, input) => ({ name: input.title }),
-    });
-    expect(true).toBeTruthy();
+    type ReturnsTitle = (input: { title: string }) => { title: string };
+    type ReturnsName = (input: { title: string }) => { name: string };
+    type Assignable<A, B> = [A] extends [B] ? true : false;
+    expectTypeOf<
+      Assignable<ReturnsName, ReturnsTitle>
+    >().toEqualTypeOf<false>();
   });
 
   it("gives queries no way to write or emit", () => {

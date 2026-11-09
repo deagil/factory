@@ -1,5 +1,5 @@
 // The action registry: every action and query a system has, from which
-// every surface is generated (decision 0001). defineSystem (P1.18) builds
+// every surface is generated (decision 0001). defineSystem builds
 // one from the system's own and the generated definitions.
 
 import type { z } from "zod";

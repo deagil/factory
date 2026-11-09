@@ -1,6 +1,6 @@
 // fx describe: prints what a system has (objects, actions, queries, events
 // and their schemas) without a database, so agents building a system can
-// see what exists without reading every file (P1.22).
+// see what exists without reading every file.
 //
 // A system is a workspace package whose package.json names its system file:
 // `"factory": { "system": "./src/system.ts" }`. That file's default export

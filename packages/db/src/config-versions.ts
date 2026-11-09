@@ -1,4 +1,4 @@
-// config_versions (P2.05): what the config loader records each time it
+// config_versions: what the config loader records each time it
 // tries a version of `config/`. Only the loader writes it.
 import { desc } from "drizzle-orm";
 

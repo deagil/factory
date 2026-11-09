@@ -1,4 +1,4 @@
-// Writes to `drafts` (P2.08), for the draft actions through `ctx.drafts`.
+// Writes to `drafts`, for the draft actions through `ctx.drafts`.
 // Bound to the run's transaction. Reads go through the data access layer.
 import { eq, sql } from "drizzle-orm";
 

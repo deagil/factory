@@ -461,7 +461,7 @@ export const AppShell = ({
 }: {
   user: { name: string; email: string };
   sections: NavSection[];
-  /** Shown before the account menu, such as the caller's draft (P2.10b). */
+  /** Shown before the account menu, such as the caller's draft. */
   status?: ReactNode;
   currentSection: SectionKey | null;
   navPending?: boolean;

@@ -1,5 +1,5 @@
 // `config:validate [system-dir]`: runs validateConfig on a system package's
-// `config/` (P2.04). The package's package.json names its system file
+// `config/`. The package's package.json names its system file
 // (`factory.system`); the system's `config` option names the folder.
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -28,7 +28,7 @@ try {
   checked = read.files.length;
   problems = read.problems.map((problem) => formatProblem(problem));
 } catch (error) {
-  // The system reads some config as it loads (its roles, until P2.05).
+  // The system reads some config as it loads (its roles).
   if (!(error instanceof ConfigError)) {
     throw error;
   }

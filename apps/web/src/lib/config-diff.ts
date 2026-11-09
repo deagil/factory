@@ -1,4 +1,4 @@
-// A config draft's changes in plain English (P2.10): what each file it
+// A config draft's changes in plain English: what each file it
 // touches now says differently, line by line. Choice lists are compared
 // option by option and roles permission by permission; any other type falls
 // back to its changed fields.

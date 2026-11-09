@@ -41,7 +41,7 @@ if (!dev) {
 }
 
 // Drafts need a config remote. CONFIG_REMOTE is its URL, or `local` for a
-// bare repository in .factory/, made from config/ the first time (P2.10).
+// bare repository in.factory/, made from config/ the first time.
 // Without it, config/ is read from the working tree and reloaded on save.
 const factoryDir = path.resolve(import.meta.dirname, "../../../.factory");
 const remoteSetting = process.env.CONFIG_REMOTE;

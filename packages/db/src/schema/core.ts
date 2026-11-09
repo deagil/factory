@@ -222,7 +222,7 @@ export const eventLog = pgTable(
 export const configVersionStatuses = ["loaded", "refused"] as const;
 
 /**
- * Each version of `config/` the loader tried (P2.05): the commit, or locally
+ * Each version of `config/` the loader tried: the commit, or locally
  * a hash of the working tree; whether it went live; and, if it was refused,
  * the problems. Only the config loader writes it.
  */
@@ -248,7 +248,7 @@ export const draftStatuses = [
 ] as const;
 
 /**
- * Staff edits to config (P2.08): a branch in the config remote, made from
+ * Staff edits to config: a branch in the config remote, made from
  * production, with one commit per saved file. `files` are the config files
  * the draft changes; `base_sha` is the production commit it began from.
  * Publishing writes one commit to production (`published_sha`) and copies it
@@ -295,7 +295,7 @@ export const approvalStatuses = [
 ] as const;
 
 /**
- * Sign-offs an approval rule asked for (P2.09, decision 0042): one row per
+ * Sign-offs an approval rule asked for (decision 0042): one row per
  * rule that matched an action (its pending `action_log` row) or covers a
  * draft. `approver_role` is copied from the rule, so a later edit to the
  * rule doesn't change who may decide. A save to a draft cancels its rows.

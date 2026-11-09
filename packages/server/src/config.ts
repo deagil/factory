@@ -1,4 +1,4 @@
-// `config.validate` (P2.04): checks the system's `config/` folder as it is on
+// `config.validate`: checks the system's `config/` folder as it is on
 // disk, through ctx.config like every other service (AGENTS.md rule 7).
 import { defineQuery } from "@workspace/actions";
 import { z } from "zod";

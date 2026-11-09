@@ -1,4 +1,4 @@
-// One action that ran (P1b.03): what went in and came out, who ran it and
+// One action that ran: what went in and came out, who ran it and
 // for whom, the config it ran under, and the changes and events it wrote,
 // each linking to its record.
 import { useQuery } from "@tanstack/react-query";

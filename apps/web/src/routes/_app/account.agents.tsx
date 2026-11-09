@@ -1,4 +1,4 @@
-// Account menu → My agents (P1b.06): your agents and their keys, and
+// Account menu → My agents: your agents and their keys, and
 // Connect an agent, which makes one with a key and shows the command that
 // adds this system to Claude Code over MCP.
 import { useMutation, useQueryClient } from "@tanstack/react-query";

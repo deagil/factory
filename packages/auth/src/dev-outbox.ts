@@ -1,4 +1,4 @@
-// Local development only (P1b.09): keeps the last sign-in codes the server
+// Local development only: keeps the last sign-in codes the server
 // printed, so the web app's dev bar can sign in as anyone without reading
 // the console. `createServer` uses it only when asked (`devOutbox: true`),
 // and only then serves it, at `/dev/session`.

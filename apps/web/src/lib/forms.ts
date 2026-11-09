@@ -1,4 +1,4 @@
-// Forms built from action input schemas (P1.21). A field is editable only
+// Forms built from action input schemas. A field is editable only
 // if the action's input has it, so a read-only field never gets a control.
 // Labels and types come from the object's fields in system.describe.
 import type { SystemDescription } from "./api.ts";

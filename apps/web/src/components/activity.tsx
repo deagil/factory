@@ -1,4 +1,4 @@
-// Pieces the Activity screens share (P1b.03): times, who did something,
+// Pieces the Activity screens share: times, who did something,
 // links to records and actions, raw JSON, filters and paging. Filters and
 // the page are in the URL, like the object lists.
 import { Link } from "@tanstack/react-router";
