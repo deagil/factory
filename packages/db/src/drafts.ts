@@ -17,7 +17,7 @@ export interface DraftChanges {
   syncedSha?: string | null;
   publishedAt?: Date;
   /** The parked draft.publish the last approval runs, or null for none. */
-  publishActionId?: string | null;
+  publishRunId?: string | null;
 }
 
 export const createDraftStore = (executor: Executor) => ({

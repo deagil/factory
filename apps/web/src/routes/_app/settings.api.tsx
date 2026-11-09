@@ -63,7 +63,7 @@ const ApiScreen = () => {
             returning what it would have changed.
           </li>
           <li>
-            Errors are <code>{"{ error: { code, message }, actionId }"}</code>,
+            Errors are <code>{"{ error: { code, message }, runId }"}</code>,
             where <code>code</code> is validation, permission,
             approval_required, conflict, not_found or internal.
           </li>

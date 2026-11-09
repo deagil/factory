@@ -60,7 +60,7 @@ const json = (schema: unknown) => ({
 const actionResult = (output: z.ZodType) =>
   z.object({
     output,
-    actionId: z.string(),
+    runId: z.string(),
     replayed: z.boolean(),
     dryRun: z.boolean(),
     changes: z.array(z.record(z.string(), z.unknown())).optional(),

@@ -190,7 +190,7 @@ describe("approval limits", () => {
   it("asks nothing for a small deal and one manager for a medium one", async () => {
     const small = await run("deal.archive", { id: await deal(500) }, "jo");
     const medium = await run("deal.archive", { id: await deal(5000) }, "jo");
-    const [[approval] = []] = await pending(medium.actionId);
+    const [[approval] = []] = await pending(medium.runId);
     const bySenior = await run("approval.approve", { id: approval }, "sue");
     const byManager = await run("approval.approve", { id: approval }, "mia");
     expect({ small, medium, bySenior, byManager }).toMatchObject({
@@ -203,9 +203,7 @@ describe("approval limits", () => {
 
   it("needs a manager and a different senior for a large deal", async () => {
     const waiting = await run("deal.archive", { id: await deal(20_000) }, "jo");
-    const [[forManager] = [], [forSenior] = []] = await pending(
-      waiting.actionId
-    );
+    const [[forManager] = [], [forSenior] = []] = await pending(waiting.runId);
     // Max holds both roles, but approves once.
     const first = await run("approval.approve", { id: forManager }, "max");
     const again = await run("approval.approve", { id: forSenior }, "max");
@@ -220,7 +218,7 @@ describe("approval limits", () => {
       first,
       again,
       last,
-      byManager: [byManager.ok, await pending(byManager.actionId)],
+      byManager: [byManager.ok, await pending(byManager.runId)],
     }).toMatchObject({
       first: { ok: true, output: { ran: null } },
       again: { ok: false, error: { code: "permission" } },
@@ -232,7 +230,7 @@ describe("approval limits", () => {
   it("needs two different managers when a junior archives an organisation", async () => {
     const org = idOf(await run("organisation.create", { name: "Old" }, "ada"));
     const waiting = await run("organisation.archive", { id: org }, "jo");
-    const [[one] = [], [two] = []] = await pending(waiting.actionId);
+    const [[one] = [], [two] = []] = await pending(waiting.runId);
     const first = await run("approval.approve", { id: one }, "mia");
     const twice = await run("approval.approve", { id: two }, "mia");
     const second = await run("approval.approve", { id: two }, "max");
@@ -255,7 +253,7 @@ describe("approval limits", () => {
       { id: await deal(5000) },
       agentId
     );
-    const [[approval] = []] = await pending(waiting.actionId);
+    const [[approval] = []] = await pending(waiting.runId);
     expect({
       waiting,
       byMia: await run("approval.approve", { id: approval }, "mia"),
@@ -270,7 +268,7 @@ describe("approval limits", () => {
   it("doesn't run an action that came to need more approval while it waited", async () => {
     const id = await deal(5000);
     const waiting = await run("deal.archive", { id }, "jo");
-    const [[approval] = []] = await pending(waiting.actionId);
+    const [[approval] = []] = await pending(waiting.runId);
     await run(
       "deal.update",
       { id, value: { amount: pence(50_000), currency: "GBP" } },

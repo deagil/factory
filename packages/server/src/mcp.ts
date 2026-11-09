@@ -32,13 +32,13 @@ const instructions = [
   "Each tool is an action (a change, permission-checked and logged) or a query (a read).",
   "Tool names are the action or query name with `_` for `.`; the title is the real name.",
   "A failed call returns an error result whose `error.code` is validation, permission, approval_required, conflict, not_found or internal.",
-  "An action's result ends with its action id: quote it when you report what you did, and look it up with actionLog_get.",
+  "An action's result ends with its run id: quote it when you report what you did, and look it up with run_get.",
 ].join(" ");
 
 /**
  * The input schema as the SDK sees it: it advertises the JSON Schema but
  * accepts anything, so the pipeline alone validates input. If the SDK
- * validated, a bad call would get the SDK's error and no action_log row,
+ * validated, a bad call would get the SDK's error and no run,
  * unlike the same call over HTTP (decision 0028; the contract tests check).
  */
 const advertised = (
@@ -54,27 +54,25 @@ const advertised = (
 
 type CallResult = Awaited<ReturnType<typeof callDefinition>>;
 
-const actionIdOf = (result: CallResult): string | undefined =>
-  "actionId" in result && typeof result.actionId === "string"
-    ? result.actionId
+const runIdOf = (result: CallResult): string | undefined =>
+  "runId" in result && typeof result.runId === "string"
+    ? result.runId
     : undefined;
 
-/** The action_log row a call wrote, for clients that keep `_meta`. */
+/** The run a call wrote, for clients that keep `_meta`. */
 const metaOf = (result: CallResult) => {
-  const actionId = actionIdOf(result);
-  return actionId ? { actionId } : {};
+  const runId = runIdOf(result);
+  return runId ? { runId } : {};
 };
 
 /**
- * The action id as a text block of its own, for clients that show the model
+ * The run id as a text block of its own, for clients that show the model
  * the text content. It is a separate block so the first stays the output,
  * or the error as JSON.
  */
-const actionIdText = (result: CallResult) => {
-  const actionId = actionIdOf(result);
-  return actionId
-    ? [{ type: "text" as const, text: `actionId: ${actionId}` }]
-    : [];
+const runIdText = (result: CallResult) => {
+  const runId = runIdOf(result);
+  return runId ? [{ type: "text" as const, text: `runId: ${runId}` }] : [];
 };
 
 const toolResult = (result: CallResult): CallToolResult => {
@@ -85,34 +83,34 @@ const toolResult = (result: CallResult): CallToolResult => {
           type: "text",
           text: `${result.error.code}: ${result.error.message}\n${JSON.stringify({ error: result.error })}`,
         },
-        ...actionIdText(result),
+        ...runIdText(result),
       ],
       isError: true,
       _meta: metaOf(result),
     };
   }
   const output = result.output as Record<string, unknown>;
-  const actionId = actionIdOf(result);
+  const runId = runIdOf(result);
   return {
     content: [
       { type: "text", text: JSON.stringify(output) },
-      ...actionIdText(result),
+      ...runIdText(result),
     ],
     // Claude Code shows the model `structuredContent` when there is one,
-    // not the text or `_meta`, so an action's id goes in it too (P2.02).
-    structuredContent: actionId ? { ...output, actionId } : output,
+    // not the text or `_meta`, so the run id goes in it too (P2.02).
+    structuredContent: runId ? { ...output, runId } : output,
     _meta: metaOf(result),
   };
 };
 
 /**
- * An action's output schema with `actionId` added, since its structured
- * result carries one. Queries write no action_log row, so theirs is as is.
+ * An action's output schema with `runId` added, since its structured
+ * result carries one. Queries write no run, so theirs is as is.
  */
 const outputSchemaOf = (definition: AnyDefinition) =>
   definition.kind === "action" && definition.output instanceof z.ZodObject
     ? definition.output.extend({
-        actionId: z.uuid().describe("The action_log row this call wrote."),
+        runId: z.uuid().describe("The run this call wrote."),
       })
     : definition.output;
 

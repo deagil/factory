@@ -1,20 +1,23 @@
-// The action pipeline: every action, whoever calls it, runs identify,
-// validate, authorise, approve, run, record and commit in one transaction.
-// Queries run identify, validate, authorise and run. An action an approval
-// rule matches is parked as pending_approval, and runs once it's approved
-// (P2.09). See docs/SYSTEM_DESIGN.md section 4.2 and decisions 0020, 0021
-// and 0042.
+// The pipeline: every action, whoever calls it, runs identify, validate,
+// authorise, approve, run, record and commit in one transaction, as a run
+// with one step. Queries run identify, validate, authorise and run. An
+// action an approval rule matches is parked as a waiting run, and runs once
+// it's approved (P2.09). A successful run's `runs` and `run_steps` rows
+// commit with its changes; a failed one's are written after the rollback,
+// so its trace survives. See docs/SYSTEM_DESIGN.md section 4.2 and
+// decisions 0020, 0021, 0042 and 0046.
 
 import { isDeepStrictEqual } from "node:util";
 
 import {
-  actionLog,
   actors,
   auditLog,
   createApprovalStore,
   createDraftStore,
   createIdentityStore,
   eventLog,
+  runs,
+  runSteps,
   withTransaction,
 } from "@workspace/db";
 import type { Db, Tx } from "@workspace/db";
@@ -93,8 +96,8 @@ export type ActionResult =
   | {
       ok: true;
       output: unknown;
-      /** The action_log row. */
-      actionId: string;
+      /** The `runs` row. */
+      runId: string;
       events: EmittedEvent[];
       /** True when a retry key matched an earlier run, which isn't run again. */
       replayed: boolean;
@@ -102,8 +105,8 @@ export type ActionResult =
       /** Dry runs only: the record changes that were rolled back. */
       changes?: RecordChange[];
     }
-  /** `actionId` is null when the caller couldn't be identified. */
-  | { ok: false; error: RunError; actionId: string | null };
+  /** `runId` is null when the caller couldn't be identified. */
+  | { ok: false; error: RunError; runId: string | null };
 
 type Success = Extract<ActionResult, { ok: true }>;
 
@@ -145,7 +148,7 @@ class RollbackError extends Error {
   }
 }
 
-const retryKeyIndex = "action_log_retry_key_unique";
+const retryKeyIndex = "runs_retry_key_unique";
 
 /** Whether `thrown` is Postgres refusing a second success for a retry key. */
 const isRetryKeyClash = (thrown: unknown): boolean => {
@@ -163,7 +166,7 @@ const isRetryKeyClash = (thrown: unknown): boolean => {
   return false;
 };
 
-/** `output` with the action's secret keys replaced, for action_log. */
+/** `output` with the action's secret keys replaced, for the trace. */
 const redacted = (action: AnyActionDefinition, output: unknown) => {
   if (action.redact.length === 0 || typeof output !== "object" || !output) {
     return output;
@@ -204,9 +207,7 @@ const errorFrom = (thrown: unknown): { error: RunError; logged: RunError } => {
   }
   const message = thrown instanceof Error ? thrown.message : String(thrown);
   return {
-    error: internal(
-      "The action failed unexpectedly. Its action_log row has the details."
-    ),
+    error: internal("The action failed unexpectedly. Its run has the details."),
     logged: internal(message),
   };
 };
@@ -253,9 +254,9 @@ const pin = (config: ConfigService): ConfigService => {
   };
 };
 
-/** The columns every action_log row for this run has. */
+/** The columns every `runs` row for this run has. */
 const rowFor = (state: RunState) => ({
-  name: state.action.name,
+  endpoint: state.action.name,
   actorId: state.actor.id,
   originUserId: state.originUserId,
   input: state.input ?? null,
@@ -263,6 +264,41 @@ const rowFor = (state: RunState) => ({
   dryRun: state.options.dryRun ?? false,
   configSha: state.config.sha,
 });
+
+/** The one step of an action's run: the action, by name. */
+const stepFor = (state: RunState, runId: string, input: unknown) => ({
+  runId,
+  stepId: state.action.name,
+  kind: "action" as const,
+  name: state.action.name,
+  input: input ?? null,
+});
+
+/** Inserts a run and its one step in `executor`; returns both ids. */
+const insertRun = async (
+  executor: Db | Tx,
+  state: RunState,
+  run: Partial<typeof runs.$inferInsert> & {
+    status: (typeof runs.$inferInsert)["status"];
+  },
+  step: Partial<typeof runSteps.$inferInsert> | null
+): Promise<{ runId: string; stepId: string | null }> => {
+  const [row] = await executor
+    .insert(runs)
+    .values({ ...rowFor(state), ...run })
+    .returning({ id: runs.id });
+  if (!row) {
+    throw new Error("insert returned no runs row");
+  }
+  if (!step) {
+    return { runId: row.id, stepId: null };
+  }
+  const [stepRow] = await executor
+    .insert(runSteps)
+    .values({ ...stepFor(state, row.id, state.input), ...step })
+    .returning({ id: runSteps.id });
+  return { runId: row.id, stepId: stepRow?.id ?? null };
+};
 
 export const createPipeline = ({
   db,
@@ -340,30 +376,37 @@ export const createPipeline = ({
     "The caller isn't a known, active actor"
   ).error;
 
-  /** Writes a finished row outside the run's (rolled-back) transaction. */
+  /**
+   * Writes a finished run and its step outside the run's (rolled-back)
+   * transaction, so its trace survives.
+   */
   const writeRow = async (
     state: RunState,
     outcome:
       | { status: "failed"; error: RunError }
-      | { status: "succeeded"; result: unknown }
+      | { status: "succeeded"; output: unknown },
+    startedAt: Date = clock.now()
   ) => {
     const now = clock.now();
-    const [row] = await db
-      .insert(actionLog)
-      .values({
-        ...rowFor(state),
-        ...outcome,
-        createdAt: now,
-        completedAt: now,
-      })
-      .returning({ id: actionLog.id });
-    return row?.id ?? null;
+    const recorded =
+      outcome.status === "failed"
+        ? { error: outcome.error }
+        : { output: outcome.output };
+    const { runId } = await withTransaction(db, (tx) =>
+      insertRun(
+        tx,
+        state,
+        { ...recorded, status: outcome.status, startedAt, finishedAt: now },
+        { ...recorded, startedAt, finishedAt: now }
+      )
+    );
+    return runId;
   };
 
   const fail = async (state: RunState, error: RunError) => ({
     ok: false as const,
     error,
-    actionId: await writeRow(state, { status: "failed", error }),
+    runId: await writeRow(state, { status: "failed", error }),
   });
 
   /** 3. Retry key: the earlier success with this key, if there is one. */
@@ -374,20 +417,20 @@ export const createPipeline = ({
     }
     const [earlier] = await db
       .select()
-      .from(actionLog)
+      .from(runs)
       .where(
         and(
-          eq(actionLog.actorId, state.actor.id),
-          eq(actionLog.retryKey, retryKey),
-          eq(actionLog.status, "succeeded"),
-          eq(actionLog.dryRun, false)
+          eq(runs.actorId, state.actor.id),
+          eq(runs.retryKey, retryKey),
+          eq(runs.status, "succeeded"),
+          eq(runs.dryRun, false)
         )
       );
     if (!earlier) {
       return null;
     }
     if (
-      earlier.name !== state.action.name ||
+      earlier.endpoint !== state.action.name ||
       !isDeepStrictEqual(earlier.input, asStored(state.input))
     ) {
       return fail(
@@ -399,8 +442,8 @@ export const createPipeline = ({
     }
     return {
       ok: true,
-      output: earlier.result,
-      actionId: earlier.id,
+      output: earlier.output,
+      runId: earlier.id,
       events: [],
       replayed: true,
       dryRun: false,
@@ -408,22 +451,24 @@ export const createPipeline = ({
   };
 
   /**
-   * 6–7. Runs the handler in `tx` and records what it did against the
-   * action_log row `actionId`. A typed failure throws, to roll `tx` back.
+   * 6–7. Runs the handler in `tx` and records what it did against the run
+   * `runId` and its step `stepId`. A typed failure throws, to roll `tx` back.
    */
   const perform = async (
     tx: Tx,
     state: RunState,
     input: unknown,
-    actionId: string,
+    ids: { runId: string; stepId: string },
     approvals: ApprovalService
   ): Promise<Success> => {
     const { action, actor, originUserId } = state;
+    const { runId, stepId } = ids;
     const dryRun = state.options.dryRun ?? false;
     const { ctx, events } = createActionContext(action, {
       repo: createRepository({
         executor: tx,
-        actionId,
+        runId,
+        stepId,
         actorId: actor.id,
         now: clock.now,
         choices: state.config.choices,
@@ -460,27 +505,34 @@ export const createPipeline = ({
         emitted.map((event) => ({
           type: event.type,
           payload: event.payload,
-          actionId,
+          runId,
+          stepId,
           originUserId,
           depth: 0,
           createdAt: clock.now(),
         }))
       );
     }
+    const stored = redacted(action, output.data);
+    const finishedAt = clock.now();
     await tx
-      .update(actionLog)
+      .update(runs)
       .set({
         status: "succeeded",
-        result: redacted(action, output.data),
+        output: stored,
         error: null,
         configSha: state.config.sha,
-        completedAt: clock.now(),
+        finishedAt,
       })
-      .where(eq(actionLog.id, actionId));
+      .where(eq(runs.id, runId));
+    await tx
+      .update(runSteps)
+      .set({ output: stored, error: null, finishedAt })
+      .where(eq(runSteps.id, stepId));
     return {
       ok: true,
       output: output.data,
-      actionId,
+      runId,
       events: emitted,
       replayed: false,
       dryRun,
@@ -488,14 +540,14 @@ export const createPipeline = ({
   };
 
   /**
-   * Runs the pending action `actionId` inside `tx`, the approving run's
+   * Runs the pending action `runId` inside `tx`, the approving run's
    * transaction, as the actor who asked (P2.09). Its permissions and input
    * are checked again, since either may have changed while it waited. A
    * failure rolls back only its own savepoint and marks the row failed.
    */
   const resume = async (
     tx: Tx,
-    actionId: string,
+    runId: string,
     dryRun: boolean,
     approvals: ApprovalService,
     /** `ctx.approvals` for the resumed run, as its own actor. */
@@ -503,22 +555,41 @@ export const createPipeline = ({
   ): Promise<ResumeResult> => {
     const [row] = await tx
       .select()
-      .from(actionLog)
-      .where(eq(actionLog.id, actionId))
+      .from(runs)
+      .where(eq(runs.id, runId))
       .for("update");
-    if (!row || row.status !== "pending_approval") {
-      throw new Error(`Action ${actionId} isn't waiting for approval.`);
+    if (!row || row.status !== "waiting") {
+      throw new Error(`Run ${runId} isn't waiting for approval.`);
     }
+    // The step runs now, so its row starts now, in the approving
+    // transaction: a failure below leaves it with its error.
+    const [step] = await tx
+      .insert(runSteps)
+      .values({
+        runId,
+        stepId: row.endpoint,
+        kind: "action",
+        name: row.endpoint,
+        input: row.input,
+        startedAt: clock.now(),
+      })
+      .returning({ id: runSteps.id });
+    const stepId = step?.id ?? "";
     const failed = async (logged: RunError, error: RunError = logged) => {
+      const finishedAt = clock.now();
       await tx
-        .update(actionLog)
-        .set({ status: "failed", error: logged, completedAt: clock.now() })
-        .where(eq(actionLog.id, actionId));
+        .update(runs)
+        .set({ status: "failed", error: logged, finishedAt })
+        .where(eq(runs.id, runId));
+      await tx
+        .update(runSteps)
+        .set({ error: logged, finishedAt })
+        .where(eq(runSteps.id, stepId));
       return { ok: false as const, error };
     };
-    const action = actions?.(row.name);
+    const action = actions?.(row.endpoint);
     if (!action) {
-      return failed(internal(`This system no longer has ${row.name}.`));
+      return failed(internal(`This system no longer has ${row.endpoint}.`));
     }
     const who = await identify({
       actorId: row.actorId,
@@ -548,7 +619,7 @@ export const createPipeline = ({
     // waited, so what it needs now must already be approved.
     const unmet = unmetSignOff(
       await signOffsNow(state, parsed.data, tx),
-      await approvals.forSubject("action", actionId)
+      await approvals.forSubject("run", runId)
     );
     if (unmet) {
       return failed(
@@ -564,7 +635,7 @@ export const createPipeline = ({
           savepoint,
           state,
           parsed.data,
-          actionId,
+          { runId, stepId },
           approvalsFor(savepoint, state)
         )
       );
@@ -580,33 +651,22 @@ export const createPipeline = ({
     const dryRun = state.options.dryRun ?? false;
     const service: ApprovalService = {
       ...createApprovalStore(tx),
-      resume: (actionId) => resume(tx, actionId, dryRun, service, approvalsIn),
-      close: async (actionId, status = "rejected") => {
+      resume: (runId) => resume(tx, runId, dryRun, service, approvalsIn),
+      close: async (runId, status = "rejected") => {
         await tx
-          .update(actionLog)
-          .set({ status, completedAt: clock.now() })
-          .where(
-            and(
-              eq(actionLog.id, actionId),
-              eq(actionLog.status, "pending_approval")
-            )
-          );
+          .update(runs)
+          .set({ status, finishedAt: clock.now() })
+          .where(and(eq(runs.id, runId), eq(runs.status, "waiting")));
       },
       park: async () => {
-        const [row] = await tx
-          .insert(actionLog)
-          .values({
-            ...rowFor(state),
-            // A parked call is never replayed by its retry key.
-            retryKey: null,
-            status: "pending_approval",
-            createdAt: clock.now(),
-          })
-          .returning({ id: actionLog.id });
-        if (!row) {
-          throw new Error("insert returned no action_log row");
-        }
-        return row.id;
+        // A parked call is never replayed by its retry key.
+        const { runId } = await insertRun(
+          tx,
+          state,
+          { retryKey: null, status: "waiting", startedAt: clock.now() },
+          null
+        );
+        return runId;
       },
     };
     return service;
@@ -615,20 +675,18 @@ export const createPipeline = ({
   /** 6–8. Run, record and commit, together or not at all. */
   const execute = (state: RunState, input: unknown): Promise<Success> =>
     withTransaction(db, async (tx) => {
-      const [logged] = await tx
-        .insert(actionLog)
-        .values({
-          ...rowFor(state),
-          status: "succeeded",
-          createdAt: clock.now(),
-        })
-        .returning({ id: actionLog.id });
-      const actionId = logged?.id ?? "";
+      const startedAt = clock.now();
+      const { runId, stepId } = await insertRun(
+        tx,
+        state,
+        { status: "succeeded", startedAt },
+        { startedAt }
+      );
       const result = await perform(
         tx,
         state,
         input,
-        actionId,
+        { runId, stepId: stepId ?? "" },
         approvalsIn(tx, state)
       );
       if (result.dryRun) {
@@ -640,14 +698,14 @@ export const createPipeline = ({
             after: auditLog.after,
           })
           .from(auditLog)
-          .where(eq(auditLog.actionId, actionId));
+          .where(eq(auditLog.runId, runId));
         throw new RollbackError({ dryRun: { ...result, changes } });
       }
       return result;
     });
 
   /**
-   * 5. Parks the run: its pending_approval row and one approval per rule,
+   * 5. Parks the run: a waiting `runs` row and one approval per rule,
    * together. A dry run only reports that it would wait.
    */
   const park = async (
@@ -662,28 +720,22 @@ export const createPipeline = ({
     if (state.options.dryRun) {
       return fail(state, error);
     }
-    const actionId = await withTransaction(db, async (tx) => {
-      const [row] = await tx
-        .insert(actionLog)
-        .values({
-          ...rowFor(state),
-          status: "pending_approval",
-          error,
-          createdAt: clock.now(),
-        })
-        .returning({ id: actionLog.id });
-      if (!row) {
-        throw new Error("insert returned no action_log row");
-      }
+    const runId = await withTransaction(db, async (tx) => {
+      const parked = await insertRun(
+        tx,
+        state,
+        { status: "waiting", error, startedAt: clock.now() },
+        null
+      );
       await createApprovalStore(tx).request(
-        "action",
-        row.id,
+        "run",
+        parked.runId,
         signOffs,
         state.actor.id
       );
-      return row.id;
+      return parked.runId;
     });
-    return { ok: false, error, actionId };
+    return { ok: false, error, runId };
   };
 
   /** What a run that threw comes to: a dry run's report, a replay or a failure. */
@@ -692,11 +744,11 @@ export const createPipeline = ({
     thrown: unknown
   ): Promise<ActionResult> => {
     if (thrown instanceof RollbackError && thrown.dryRun) {
-      const actionId = await writeRow(state, {
+      const runId = await writeRow(state, {
         status: "succeeded",
-        result: redacted(state.action, thrown.dryRun.output),
+        output: redacted(state.action, thrown.dryRun.output),
       });
-      return { ...thrown.dryRun, actionId: actionId ?? "" };
+      return { ...thrown.dryRun, runId: runId ?? "" };
     }
     if (isRetryKeyClash(thrown)) {
       // Another run with this key committed first; return its result.
@@ -706,8 +758,8 @@ export const createPipeline = ({
       }
     }
     const { error, logged } = errorFrom(thrown);
-    const actionId = await writeRow(state, { status: "failed", error: logged });
-    return { ok: false, error, actionId };
+    const runId = await writeRow(state, { status: "failed", error: logged });
+    return { ok: false, error, runId };
   };
 
   /** Runs `action` for `caller`. Never throws for a failed action. */
@@ -719,7 +771,7 @@ export const createPipeline = ({
   ): Promise<ActionResult> => {
     const who = await identify(caller);
     if (!who) {
-      return { ok: false, error: unknownActor, actionId: null };
+      return { ok: false, error: unknownActor, runId: null };
     }
     const granted = await permissions.load(who.actor);
     const state: RunState = {
@@ -758,7 +810,7 @@ export const createPipeline = ({
     }
   };
 
-  /** Runs `query` for `caller`. Queries write nothing, not even a log row. */
+  /** Runs `query` for `caller`. Queries write nothing, not even a run. */
   const query = async (
     definition: AnyQueryDefinition,
     input: unknown,

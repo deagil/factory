@@ -5,7 +5,7 @@
 
 import { ascNullsLast, descNullsLast } from "@workspace/db";
 import type { Executor } from "@workspace/db";
-import { actionLog, actors, auditLog, users } from "@workspace/db/schema";
+import { actors, auditLog, runs, runSteps, users } from "@workspace/db/schema";
 import {
   and,
   asc,
@@ -90,9 +90,10 @@ export interface HistoryEntry {
   id: string;
   /** When the change was made, as an ISO timestamp. */
   at: string;
-  /** The action that made it, and its `action_log` id. */
+  /** The action that made it, and the run and step it ran in. */
   action: string;
-  actionId: string;
+  runId: string;
+  stepId: string;
   /** Who made it. */
   actor: ActorSummary;
   /** The user an agent or workflow acted for; null for staff. */
@@ -348,18 +349,21 @@ export const createDataAccess = ({
       .select({
         id: auditLog.id,
         at: auditLog.at,
-        action: actionLog.name,
-        actionId: auditLog.actionId,
+        action: runSteps.name,
+        runId: runs.id,
+        stepId: runSteps.id,
         actor: { id: actors.id, name: actors.name, kind: actors.kind },
-        originUserId: actionLog.originUserId,
+        originUserId: runs.originUserId,
         originUserName: users.name,
         before: auditLog.before,
         after: auditLog.after,
       })
       .from(auditLog)
-      .innerJoin(actionLog, eq(auditLog.actionId, actionLog.id))
+      // Changes made before runs (P2.12) have no run, and aren't shown.
+      .innerJoin(runSteps, eq(auditLog.stepId, runSteps.id))
+      .innerJoin(runs, eq(auditLog.runId, runs.id))
       .innerJoin(actors, eq(auditLog.actorId, actors.id))
-      .leftJoin(users, eq(actionLog.originUserId, users.id))
+      .leftJoin(users, eq(runs.originUserId, users.id))
       .where(
         and(eq(auditLog.object, object.name), eq(auditLog.recordId, recordId))
       )

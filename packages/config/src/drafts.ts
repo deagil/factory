@@ -161,9 +161,9 @@ const mine = async (ctx: QueryContext) => {
  */
 const endRequest = async (ctx: Ctx, draft: DraftEntry) => {
   await ctx.approvals.cancelOpen("draft", draft.id, ctx.clock.now());
-  if (draft.publishActionId) {
-    await ctx.approvals.close(draft.publishActionId, "withdrawn");
-    await ctx.drafts.update(draft.id, { publishActionId: null });
+  if (draft.publishRunId) {
+    await ctx.approvals.close(draft.publishRunId, "withdrawn");
+    await ctx.drafts.update(draft.id, { publishRunId: null });
   }
 };
 
@@ -404,10 +404,10 @@ export const draftPublish = defineAction({
       await ctx.approvals.cancelOpen("draft", draft.id, ctx.clock.now());
       await ctx.approvals.request("draft", draft.id, needed, ctx.actor.id);
       // This same call runs again, as this actor, once it's approved.
-      const publishActionId = await ctx.approvals.park();
+      const publishRunId = await ctx.approvals.park();
       await ctx.drafts.update(draft.id, {
         status: "awaiting_approval",
-        publishActionId,
+        publishRunId,
       });
       const waiting = await ctx.dal.draftDetail(draft.id);
       if (!waiting) {
@@ -439,7 +439,7 @@ export const draftPublish = defineAction({
     await ctx.approvals.cancelPending("draft", draft.id, ctx.clock.now());
     await ctx.drafts.update(draft.id, {
       status: "published",
-      publishActionId: null,
+      publishRunId: null,
       publishedSha: result.sha,
       syncedSha: result.synced.status === "copied" ? result.synced.sha : null,
       publishedAt: ctx.clock.now(),

@@ -81,13 +81,13 @@ export interface ApprovalService extends ApprovalStore {
    * who asked, in this run's transaction. Its action_log row becomes
    * succeeded or failed; a second call finds nothing pending and throws.
    */
-  readonly resume: (actionId: string) => Promise<ResumeResult>;
+  readonly resume: (runId: string) => Promise<ResumeResult>;
   /**
    * Marks a pending action rejected, or withdrawn by whoever asked; it never
    * runs. An action that isn't pending is left alone.
    */
   readonly close: (
-    actionId: string,
+    runId: string,
     status?: "rejected" | "withdrawn"
   ) => Promise<void>;
   /**

@@ -35,16 +35,16 @@ const short = (id: string | undefined) => (id ? `…${id.slice(-6)}` : "");
 
 const CallItem = ({ call }: { call: ApiCallRecord }) => {
   const navigate = useNavigate();
-  const { actionId } = call;
+  const { runId } = call;
   return (
     <SystemMenuItem
       className="whitespace-nowrap"
-      disabled={!actionId}
+      disabled={!runId}
       onClick={() => {
-        if (actionId) {
+        if (runId) {
           void navigate({
-            to: "/activity/actions/$id",
-            params: { id: actionId },
+            to: "/activity/runs/$id",
+            params: { id: runId },
           });
         }
       }}
@@ -55,7 +55,7 @@ const CallItem = ({ call }: { call: ApiCallRecord }) => {
       {call.forced ? <span className="pl-2 opacity-60">forced</span> : null}
       <span className="ml-auto pl-4 font-mono opacity-60">
         {call.requestId ? `req ${short(call.requestId)}` : ""}
-        {actionId ? ` · action ${short(actionId)}` : ""}
+        {runId ? ` · run ${short(runId)}` : ""}
       </span>
       <span className="w-14 pl-3 text-right tabular-nums opacity-60">
         {call.ms} ms

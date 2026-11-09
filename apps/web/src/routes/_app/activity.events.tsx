@@ -6,7 +6,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { EventEntry } from "@workspace/actions";
 
 import {
-  ActionLink,
+  RunLink,
   Chip,
   ErrorText,
   Json,
@@ -23,7 +23,7 @@ import { runQuery } from "../../lib/api.ts";
 interface EventsSearch extends PageSearch {
   /** A type prefix, as `contact.`. */
   type?: string;
-  action?: string;
+  run?: string;
 }
 
 const EventsScreen = () => {
@@ -36,7 +36,7 @@ const EventsScreen = () => {
         "eventLog.list",
         {
           typePrefix: search.type,
-          actionId: search.action,
+          runId: search.run,
           cursor: search.cursor,
           limit: 25,
         }
@@ -65,9 +65,9 @@ const EventsScreen = () => {
           value={search.type}
           onChange={(type) => update({ type })}
         />
-        {search.action ? (
-          <Chip onRemove={() => update({ action: undefined })}>
-            Action {search.action.slice(0, 8)}
+        {search.run ? (
+          <Chip onRemove={() => update({ run: undefined })}>
+            Run {search.run.slice(0, 8)}
           </Chip>
         ) : null}
       </div>
@@ -79,7 +79,7 @@ const EventsScreen = () => {
               <span className="font-mono text-xs font-medium">
                 {entry.type}
               </span>
-              <ActionLink id={entry.actionId}>action</ActionLink>
+              {entry.runId ? <RunLink id={entry.runId}>run</RunLink> : null}
               {entry.origin ? (
                 <span className="text-muted-foreground">
                   for {entry.origin.name}
@@ -118,7 +118,7 @@ export const Route = createFileRoute("/_app/activity/events")({
   staticData: { section: "activity" },
   validateSearch: (search: Record<string, unknown>): EventsSearch => ({
     type: text(search.type),
-    action: text(search.action),
+    run: text(search.run),
     ...pageSearch(search),
   }),
   component: EventsScreen,

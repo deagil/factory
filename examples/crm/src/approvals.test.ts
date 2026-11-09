@@ -6,7 +6,7 @@ import type {
   AnyActionDefinition,
   AnyQueryDefinition,
 } from "@workspace/actions";
-import { actionLog, auditLog, bootstrapStaff } from "@workspace/db";
+import { runs, auditLog, bootstrapStaff } from "@workspace/db";
 import { createServer } from "@workspace/server";
 import type { Server } from "@workspace/server";
 import { createSystemDatabase } from "@workspace/server/testing";
@@ -80,7 +80,7 @@ describe("approval rules", () => {
       ok: false,
       error: { code: "approval_required", rule: "archive-organisations" },
     });
-    const pendingId = archived.actionId ?? "";
+    const pendingId = archived.runId ?? "";
     const listed = await query("approval.list", { status: "pending" });
     const approval = (
       listed as { output: { approvals: { id: string; subjectId: string }[] } }
@@ -96,23 +96,23 @@ describe("approval rules", () => {
       record: { ok: true, output: { record: { archivedAt: null } } },
       approved: {
         ok: true,
-        output: { ran: { actionId: pendingId, ok: true } },
+        output: { ran: { runId: pendingId, ok: true } },
       },
       again: { ok: false, error: { code: "conflict" } },
     });
 
     const rows = await database.db
       .select()
-      .from(actionLog)
-      .where(eq(actionLog.name, "organisation.archive"));
+      .from(runs)
+      .where(eq(runs.endpoint, "organisation.archive"));
     const changes = await database.db
-      .select({ actionId: auditLog.actionId })
+      .select({ runId: auditLog.runId })
       .from(auditLog)
       .where(eq(auditLog.recordId, id));
     expect({
       archive: rows.map((row) => [row.actorId, row.status]),
-      approve: approved.actionId,
-      changes: changes.map((change) => change.actionId),
+      approve: approved.runId,
+      changes: changes.map((change) => change.runId),
       record: await query("organisation.get", { id }),
     }).toMatchObject({
       archive: [[sales.actorId, "succeeded"]],
@@ -123,10 +123,10 @@ describe("approval rules", () => {
     });
     const [approveRow] = await database.db
       .select()
-      .from(actionLog)
-      .where(eq(actionLog.id, approved.actionId ?? ""));
+      .from(runs)
+      .where(eq(runs.id, approved.runId ?? ""));
     expect(approveRow).toMatchObject({
-      name: "approval.approve",
+      endpoint: "approval.approve",
       actorId: admin.actorId,
       status: "succeeded",
     });
@@ -143,16 +143,16 @@ describe("approval rules", () => {
     const listed = await query("approval.list", { status: "pending" });
     const approval = (
       listed as { output: { approvals: { id: string; subjectId: string }[] } }
-    ).output.approvals.find((each) => each.subjectId === waiting.actionId);
+    ).output.approvals.find((each) => each.subjectId === waiting.runId);
     const rejected = await run(
       "approval.reject",
       { id: approval?.id, comment: "Still a customer" },
       admin
     );
     const [row] = await database.db
-      .select({ status: actionLog.status })
-      .from(actionLog)
-      .where(eq(actionLog.id, waiting.actionId ?? ""));
+      .select({ status: runs.status })
+      .from(runs)
+      .where(eq(runs.id, waiting.runId ?? ""));
     expect({
       direct: await run("organisation.archive", { id }, admin),
       rejected,
@@ -182,7 +182,7 @@ describe("approval rules", () => {
     ]);
 
     const waiting = await run("organisation.archive", { id }, sales);
-    const pendingId = waiting.actionId ?? "";
+    const pendingId = waiting.runId ?? "";
     const [onRecord, salesMine, adminMine, adminDecides, salesDecides] =
       await Promise.all([
         query("approval.list", { recordId: id }),
@@ -202,9 +202,9 @@ describe("approval rules", () => {
       sales
     );
     const [row] = await database.db
-      .select({ status: actionLog.status })
-      .from(actionLog)
-      .where(eq(actionLog.id, pendingId));
+      .select({ status: runs.status })
+      .from(runs)
+      .where(eq(runs.id, pendingId));
     expect({
       forSales,
       forAdmin,

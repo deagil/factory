@@ -60,7 +60,7 @@ export const WhoDid = ({
 const statusStyles: Record<string, string> = {
   succeeded: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   failed: "bg-destructive/10 text-destructive",
-  pending_approval: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  waiting: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   rejected: "bg-muted text-muted-foreground",
 };
 
@@ -167,7 +167,7 @@ export const ChangedFields = ({
   );
 };
 
-export const ActionLink = ({
+export const RunLink = ({
   id,
   children,
 }: {
@@ -175,7 +175,7 @@ export const ActionLink = ({
   children: ReactNode;
 }) => (
   <Link
-    to="/activity/actions/$id"
+    to="/activity/runs/$id"
     params={{ id }}
     className="font-mono text-xs hover:underline"
   >

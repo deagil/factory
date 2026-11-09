@@ -23,7 +23,7 @@ export interface ApiCallRecord {
   status: number;
   ms: number;
   requestId?: string;
-  actionId?: string;
+  runId?: string;
   dryRun: boolean;
   forced: boolean;
 }
@@ -73,13 +73,13 @@ const post = async <T>(
   );
   const body = (await response.json()) as {
     error?: ApiError;
-    actionId?: string;
+    runId?: string;
     requestId?: string;
   } & T;
   record({
     status: response.status,
     requestId: response.headers.get("x-request-id") ?? body.requestId,
-    actionId: body.actionId,
+    runId: body.runId,
     forced: false,
   });
   if (!response.ok || body.error) {
@@ -93,7 +93,7 @@ const post = async <T>(
 
 export interface ActionResult<TOutput> {
   output: TOutput;
-  actionId: string;
+  runId: string;
   replayed: boolean;
   dryRun: boolean;
 }

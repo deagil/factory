@@ -6,7 +6,7 @@ import type { TestApi } from "./testing/test-api.ts";
 
 interface Body {
   output?: Record<string, unknown> & { record?: { id: string } };
-  actionId?: string | null;
+  runId?: string | null;
   replayed?: boolean;
   requestId?: string;
   error?: { code: string; message: string };
@@ -93,7 +93,7 @@ describe("HTTP API", () => {
       replayed: false,
       dryRun: false,
     });
-    expect(body.actionId).toStrictEqual(expect.any(String));
+    expect(body.runId).toStrictEqual(expect.any(String));
   });
 
   it("replays a retry key from Idempotency-Key", async () => {
@@ -112,7 +112,7 @@ describe("HTTP API", () => {
     );
     expect(second.body).toMatchObject({
       replayed: true,
-      actionId: first.body.actionId,
+      runId: first.body.runId,
     });
   });
 
@@ -162,7 +162,7 @@ describe("HTTP API", () => {
       expect(response.headers.get("x-request-id")).toBe("req-1");
       expect(response.body).toMatchObject({
         error: { code, message: expect.any(String) },
-        actionId: expect.toBeOneOf([null, expect.any(String)]),
+        runId: expect.toBeOneOf([null, expect.any(String)]),
         requestId: "req-1",
       });
     }

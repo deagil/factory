@@ -6,12 +6,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { ApprovalEntry } from "@workspace/actions";
 import { Button } from "@workspace/ui/components/button";
 
-import {
-  ActionLink,
-  ErrorText,
-  Json,
-  when,
-} from "../../components/activity.tsx";
+import { RunLink, ErrorText, Json, when } from "../../components/activity.tsx";
 import { ApprovalRows, progress } from "../../components/approvals.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { runQuery } from "../../lib/api.ts";
@@ -71,7 +66,7 @@ const SubjectCard = ({ subject }: { subject: Subject }) => {
         {first.action ? (
           <>
             {" · "}
-            <ActionLink id={subject.id}>the pending action</ActionLink>
+            <RunLink id={subject.id}>the waiting run</RunLink>
           </>
         ) : null}
       </p>

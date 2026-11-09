@@ -16,7 +16,7 @@ export type SectionKey =
 export type NavLink =
   | { to: "/o/$object"; params: { object: string } }
   | { to: "/inbox/approvals" }
-  | { to: "/activity/actions" }
+  | { to: "/activity/runs" }
   | { to: "/activity/changes" }
   | { to: "/activity/events" }
   | { to: "/access/users" }
@@ -91,13 +91,13 @@ const sections: {
     pages: (description) =>
       [
         {
-          query: "actionLog.list",
+          query: "run.list",
           page: {
-            key: "activity:actions",
-            label: "Actions",
+            key: "activity:runs",
+            label: "Runs",
             description:
-              "Everything that ran: who ran it, for whom, and what it did.",
-            link: { to: "/activity/actions" },
+              "Every call that ran: who made it, for whom, each step and what it did.",
+            link: { to: "/activity/runs" },
           },
         },
         {

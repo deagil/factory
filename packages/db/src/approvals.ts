@@ -4,7 +4,7 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
-import { actionLog, actors, approvals, drafts } from "./schema/core.ts";
+import { actors, approvals, drafts, runs } from "./schema/core.ts";
 import type { approvalStatuses, approvalSubjects } from "./schema/core.ts";
 
 export type ApprovalSubject = (typeof approvalSubjects)[number];
@@ -95,17 +95,14 @@ export const createApprovalStore = (executor: Executor) => {
       if (!found) {
         return null;
       }
-      // Who the subject is by or for: an action's actor and origin user, a
+      // Who the subject is by or for: a run's actor and origin user, a
       // draft's creator.
       const [subject] =
-        found.subject === "action"
+        found.subject === "run"
           ? await executor
-              .select({
-                actorId: actionLog.actorId,
-                userId: actionLog.originUserId,
-              })
-              .from(actionLog)
-              .where(eq(actionLog.id, found.subjectId))
+              .select({ actorId: runs.actorId, userId: runs.originUserId })
+              .from(runs)
+              .where(eq(runs.id, found.subjectId))
               .for("update")
           : await executor
               .select({ actorId: drafts.createdBy, userId: actors.userId })

@@ -6,7 +6,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { ChangeEntry } from "@workspace/actions";
 
 import {
-  ActionLink,
+  RunLink,
   ChangedFields,
   Chip,
   ErrorText,
@@ -29,7 +29,7 @@ interface ChangesSearch extends PageSearch {
   field?: string;
   record?: string;
   actor?: string;
-  action?: string;
+  run?: string;
 }
 
 const ChangesScreen = () => {
@@ -49,7 +49,7 @@ const ChangesScreen = () => {
           field: search.field,
           recordId: search.record,
           actorId: search.actor,
-          actionId: search.action,
+          runId: search.run,
           cursor: search.cursor,
           limit: 25,
         }
@@ -98,9 +98,9 @@ const ChangesScreen = () => {
             By {first?.actor.name ?? search.actor.slice(0, 8)}
           </Chip>
         ) : null}
-        {search.action ? (
-          <Chip onRemove={() => update({ action: undefined })}>
-            Action {search.action.slice(0, 8)}
+        {search.run ? (
+          <Chip onRemove={() => update({ run: undefined })}>
+            Run {search.run.slice(0, 8)}
           </Chip>
         ) : null}
       </div>
@@ -152,7 +152,7 @@ const ChangesScreen = () => {
                   <WhoDid who={entry} onActor={(actor) => update({ actor })} />
                 </td>
                 <td className="px-3 py-2">
-                  <ActionLink id={entry.actionId}>{entry.action}</ActionLink>
+                  <RunLink id={entry.runId}>{entry.action}</RunLink>
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-muted-foreground tabular-nums">
                   {when(entry.at)}
@@ -190,7 +190,7 @@ export const Route = createFileRoute("/_app/activity/changes")({
     field: text(search.field),
     record: text(search.record),
     actor: text(search.actor),
-    action: text(search.action),
+    run: text(search.run),
     ...pageSearch(search),
   }),
   component: ChangesScreen,

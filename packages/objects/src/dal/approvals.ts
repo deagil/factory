@@ -3,7 +3,7 @@
 // read them is the query's job, not this layer's.
 
 import type { Executor } from "@workspace/db";
-import { actionLog, actors, approvals, drafts } from "@workspace/db/schema";
+import { actors, approvals, drafts, runs } from "@workspace/db/schema";
 import type { approvalStatuses, approvalSubjects } from "@workspace/db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -22,7 +22,7 @@ export interface ApprovalEntry {
   comment: string | null;
   createdAt: string;
   decidedAt: string | null;
-  /** The pending action: its name and input. */
+  /** The waiting run: the action it runs and its input. */
   action: { name: string; input: unknown } | null;
   /** The draft: its title and the files it changes. */
   draft: { title: string; files: string[] } | null;
@@ -44,10 +44,7 @@ const askedBy = (who: Someone) =>
     eq(drafts.createdBy, who.actorId),
     ...(who.userId === null
       ? []
-      : [
-          eq(requester.userId, who.userId),
-          eq(actionLog.originUserId, who.userId),
-        ])
+      : [eq(requester.userId, who.userId), eq(runs.originUserId, who.userId)])
   );
 
 export const createApprovalReader = (executor: Executor) => {
@@ -78,8 +75,8 @@ export const createApprovalReader = (executor: Executor) => {
         approval: approvals,
         requesterName: requester.name,
         deciderName: decider.name,
-        actionName: actionLog.name,
-        actionInput: actionLog.input,
+        actionName: runs.endpoint,
+        actionInput: runs.input,
         draftTitle: drafts.title,
         draftFiles: drafts.files,
       })
@@ -87,11 +84,8 @@ export const createApprovalReader = (executor: Executor) => {
       .leftJoin(requester, eq(approvals.requestedBy, requester.id))
       .leftJoin(decider, eq(approvals.decidedBy, decider.id))
       .leftJoin(
-        actionLog,
-        and(
-          eq(approvals.subject, "action"),
-          eq(approvals.subjectId, actionLog.id)
-        )
+        runs,
+        and(eq(approvals.subject, "run"), eq(approvals.subjectId, runs.id))
       )
       .leftJoin(
         drafts,
@@ -105,8 +99,8 @@ export const createApprovalReader = (executor: Executor) => {
             : undefined,
           filter.recordId
             ? and(
-                eq(approvals.subject, "action"),
-                sql`${actionLog.input} ->> 'id' = ${filter.recordId}`
+                eq(approvals.subject, "run"),
+                sql`${runs.input} ->> 'id' = ${filter.recordId}`
               )
             : undefined,
           filter.askedBy ? askedBy(filter.askedBy) : undefined,

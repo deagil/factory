@@ -1,5 +1,5 @@
 // The HTTP API's error shape: every failure is
-// `{ error: { code, message, ...details }, actionId, requestId }`, with a
+// `{ error: { code, message, ...details }, runId, requestId }`, with a
 // status code chosen by `code`. See decision 0027.
 import type { RunError } from "@workspace/actions";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
@@ -32,12 +32,12 @@ export const errorBodySchema = z.object({
     code: z.enum(errorCodes),
     message: z.string(),
   }),
-  actionId: z.string().nullable(),
+  runId: z.string().nullable(),
   requestId: z.string(),
 });
 
 export interface ErrorBody {
   error: ApiError;
-  actionId: string | null;
+  runId: string | null;
   requestId: string;
 }

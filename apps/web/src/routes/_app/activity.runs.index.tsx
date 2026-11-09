@@ -1,12 +1,12 @@
-// Activity → Actions: every action that ran, newest first, filtered by
-// name, status or actor, with the filters and page in the URL (P1b.03).
-// Without actionLog.list, the query shows only the caller's own actions.
+// Activity → Runs: every call that ran, newest first, filtered by
+// endpoint, status or actor, with the filters and page in the URL (P1b.03,
+// P2.12). Without run.list, the query shows only the caller's own runs.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { ActionLogEntry } from "@workspace/actions";
+import type { RunEntry } from "@workspace/actions";
 
 import {
-  ActionLink,
+  RunLink,
   Chip,
   ErrorText,
   Pager,
@@ -22,36 +22,33 @@ import type { PageSearch } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { runQuery } from "../../lib/api.ts";
 
-interface ActionsSearch extends PageSearch {
-  /** A name prefix, as `contact.`. */
+interface RunsSearch extends PageSearch {
+  /** An endpoint prefix, as `contact.`. */
   name?: string;
   status?: string;
   actor?: string;
 }
 
-const statuses = ["succeeded", "failed", "pending_approval", "rejected"];
+const statuses = ["succeeded", "failed", "waiting", "rejected", "withdrawn"];
 
-const ActionsScreen = () => {
+const RunsScreen = () => {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const page = useQuery({
-    queryKey: ["actionLog.list", search],
+    queryKey: ["run.list", search],
     queryFn: () =>
-      runQuery<{ entries: ActionLogEntry[]; nextCursor: string | null }>(
-        "actionLog.list",
-        {
-          namePrefix: search.name,
-          status: search.status,
-          actorId: search.actor,
-          cursor: search.cursor,
-          limit: 25,
-        }
-      ),
+      runQuery<{ entries: RunEntry[]; nextCursor: string | null }>("run.list", {
+        endpointPrefix: search.name,
+        status: search.status,
+        actorId: search.actor,
+        cursor: search.cursor,
+        limit: 25,
+      }),
     placeholderData: keepPreviousData,
   });
 
   // Any change but paging starts again from the first page.
-  const update = (next: Partial<ActionsSearch>) =>
+  const update = (next: Partial<RunsSearch>) =>
     navigate({
       search: (previous) => ({
         ...previous,
@@ -66,11 +63,11 @@ const ActionsScreen = () => {
       .name ?? search.actor?.slice(0, 8);
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Actions" />
+      <PageHeader title="Runs" />
       <div className="flex flex-wrap items-center gap-3">
         <TextFilter
           key={search.name ?? ""}
-          label="Action"
+          label="Endpoint"
           placeholder="contact. or contact.create"
           value={search.name}
           onChange={(name) => update({ name })}
@@ -96,7 +93,7 @@ const ActionsScreen = () => {
           <thead className="border-b bg-muted/50">
             <tr>
               <th scope="col" className="px-3 py-2 font-medium">
-                Action
+                Endpoint
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
                 By
@@ -116,7 +113,7 @@ const ActionsScreen = () => {
                 className="border-b last:border-0 hover:bg-muted/30"
               >
                 <td className="px-3 py-2">
-                  <ActionLink id={entry.id}>{entry.name}</ActionLink>
+                  <RunLink id={entry.id}>{entry.endpoint}</RunLink>
                 </td>
                 <td className="px-3 py-2">
                   <WhoDid who={entry} onActor={(actor) => update({ actor })} />
@@ -135,7 +132,7 @@ const ActionsScreen = () => {
                   colSpan={4}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No actions match.
+                  No runs match.
                 </td>
               </tr>
             )}
@@ -153,13 +150,13 @@ const ActionsScreen = () => {
   );
 };
 
-export const Route = createFileRoute("/_app/activity/actions/")({
+export const Route = createFileRoute("/_app/activity/runs/")({
   staticData: { section: "activity" },
-  validateSearch: (search: Record<string, unknown>): ActionsSearch => ({
+  validateSearch: (search: Record<string, unknown>): RunsSearch => ({
     name: text(search.name),
     status: text(search.status),
     actor: text(search.actor),
     ...pageSearch(search),
   }),
-  component: ActionsScreen,
+  component: RunsScreen,
 });

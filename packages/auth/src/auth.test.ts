@@ -76,8 +76,8 @@ describe("sign-in", () => {
       clock: { now: () => new Date() },
     });
     const result = await pipeline.run(touch, {}, caller ?? { actorId: "" });
-    const log = await db.query.actionLog.findFirst({
-      where: (t, { eq }) => eq(t.id, result.actionId ?? ""),
+    const log = await db.query.runs.findFirst({
+      where: (t, { eq }) => eq(t.id, result.runId ?? ""),
     });
     const actor = await db.query.actors.findFirst({
       where: (t, { eq }) => eq(t.id, caller?.actorId ?? ""),

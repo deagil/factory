@@ -52,7 +52,7 @@ const refresh = (client: ReturnType<typeof useQueryClient>) =>
       "approval.list",
       "draft.get",
       "draft.list",
-      "actionLog.list",
+      "run.list",
       "system.describe",
     ].map((key) => client.invalidateQueries({ queryKey: [key] }))
   );
