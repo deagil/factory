@@ -23,6 +23,7 @@
     "@workspace/db": "workspace:*",
     "@workspace/objects": "workspace:*",
     "@workspace/server": "workspace:*",
+    "@workspace/workflows": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "zod": "^4.6.7"
   },

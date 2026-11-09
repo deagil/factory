@@ -71,6 +71,13 @@
       "when": 1794241850696,
       "tag": "0009_p2_12_runs_replace_action_log",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794253115501,
+      "tag": "0010_p2_17_the_runner_for_runs_with_no_pauses",
+      "breakpoints": true
     }
   ]
 }

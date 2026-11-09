@@ -78,6 +78,10 @@ export const actors = pgTable(
     uniqueIndex("actors_staff_user_unique")
       .on(t.userId)
       .where(sql`${t.kind} = 'staff'`),
+    // Each workflow runs as one automation, named for it (P2.17).
+    uniqueIndex("actors_automation_name_unique")
+      .on(t.name)
+      .where(sql`${t.kind} = 'automation'`),
     check(
       "actors_user_required",
       sql`${t.kind} not in ('staff', 'agent') or ${t.userId} is not null`

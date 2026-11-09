@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "actors_automation_name_unique" ON "actors" USING btree ("name") WHERE "actors"."kind" = 'automation';
