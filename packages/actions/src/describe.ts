@@ -4,9 +4,9 @@
 import type {
   AnyField,
   AnyObjectDefinition,
-  ChoiceField,
   ChoiceOptions,
 } from "@workspace/objects";
+import { isChoiceField } from "@workspace/objects";
 import { z } from "zod";
 
 import { actionKinds, defineQuery } from "./define-action.ts";
@@ -140,10 +140,10 @@ const builtInColumns = new Set(["key", "label", "description", "archived"]);
 
 /** A choice field's options, or null when `field` isn't a choice. */
 const choiceOptions = (field: AnyField, choices: ChoiceOptions | undefined) => {
-  if (field.kind !== "choice") {
+  if (!isChoiceField(field)) {
     return null;
   }
-  const { list } = field as unknown as ChoiceField;
+  const { list } = field;
   return (choices?.(list.key) ?? []).map((option) => ({
     key: option.key,
     label: option.label,
@@ -157,10 +157,10 @@ const choiceOptions = (field: AnyField, choices: ChoiceOptions | undefined) => {
 
 /** A choice list's own columns as JSON Schema, or null. */
 const optionColumns = (field: AnyField) => {
-  if (field.kind !== "choice") {
+  if (!isChoiceField(field)) {
     return null;
   }
-  const { columns } = (field as unknown as ChoiceField).list;
+  const { columns } = field.list;
   return Object.keys(columns).length > 0
     ? toJson(z.strictObject(columns), "input")
     : null;
@@ -184,8 +184,7 @@ const describeField = (
   filters: Object.keys(field.filters),
   options: choiceOptions(field, choices),
   optionColumns: optionColumns(field),
-  list:
-    field.kind === "choice" ? (field as unknown as ChoiceField).list.key : null,
+  list: isChoiceField(field) ? field.list.key : null,
   schema: toJson(field.input, "input"),
 });
 

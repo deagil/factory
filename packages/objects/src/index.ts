@@ -30,6 +30,7 @@ export {
   choiceOptionShape,
   ChoiceValueError,
   defineChoiceList,
+  isChoiceField,
   reservedChoiceColumns,
 } from "./fields/choice.ts";
 export type {

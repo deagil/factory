@@ -15,8 +15,8 @@ import { z } from "zod";
 
 import type { RecordOf } from "./dal/data-access.ts";
 import type { AnyObjectDefinition } from "./define-object.ts";
-import { checkChoice } from "./fields/choice.ts";
-import type { ChoiceField, ChoiceOptions } from "./fields/choice.ts";
+import { checkChoice, isChoiceField } from "./fields/choice.ts";
+import type { ChoiceOptions } from "./fields/choice.ts";
 import type { AnyField } from "./fields/field.ts";
 
 export interface RepositoryOptions {
@@ -169,8 +169,8 @@ const checkChoices = (
 ) => {
   for (const [key, value] of Object.entries(values)) {
     const field = (object.fields as Record<string, AnyField>)[key];
-    if (field?.kind === "choice") {
-      checkChoice(key, field as unknown as ChoiceField, value, {
+    if (field && isChoiceField(field)) {
+      checkChoice(key, field, value, {
         choices,
         current: current?.[key],
       });
