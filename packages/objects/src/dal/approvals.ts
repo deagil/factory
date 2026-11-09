@@ -1,4 +1,4 @@
-// Reading approvals (P2.09), for `approval.list`: each sign-off with who asked,
+// Reading approvals, for `approval.list`: each sign-off with who asked,
 // who decided and what it's for, the pending action or the draft. Who may
 // read them is the query's job, not this layer's.
 

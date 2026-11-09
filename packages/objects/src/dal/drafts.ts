@@ -1,4 +1,4 @@
-// Reading drafts (P2.08), for `draft.list`, `draft.get` and the draft actions.
+// Reading drafts, for `draft.list`, `draft.get` and the draft actions.
 // Who may read them is the queries' job, not this layer's.
 
 import type { Executor } from "@workspace/db";

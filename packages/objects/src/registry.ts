@@ -1,5 +1,5 @@
 // Every object defined in this process, by name. defineObject adds to it, and
-// refs find their target's table through it. defineSystem (P1.18) decides
+// refs find their target's table through it. defineSystem decides
 // which objects a running system serves.
 
 import type { AnyObjectDefinition } from "./define-object.ts";

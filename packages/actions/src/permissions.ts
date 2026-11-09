@@ -12,8 +12,8 @@ import { z } from "zod";
 
 import type {
   Actor,
-  AnyDefinition,
   ConfigService,
+  ObjectPermission,
   ObjectVerb,
 } from "./define-action.ts";
 import { objectVerbs } from "./define-action.ts";
@@ -58,17 +58,27 @@ export type Role = z.infer<typeof roleSchema>;
  * The permission a definition needs, by name: `<object>.<verb>` for
  * generated ones (`contact.view`), the definition's own name otherwise.
  */
-export const permissionNameOf = (definition: AnyDefinition): string =>
+export const permissionNameOf = (definition: Authorisable): string =>
   definition.objectPermission
     ? `${definition.objectPermission.object}.${definition.objectPermission.can}`
     : definition.name;
 
+/**
+ * What `authorise` reads. Callers can ask about a name without building a
+ * whole definition.
+ */
+export interface Authorisable {
+  readonly name: string;
+  readonly everyone?: boolean | undefined;
+  readonly objectPermission?: ObjectPermission | undefined;
+}
+
 /** What one actor may do, worked out once per run. */
 export interface Granted {
   /** A permission failure naming what's missing, or null. */
-  authorise: (definition: AnyDefinition) => ActionFailure | null;
+  authorise: (definition: Authorisable) => ActionFailure | null;
   canRead: (object: AnyObjectDefinition) => ReadAccess;
-  /** Whether the actor holds the role `key`, as approvers must (P2.09). */
+  /** Whether the actor holds the role `key`, as approvers must. */
   holds: (key: string) => boolean;
 }
 

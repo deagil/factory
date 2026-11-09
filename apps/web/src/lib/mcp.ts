@@ -1,4 +1,4 @@
-// The command that adds this system to Claude Code over MCP (P1b.06). The
+// The command that adds this system to Claude Code over MCP. The
 // web app's origin proxies /mcp to the API server, like /api.
 
 /** `claude mcp add` for an agent named `name`, with its key in a header. */

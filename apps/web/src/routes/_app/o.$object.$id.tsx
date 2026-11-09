@@ -1,7 +1,7 @@
 // The generated record screen: one for every object, built from
 // system.describe. Details are a form for `<object>.update` (read-only
 // fields are shown, not edited); hand-written actions are buttons; the
-// History tab reads `record.history` (P1.21).
+// History tab reads `record.history`.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";

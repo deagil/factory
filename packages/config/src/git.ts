@@ -1,4 +1,4 @@
-// The git config service (P2.08, decision 0041): drafts over any git remote,
+// The git config service (decision 0041): drafts over any git remote,
 // with plain git commands. It keeps a bare clone of the remote as a cache and
 // writes commits with plumbing (a temporary index, `commit-tree`, `push`), so
 // it never needs a working tree. A draft is a branch made from production,
@@ -550,7 +550,7 @@ export type GitConfigService = ReturnType<typeof createGitConfigService>;
 /**
  * Makes a bare repository at `remote` whose main and production hold the
  * files under `configDir` as `config/`, unless it exists. For trying drafts
- * locally (P2.10): the dev server can run against it instead of the working
+ * locally: the dev server can run against it instead of the working
  * tree. Returns whether it made one.
  */
 export const ensureLocalRemote = async (

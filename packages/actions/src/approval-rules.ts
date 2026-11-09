@@ -1,4 +1,4 @@
-// Approval rules (P2.09, decisions 0042 and 0043): when an action or a draft
+// Approval rules (decisions 0042 and 0043): when an action or a draft
 // needs sign-off, from which role and how many people. A rule is config,
 // `config/approvals/<key>.yaml`; the pipeline's approve stage and the draft
 // actions read the live ones from `ctx.config.approvals`. Conditions are

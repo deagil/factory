@@ -1,8 +1,8 @@
-// Drafts (P2.08, decision 0041): staff change config in a draft, a branch
+// Drafts (decision 0041): staff change config in a draft, a branch
 // made from production, and publish it as one commit. Each person has one
 // working draft, which their first save opens (decision 0044). Publishing a
 // draft whose files an approval rule covers asks for approval instead, and the
-// last approval publishes it (P2.09). The actions and queries reach git only
+// last approval publishes it. The actions and queries reach git only
 // through `ctx.git`, and record each draft in the `drafts` table. A system that reads `config/` from its working tree has no
 // `ctx.git`, and refuses them.
 import {

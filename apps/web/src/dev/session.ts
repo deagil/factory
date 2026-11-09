@@ -1,4 +1,4 @@
-// The dev bar's Session menu (P1b.09): sign in as anyone who can, through
+// The dev bar's Session menu: sign in as anyone who can, through
 // the normal code flow, reading the code from the server's dev outbox at
 // /dev/session. The server serves it only under `pnpm dev`.
 import { sendCode, signIn } from "../lib/auth.ts";

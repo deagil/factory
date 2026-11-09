@@ -1,4 +1,4 @@
-// Deciding approvals (P2.09, decisions 0042 and 0043). `approval.approve` and
+// Deciding approvals (decisions 0042 and 0043). `approval.approve` and
 // `approval.reject` are open to every actor; the handler checks that the
 // decider is staff, holds the approval's role, isn't the person who asked or
 // who it's for, and hasn't already approved the same subject. Once

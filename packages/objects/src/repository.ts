@@ -29,7 +29,7 @@ export interface RepositoryOptions {
   /** The clock, from the action's context. */
   now: () => Date;
   /**
-   * The choice options loaded for this run (P2.06). Choice values are
+   * The choice options loaded for this run. Choice values are
    * checked against them; without them, no choice value is accepted.
    */
   choices?: ChoiceOptions | undefined;

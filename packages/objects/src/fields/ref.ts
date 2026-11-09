@@ -43,7 +43,7 @@ export type RefField<
 /**
  * A reference to one record of another object, or to an actor. Stored as a
  * `uuid` column named `<field>_id`, so the field `organisation` is the column
- * `organisation_id`. defineObject (P1.02) adds the foreign key, because only
+ * `organisation_id`. defineObject adds the foreign key, because only
  * it knows the target's table.
  */
 export const ref = <

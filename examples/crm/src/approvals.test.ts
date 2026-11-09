@@ -1,4 +1,4 @@
-// Approval rules (P2.09): the CRM's rule on organisation.archive makes a
+// Approval rules: the CRM's rule on organisation.archive makes a
 // sales user's archive wait until an admin approves, and approving runs it
 // exactly once, with both people in action_log. approval.check says so
 // beforehand, and whoever asked can withdraw it (decision 0044).

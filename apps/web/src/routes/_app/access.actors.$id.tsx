@@ -1,4 +1,4 @@
-// One actor (P1b.06): who it is, its roles (editable with actor.setRoles),
+// One actor: who it is, its roles (editable with actor.setRoles),
 // its keys, Disable or Enable, and a link to everything it did.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";

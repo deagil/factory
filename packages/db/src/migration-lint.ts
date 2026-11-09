@@ -3,7 +3,7 @@
 // destructive statements are refused unless the file is marked as the
 // contract step on its first line:
 //
-//   -- contract-step: drop deals.legacy_stage, unused since the stage rename
+// -- contract-step: drop deals.legacy_stage, unused since the stage rename
 
 /** The first-line marker that allows destructive statements in a migration. */
 export const contractMarker = /^--[ \t]*contract-step:[ \t]*\S/u;

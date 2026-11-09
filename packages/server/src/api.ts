@@ -1,4 +1,4 @@
-// The HTTP API (P1.14, decision 0027): a route per action and query from the
+// The HTTP API (decision 0027): a route per action and query from the
 // registry, the OpenAPI document, sign-in under /auth and MCP at /mcp.
 import type {
   AnyDefinition,

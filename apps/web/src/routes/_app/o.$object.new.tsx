@@ -1,4 +1,4 @@
-// The generated create screen: a form for `<object>.create` (P1.21).
+// The generated create screen: a form for `<object>.create`.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";

@@ -1,5 +1,5 @@
 // Approval rules as config: `config/approvals/<key>.yaml`, each a rule as
-// `@workspace/actions` defines it (P2.09, decision 0042).
+// `@workspace/actions` defines it (decision 0042).
 import { approvalRuleSchema } from "@workspace/actions";
 import type { ApprovalRule } from "@workspace/actions";
 

@@ -1,4 +1,4 @@
-// Output schemas for the log queries (P1b.02). They live apart from the
+// Output schemas for the log queries. They live apart from the
 // queries because they need the core's action statuses, and files that
 // define handlers may not import @workspace/db (decision 0019).
 import { actionStatuses } from "@workspace/db/schema";

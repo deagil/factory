@@ -1,7 +1,7 @@
-// Drafts over git (P2.08): against a bare test remote, a draft that edits two
+// Drafts over git: against a bare test remote, a draft that edits two
 // files publishes in one commit, the loader picks it up, and main has the
 // same changes. A draft the config-changes rule covers waits for an admin's
-// approval (P2.09), and the last approval publishes it. Each person's saves
+// approval, and the last approval publishes it. Each person's saves
 // go into their working draft, which they can undo or discard (decision 0044).
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync } from "node:fs";
@@ -272,7 +272,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     await expect(
       server.pipeline.run(action("draft.publish"), { id }, admin)
     ).resolves.toMatchObject({ ok: false, error: { code: "validation" } });
-    // draft.get finds the problems again, for the review page (P2.10b).
+    // draft.get finds the problems again, for the review page.
     await expect(
       server.pipeline.query(
         system.registry.get("draft.get") as AnyQueryDefinition,

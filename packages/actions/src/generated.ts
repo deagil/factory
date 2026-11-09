@@ -8,7 +8,7 @@ import { listInputSchema, refKeysOf } from "@workspace/objects";
 import type { AnyObjectDefinition } from "@workspace/objects";
 import { z } from "zod";
 
-import { defineAction, defineQuery } from "./define-action.ts";
+import { defineAction, defineQuery, objectSchema } from "./define-action.ts";
 import type {
   AnyActionDefinition,
   AnyDefinition,
@@ -186,7 +186,7 @@ const listQuery = (object: AnyObjectDefinition) => {
   return defineQuery({
     name: `${object.name}.list`,
     description: `A page of ${object.label.toLowerCase()} records, filtered and sorted`,
-    input: listInputSchema(object) as unknown as ObjectSchema,
+    input: objectSchema(listInputSchema(object)),
     output: z.object({
       records: z.array(schemas.record),
       nextCursor: z.string().nullable(),

@@ -1,11 +1,11 @@
-// The identity queries (P1b.04): `actor.list`, `actor.get`, `apiKey.list`
+// The identity queries: `actor.list`, `actor.get`, `apiKey.list`
 // and `role.list`. The first three need a permission on their own name;
 // without it, anyone can still read their own actors (their staff actor and
 // their agents) and those actors' keys. `role.list` needs its permission.
 import { z } from "zod";
 
 import { defineQuery } from "./define-action.ts";
-import type { AnyDefinition, QueryContext } from "./define-action.ts";
+import type { QueryContext } from "./define-action.ts";
 import {
   actorDetailSchema,
   actorEntrySchema,
@@ -18,11 +18,7 @@ import type { Granted } from "./permissions.ts";
 
 /** Whether the caller holds the permission named `name`. */
 const holds = (granted: Granted, name: string) =>
-  granted.authorise({
-    kind: "query",
-    name,
-    everyone: false,
-  } as unknown as AnyDefinition) === null;
+  granted.authorise({ name, everyone: false }) === null;
 
 /** Whether `actorId` is the caller's own staff actor or one of its agents. */
 const isOwn = async (ctx: QueryContext, actorId: string) => {

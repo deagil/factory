@@ -1,5 +1,5 @@
 // Activity → Changes: every field that changed on every record, newest
-// first, from audit_log, with the action behind each one (P1b.03). Needs
+// first, from audit_log, with the action behind each one. Needs
 // the auditLog.list permission.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";

@@ -1,4 +1,4 @@
-// Contract tests across surfaces (P1.17): every action runs through the HTTP
+// Contract tests across surfaces: every action runs through the HTTP
 // API and through MCP with the same input, and both must give the same
 // result and write the same log rows. A system's tests call `runContract`
 // with its registry; any difference is reported.
@@ -407,8 +407,7 @@ export const identitySamples = (
 };
 
 /**
- * Samples for the draft and approval actions a system with config has (P2.08,
- * P2.09). Without a config remote each draft action is refused the same way
+ * Samples for the draft and approval actions a system with config has (* ). Without a config remote each draft action is refused the same way
  * on every surface, and there is no approval with the sample id.
  */
 export const configSamples = (): Record<string, () => Promise<unknown>> => {

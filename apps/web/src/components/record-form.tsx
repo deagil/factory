@@ -1,4 +1,4 @@
-// A form for one action, with a control per field its input takes (P1.21).
+// A form for one action, with a control per field its input takes.
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -29,7 +29,7 @@ const RefSelect = ({
   const target = field.target ?? "";
   const can = (name: string) =>
     description?.queries.some((query) => query.name === name) ?? false;
-  // Refs to actors list people (P1b.04's `actor.list`); refs to objects use
+  // Refs to actors list people ('s `actor.list`); refs to objects use
   // the object's own `.list`, whose output differs.
   const isActor = target === "actor";
   const listable = isActor

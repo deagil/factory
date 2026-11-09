@@ -1,5 +1,5 @@
 // Stand-in services for tests that run handlers without a database. The
-// pipeline's tests (P1.07) use real ones, bound to a transaction.
+// pipeline's tests use real ones, bound to a transaction.
 
 import type { DraftStore, IdentityStore } from "@workspace/db";
 import type { DataAccess, Repository } from "@workspace/objects";

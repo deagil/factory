@@ -35,7 +35,7 @@ const roles: Role[] = [
 
 const registry = createRegistry([...identityActions]);
 
-describe("inviting people, roles and disabling (P1b.05)", () => {
+describe("inviting people, roles and disabling", () => {
   let crm: CrmDatabase;
   let pipeline: Pipeline;
   let auth: Auth;

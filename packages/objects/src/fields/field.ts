@@ -3,7 +3,7 @@
 //
 // A field can own more than one column (money has an amount and a currency),
 // so a field describes its columns as a map from a suffix to a Drizzle column
-// builder. The main column has the suffix "". defineObject (P1.02) turns the
+// builder. The main column has the suffix "". defineObject turns the
 // field `value` with suffixes "" and "Currency" into the table properties
 // `value` and `valueCurrency`.
 

@@ -1,4 +1,4 @@
-// Choice lists as config: `config/choices/<key>.yaml` (P2.06, SYSTEM_DESIGN
+// Choice lists as config: `config/choices/<key>.yaml` (SYSTEM_DESIGN
 // §4.5, decision 0040). The file holds the rows; the list's structure (its own
 // columns and any fixed keys) is defined in code with `defineChoiceList`, and
 // validateConfig checks each row against it.

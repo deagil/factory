@@ -1,12 +1,13 @@
 // defineAction and defineQuery, the action registry, the context handlers
-// get, and typed errors. The pipeline, permissions and approvals follow in
-// P1.07 to P1.11. See docs/SYSTEM_DESIGN.md section 4.2 and decision 0019.
+// get, and typed errors. The pipeline, permissions and approvals are in
+// this package. See docs/SYSTEM_DESIGN.md section 4.2 and decision 0019.
 export { createActionContext, createQueryContext } from "./context.ts";
 export type { ActionServices, EmittedEvent, QueryServices } from "./context.ts";
 export {
   defineAction,
   defineQuery,
   namePattern,
+  objectSchema,
   objectVerbs,
 } from "./define-action.ts";
 export type {
@@ -108,7 +109,13 @@ export {
   roleSchema,
   scopes,
 } from "./permissions.ts";
-export type { Granted, Permission, Permissions, Role } from "./permissions.ts";
+export type {
+  Authorisable,
+  Granted,
+  Permission,
+  Permissions,
+  Role,
+} from "./permissions.ts";
 export {
   allGranted,
   describeFor,

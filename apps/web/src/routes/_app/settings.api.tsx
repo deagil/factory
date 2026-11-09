@@ -1,4 +1,4 @@
-// Settings → API & MCP (P1b.08): how to reach this system from code or an
+// Settings → API & MCP: how to reach this system from code or an
 // AI agent. Every route and tool is generated from the same registry.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";

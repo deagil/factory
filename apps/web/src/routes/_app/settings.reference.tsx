@@ -1,4 +1,4 @@
-// Settings → Reference (P1b.08): everything system.describe says the
+// Settings → Reference: everything system.describe says the
 // caller can use (objects and fields, actions, queries and events), each
 // with its schema. Search is in the URL.
 import { useQuery } from "@tanstack/react-query";

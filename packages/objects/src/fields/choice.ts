@@ -1,4 +1,4 @@
-// Choice fields (P2.06, SYSTEM_DESIGN §4.5, decisions 0039 and 0040): a field
+// Choice fields (SYSTEM_DESIGN §4.5, decisions 0039 and 0040): a field
 // that stores the key of one option from a list in `config/choices/<list>.yaml`.
 //
 // A list is defined in code with `defineChoiceList`: its key, its own columns
@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { baseOptions, mainValue, orNull, requiredColumn } from "./base.ts";
 import type {
+  AnyField,
   Field,
   FieldOptions,
   FilterOperator,
@@ -236,6 +237,12 @@ export const choice = <
   };
   return field as never;
 };
+
+/** True when `field` stores a key from a choice list. */
+export const isChoiceField = (
+  field: AnyField
+): field is AnyField & { readonly list: AnyChoiceList } =>
+  field.kind === "choice" && "list" in field;
 
 /** A value the loaded options don't allow; the pipeline makes it a validation error. */
 export class ChoiceValueError extends Error {

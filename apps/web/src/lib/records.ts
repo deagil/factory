@@ -1,5 +1,5 @@
 // Generic record helpers for the generated screens: everything comes from
-// system.describe, so no screen code is specific to one object (P1.20).
+// system.describe, so no screen code is specific to one object.
 import type { SystemDescription } from "./api.ts";
 
 export type ObjectDescription = SystemDescription["objects"][number];

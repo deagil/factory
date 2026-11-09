@@ -1,4 +1,4 @@
-// Editing config files (P2.10, P2.10b): pick a choice list or role, or start
+// Editing config files: pick a choice list or role, or start
 // a new role, and edit it as a form. With a draft id it edits that draft;
 // without one it edits the caller's working draft, or the live config until
 // their first save opens one (decision 0044). A save while the draft waits

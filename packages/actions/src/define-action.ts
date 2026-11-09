@@ -12,7 +12,7 @@ import type {
   OptionOf,
   Repository,
 } from "@workspace/objects";
-import type { z } from "zod";
+import { z } from "zod";
 
 import type { ApprovalRule, SignOff } from "./approval-rules.ts";
 import type { ActionError, ActionFailure, ErrorHelpers } from "./errors.ts";
@@ -38,31 +38,31 @@ export interface ConfigCheck {
 }
 
 /**
- * Config, as actions see it: the version the config loader has live
- * (P2.05). Tests pass a static one, with `sha` null.
+ * Config, as actions see it: the version the config loader has live.
+ * Tests pass a static one, with `sha` null.
  */
 export interface ConfigService {
   /** The config version this run uses, written to action_log.config_sha. */
   readonly sha: string | null;
   /** Every role, by key. */
   readonly roles: readonly Role[];
-  /** The options of each choice list, by list key (P2.06). */
+  /** The options of each choice list, by list key. */
   readonly choices?: ChoiceOptions;
   /**
-   * One choice list as this run sees it (P2.07), with its columns typed. The
+   * One choice list as this run sees it, with its columns typed. The
    * pipeline adds it from `choices` when a run starts, so `get` reads the
    * pinned version.
    */
   readonly choice?: <TList extends AnyChoiceList>(
     list: TList
   ) => ChoiceListAccess<OptionOf<TList>>;
-  /** Every approval rule (P2.09). None when absent. */
+  /** Every approval rule. None when absent. */
   readonly approvals?: readonly ApprovalRule[];
   /** Checks `config/` on disk against its schemas and the running code. */
   readonly validate?: () => ConfigCheck;
 }
 
-/** What running an approved action came to (P2.09). */
+/** What running an approved action came to. */
 export type ResumeResult =
   | { readonly ok: true; readonly output: unknown }
   | {
@@ -71,7 +71,7 @@ export type ResumeResult =
     };
 
 /**
- * Approvals, for the approval and draft actions (P2.09): the rows, bound to
+ * Approvals, for the approval and draft actions: the rows, bound to
  * the run's transaction, and what the pipeline does to a pending action
  * once it's decided.
  */
@@ -149,7 +149,7 @@ export type PublishResult =
   | { readonly status: "invalid"; readonly problems: ConfigCheck["problems"] };
 
 /**
- * The config remote (P2.08, SYSTEM_DESIGN §4.4): drafts are branches made
+ * The config remote (SYSTEM_DESIGN §4.4): drafts are branches made
  * from production, one commit per saved file, and publishing writes them to
  * production in one commit, then copies that to main. Plain git, any remote.
  */
@@ -172,7 +172,7 @@ export interface GitService {
   readonly diff: (from: string, to: string) => Promise<ConfigFileDiff[]>;
   /** Deletes `branch` from the remote, as discarding a draft does; gone is fine. */
   readonly remove: (branch: string) => Promise<void>;
-  /** Every config file at `ref`, with its content (P2.10). */
+  /** Every config file at `ref`, with its content. */
   readonly files: (
     ref: string
   ) => Promise<{ readonly path: string; readonly content: string }[]>;
@@ -233,7 +233,7 @@ export interface QueryContext extends ErrorHelpers {
   readonly granted: Granted;
   readonly config: ConfigService;
   /**
-   * The config remote, for drafts (P2.08). Absent when the system reads
+   * The config remote, for drafts. Absent when the system reads
    * `config/` from its working tree, as it does locally.
    */
   readonly git: GitService | undefined;
@@ -256,9 +256,9 @@ export interface ActionContext<
   readonly repo: Repository;
   /** Actors and API keys, for the core's identity actions. */
   readonly identity: IdentityStore;
-  /** Draft rows, for the core's draft actions (P2.08). */
+  /** Draft rows, for the core's draft actions. */
   readonly drafts: DraftStore;
-  /** Approvals, for the approval and draft actions (P2.09). */
+  /** Approvals, for the approval and draft actions. */
   readonly approvals: ApprovalService;
   /**
    * Whether this run is a dry run, which is rolled back at the end. Actions
@@ -270,6 +270,20 @@ export interface ActionContext<
 
 /** Inputs and outputs are objects, so every surface can carry them as JSON. */
 export type ObjectSchema = z.ZodObject;
+
+/**
+ * `schema` when it is an object schema. Object create schemas and list
+ * inputs are object schemas at runtime; their static type is the wider
+ * `ZodType`. The assertion is the one place that bridge is written.
+ */
+export const objectSchema = <T extends z.ZodType>(
+  schema: T
+): ObjectSchema & z.ZodType<z.output<T>> => {
+  if (!(schema instanceof z.ZodObject)) {
+    throw new TypeError("An action or query input must be an object schema.");
+  }
+  return schema as unknown as ObjectSchema & z.ZodType<z.output<T>>;
+};
 
 /** What a handler returns, now or as a promise: the output, or a typed error. */
 export type HandlerResult<TOutput extends ObjectSchema> =

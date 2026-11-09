@@ -1,4 +1,4 @@
-// The MCP server (P1.15, decision 0026): one tool per action and query,
+// The MCP server (decision 0026): one tool per action and query,
 // generated from the registry, served statelessly over streamable HTTP at
 // `/mcp`. An agent connects with its API key as the bearer token, so its
 // calls run as the agent, for its user.
@@ -99,7 +99,7 @@ const toolResult = (result: CallResult): CallToolResult => {
       ...actionIdText(result),
     ],
     // Claude Code shows the model `structuredContent` when there is one,
-    // not the text or `_meta`, so an action's id goes in it too (P2.02).
+    // not the text or `_meta`, so an action's id goes in it too.
     structuredContent: actionId ? { ...output, actionId } : output,
     _meta: metaOf(result),
   };

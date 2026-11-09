@@ -1,10 +1,10 @@
-// `defineSystem` (P1.18, decision 0031): one client's system, from its
+// `defineSystem` (decision 0031): one client's system, from its
 // objects, hand-written actions and queries, and its `config/` folder,
-// where its roles live (P2.05). It adds what every
+// where its roles live. It adds what every
 // system has: the generated actions and queries for each object, the
 // identity actions and queries, `record.history`, the log queries and
-// `system.describe`, and with config, `config.validate`, drafts (P2.08) and
-// approvals (P2.09).
+// `system.describe`, and with config, `config.validate`, drafts and
+// approvals.
 import {
   allGranted,
   approvalDefinitions,
@@ -50,7 +50,7 @@ export interface SystemOptions {
   migrations?: string;
   /**
    * The system's `config/` folder, absolute. With it the system has
-   * `config.validate` and `validateConfig()` (P2.04).
+   * `config.validate` and `validateConfig`.
    */
   config?: string;
 }
@@ -66,7 +66,7 @@ export interface System {
   readonly config: string | undefined;
   /** What config can refer to: the system's objects, actions and events. */
   readonly catalog: () => ConfigCatalog;
-  /** Checks `config/` against the config types and this system (P2.04). */
+  /** Checks `config/` against the config types and this system. */
   readonly validateConfig: () => ConfigRead;
   /** The object tables, for the schema check. */
   readonly tables: readonly AnyObjectDefinition["table"][];

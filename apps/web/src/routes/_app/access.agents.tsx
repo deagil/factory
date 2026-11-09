@@ -1,4 +1,4 @@
-// Access → Agents: every person's agents (P1b.06). People make their own
+// Access → Agents: every person's agents. People make their own
 // agents from My agents.
 import { createFileRoute } from "@tanstack/react-router";
 

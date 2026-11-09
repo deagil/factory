@@ -1,4 +1,4 @@
-// Reading the logs (P1b.02): `action_log`, `audit_log` and `event_log`,
+// Reading the logs: `action_log`, `audit_log` and `event_log`,
 // newest first, with who did each thing and who they did it for. They are
 // read here, like records, so no raw SQL leaves packages/db (AGENTS.md rule
 // 2). Who may read them is the queries' job, not this layer's.

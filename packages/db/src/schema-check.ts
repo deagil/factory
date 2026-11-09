@@ -1,5 +1,5 @@
 // The schema check: does the database match the tables the code defines?
-// It runs at start-up (createServer, P1.18) and in CI (db:check-migrations).
+// It runs at start-up (createServer) and in CI (db:check-migrations).
 // See docs/SYSTEM_DESIGN.md section 6, Guardrails, and decision 0016.
 //
 // It compares tables in the `public` schema only. DBOS and Better Auth keep

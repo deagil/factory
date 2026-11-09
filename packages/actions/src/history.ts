@@ -1,5 +1,5 @@
 // `record.history`: every change to one record, newest first, from
-// `audit_log` with the action and actor behind each one (P1.21). One
+// `audit_log` with the action and actor behind each one. One
 // `audit_log` row is one entry (decision 0018).
 import type { AnyObjectDefinition } from "@workspace/objects";
 import { z } from "zod";

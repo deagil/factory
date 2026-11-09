@@ -56,7 +56,7 @@ export interface DataAccessOptions {
   executor: Executor;
   /** The permission hook: what the reader may see of each object. */
   canRead: (object: AnyObjectDefinition) => ReadAccess;
-  /** The loaded choice options, for filters by category (P2.06). */
+  /** The loaded choice options, for filters by category. */
   choices?: ChoiceOptions | undefined;
 }
 

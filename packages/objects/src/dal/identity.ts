@@ -1,4 +1,4 @@
-// Reading actors, their roles and their API keys (P1b.04), for the Access
+// Reading actors, their roles and their API keys, for the Access
 // screens and pickers. Key hashes never leave the database. Who may read
 // them is the queries' job, not this layer's.
 

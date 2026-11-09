@@ -1,7 +1,7 @@
 // Navigation from system.describe: the system's functions in sections, each
 // with the pages the caller can use. A section with no pages is left out
 // (decision 0033). Phase 1b adds Activity, Access and Settings; phase 2
-// adds Inbox and Config (P2.10), and Automation with workflows.
+// adds Inbox and Config, and Automation with workflows.
 import type { SystemDescription } from "./api.ts";
 
 export type SectionKey =

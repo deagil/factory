@@ -1,5 +1,5 @@
 // Session: sign in as anyone, in one choice, and see the codes the server
-// sent (P1b.09). Local development only, like the rest of the dev bar.
+// sent. Local development only, like the rest of the dev bar.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {

@@ -1,9 +1,9 @@
-// The config loader (P2.05, SYSTEM_DESIGN §4.4): reads `config/`, validates
+// The config loader (SYSTEM_DESIGN §4.4): reads `config/`, validates
 // it against the running code, and swaps an in-memory index in one go. A
 // version that fails validation is refused and the last good one stays
 // live. Each version it tries is recorded (config_versions). Locally it
 // reads the working tree and, when watching, reloads on save; the sha is
-// then a hash of the files. With a source (the git config service, P2.08)
+// then a hash of the files. With a source (the git config service)
 // it reads production's head commit instead, and the sha is that commit's.
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -53,7 +53,7 @@ export interface ConfigLoaderOptions {
    * then there is no config.
    */
   readonly dir: string;
-  /** Reads config from here instead of `dir` (P2.08). */
+  /** Reads config from here instead of `dir`. */
   readonly source?: ConfigLoaderSource;
   readonly types: readonly AnyConfigType[];
   /** What the running code has; read on each load. */

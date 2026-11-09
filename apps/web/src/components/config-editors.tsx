@@ -1,4 +1,4 @@
-// Config editors for a draft (P2.10): choice lists and roles as forms, each
+// Config editors for a draft: choice lists and roles as forms, each
 // built from what the config type allows. A choice list's own columns come
 // from its JSON Schema in system.describe; a role's grid from the objects
 // and actions the system has. Saving sends the value, which the server
