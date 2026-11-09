@@ -67,7 +67,7 @@
   - No direct pushes to `main`; PRs need green CI. Write down how to set this up for GitHub and for a generic git host in `docs/`.
   - **Needs:** P0.07.
   - **Done when:** pushing straight to `main` is refused, and the setup is documented.
-  - **Status:** documented in [docs/branch-protection.md](../branch-protection.md). Not enforced yet: `deagil/factory` is private on GitHub Free, where the API refuses rulesets and branch protection with `Upgrade to GitHub Pro or make this repository public`. Dylan decides: upgrade, or go public, then run the ruleset command and the push check in that doc.
+  - **Status:** documented in [docs/branch-protection.md](../branch-protection.md), and enforced. The repo is public (GitHub Free cannot protect a private repo) and the `main` ruleset is active: a direct push is refused, and a merge needs the `check` status. See the P0.08 log entry below.
 
 ### `fx`
 

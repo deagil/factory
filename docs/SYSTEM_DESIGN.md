@@ -17,7 +17,7 @@ flowchart LR
     M[modules: comms · documents · payments · reports]
   end
   subgraph Repo["Client repo"]
-    E[objects, actions, steps]
+    E[objects, actions, workflows]
     C[config files]
   end
   subgraph Instance["Client instance"]
@@ -37,7 +37,7 @@ flowchart LR
 Three rules hold everything together:
 
 1. **Every change to data goes through an action.** The web surface, agents, external systems and workflows all call the same actions, so permissions, validation, history and events always apply.
-2. **Every definition lives in the repo.** Objects, actions and steps are TypeScript. Config is YAML files. The database holds data, never definitions.
+2. **Every definition lives in the repo.** Objects and actions are TypeScript. Workflows and the rest of config are YAML files. The database holds data, never definitions.
 3. **Everything is derived one way.** Definitions produce the schema, the API, the screens and the agent tools. Nothing is maintained twice, so nothing can drift.
 
 ---
