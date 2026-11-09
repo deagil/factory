@@ -94,7 +94,7 @@ export type {
 } from "./errors.ts";
 export { createRegistry } from "./registry.ts";
 export type { RegisteredEvent, Registry } from "./registry.ts";
-export { createPipeline } from "./pipeline.ts";
+export { createPipeline, pin as pinConfig } from "./pipeline.ts";
 export type {
   ActionResult,
   Caller,

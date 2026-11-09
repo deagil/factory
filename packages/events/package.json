@@ -11,6 +11,12 @@
     "lint": "ultracite check",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@workspace/actions": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/workflows": "workspace:*",
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
     "@workspace/testing": "workspace:*"
   }

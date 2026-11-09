@@ -12,6 +12,7 @@ objects:
     endpoints: [list, get, update, history]
     rows: own # the deal's owner is them
     write: { except: [stage] } # deal.moveStage moves it
+  task: { endpoints: "*", rows: all }
 workflows:
   - contact.moveToOrganisation
   - deal_create

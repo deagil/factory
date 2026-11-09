@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@workspace/auth": "workspace:*",
+    "@workspace/events": "workspace:*",
     "@workspace/testing": "workspace:*",
     "drizzle-kit": "^0.31.11"
   },

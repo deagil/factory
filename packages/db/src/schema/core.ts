@@ -205,6 +205,8 @@ export const runs = pgTable(
     parentRunId: uuid("parent_run_id").references((): AnyPgColumn => runs.id),
     /** The event that started it, for runs a workflow's trigger started. */
     eventId: uuid("event_id"),
+    /** The minute a schedule started it for (P2.19). */
+    scheduledFor: timestamptz("scheduled_for"),
     depth: integer("depth").notNull().default(0),
     startedAt: timestamptz("started_at").notNull().defaultNow(),
     finishedAt: timestamptz("finished_at"),
@@ -220,6 +222,14 @@ export const runs = pgTable(
       .where(
         sql`${t.retryKey} is not null and ${t.status} = 'succeeded' and not ${t.dryRun}`
       ),
+    // An event starts each workflow once, and a schedule once a minute,
+    // however many dispatchers run (P2.19).
+    uniqueIndex("runs_event_unique")
+      .on(t.endpoint, t.eventId)
+      .where(sql`${t.eventId} is not null`),
+    uniqueIndex("runs_schedule_unique")
+      .on(t.endpoint, t.scheduledFor)
+      .where(sql`${t.scheduledFor} is not null`),
   ]
 );
 

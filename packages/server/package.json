@@ -19,6 +19,7 @@
     "@workspace/auth": "workspace:*",
     "@workspace/config": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/events": "workspace:*",
     "@workspace/objects": "workspace:*",
     "@workspace/workflows": "workspace:*",
     "hono": "^4.13.17",

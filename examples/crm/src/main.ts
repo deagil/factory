@@ -70,6 +70,8 @@ const server = await createServer(crm, {
   // Locally, config/ is read from the working tree and reloaded on save,
   // unless there's a config remote.
   watchConfig: dev && !remoteUrl,
+  // Start the workflows events and schedules start, every second (P2.19).
+  dispatchMs: 1000,
   ...(remoteUrl
     ? {
         configRemote: {

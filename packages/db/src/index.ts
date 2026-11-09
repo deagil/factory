@@ -79,6 +79,12 @@ export type {
 } from "./approvals.ts";
 export { createDraftStore } from "./drafts.ts";
 export { findRetriedRun, saveRunSteps, saveRuns } from "./run-trace.ts";
+export {
+  isUniqueViolation,
+  markDispatched,
+  undispatchedEvents,
+} from "./dispatch.ts";
+export type { EventRow } from "./dispatch.ts";
 export type { RunRow, RunStepRow } from "./run-trace.ts";
 export type { DraftChanges, DraftStatus, DraftStore } from "./drafts.ts";
 export type {

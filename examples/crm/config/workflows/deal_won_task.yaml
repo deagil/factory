@@ -1,0 +1,15 @@
+# When a deal is won, add a task to thank the customer (P2.19).
+# deal_move_stage emits deal_stage_changed; its `to` is a deal stage, so
+# the condition reads the stage's category column.
+key: deal_won_task
+description: Add a task to thank the customer when a deal is won.
+starts_when:
+  event: deal_stage_changed
+  when:
+    - { field: event.to.category, is: won }
+steps:
+  - id: add
+    action: task_create
+    with:
+      title: { value: Thank the customer }
+      deal: { from: event.deal }

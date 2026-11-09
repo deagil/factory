@@ -52,6 +52,22 @@ export const deal = defineObject({
   actions: { create: "deal_create" },
 });
 
+/**
+ * Something to do about a deal. Workflows add one when a deal is won or
+ * changes owner (config/workflows/, P2.19).
+ */
+export const task = defineObject({
+  name: "task",
+  description: "Something to do about a deal.",
+  fields: {
+    title: f.text({ required: true, maxLength: 200 }),
+    deal: f.ref("deal", { required: true }),
+    done: f.boolean(),
+  },
+  list: ["title", "deal", "done"],
+});
+
 export const organisations = organisation.table;
 export const contacts = contact.table;
 export const deals = deal.table;
+export const tasks = task.table;

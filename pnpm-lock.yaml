@@ -291,6 +291,9 @@ importers:
       '@workspace/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@workspace/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@workspace/testing':
         specifier: workspace:*
         version: link:../../packages/testing
@@ -402,6 +405,19 @@ importers:
         version: 0.31.11
 
   packages/events:
+    dependencies:
+      '@workspace/actions':
+        specifier: workspace:*
+        version: link:../actions
+      '@workspace/db':
+        specifier: workspace:*
+        version: link:../db
+      '@workspace/workflows':
+        specifier: workspace:*
+        version: link:../workflows
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@workspace/testing':
         specifier: workspace:*
@@ -452,6 +468,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../db
+      '@workspace/events':
+        specifier: workspace:*
+        version: link:../events
       '@workspace/objects':
         specifier: workspace:*
         version: link:../objects
