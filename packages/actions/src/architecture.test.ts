@@ -149,7 +149,6 @@ const commentAllowlist = [
   "packages/objects/src/dal/data-access.ts",
   "packages/objects/src/dal/drafts.ts",
   "packages/objects/src/dal/identity.ts",
-  "packages/objects/src/dal/list-input.ts",
   "packages/objects/src/dal/logs.ts",
   "packages/objects/src/define-object.ts",
   "packages/objects/src/fields/choice.ts",
