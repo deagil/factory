@@ -59,6 +59,7 @@ describe("forms from action inputs", () => {
         target: "organisation",
         required: true,
         options: null,
+        list: null,
       },
     ]);
   });

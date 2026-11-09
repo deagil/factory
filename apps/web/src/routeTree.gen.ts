@@ -30,6 +30,8 @@ import { Route as AppConfigDraftsIdRouteImport } from './routes/_app/config.draf
 import { Route as AppOObjectIndexRouteImport } from './routes/_app/o.$object.index'
 import { Route as AppOObjectIdRouteImport } from './routes/_app/o.$object.$id'
 import { Route as AppOObjectNewRouteImport } from './routes/_app/o.$object.new'
+import { Route as AppSettingsChoicesIndexRouteImport } from './routes/_app/settings.choices.index'
+import { Route as AppSettingsChoicesListRouteImport } from './routes/_app/settings.choices.$list'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -135,6 +137,16 @@ const AppOObjectNewRoute = AppOObjectNewRouteImport.update({
   path: '/o/$object/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsChoicesIndexRoute = AppSettingsChoicesIndexRouteImport.update({
+  id: '/settings/choices/',
+  path: '/settings/choices/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsChoicesListRoute = AppSettingsChoicesListRouteImport.update({
+  id: '/settings/choices/$list',
+  path: '/settings/choices/$list',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -154,9 +166,11 @@ export interface FileRoutesByFullPath {
   '/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
+  '/settings/choices/$list': typeof AppSettingsChoicesListRoute
   '/activity/actions/': typeof AppActivityActionsIndexRoute
   '/config/drafts/': typeof AppConfigDraftsIndexRoute
   '/o/$object/': typeof AppOObjectIndexRoute
+  '/settings/choices/': typeof AppSettingsChoicesIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
@@ -176,9 +190,11 @@ export interface FileRoutesByTo {
   '/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
+  '/settings/choices/$list': typeof AppSettingsChoicesListRoute
   '/activity/actions': typeof AppActivityActionsIndexRoute
   '/config/drafts': typeof AppConfigDraftsIndexRoute
   '/o/$object': typeof AppOObjectIndexRoute
+  '/settings/choices': typeof AppSettingsChoicesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -200,9 +216,11 @@ export interface FileRoutesById {
   '/_app/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/_app/o/$object/$id': typeof AppOObjectIdRoute
   '/_app/o/$object/new': typeof AppOObjectNewRoute
+  '/_app/settings/choices/$list': typeof AppSettingsChoicesListRoute
   '/_app/activity/actions/': typeof AppActivityActionsIndexRoute
   '/_app/config/drafts/': typeof AppConfigDraftsIndexRoute
   '/_app/o/$object/': typeof AppOObjectIndexRoute
+  '/_app/settings/choices/': typeof AppSettingsChoicesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -224,9 +242,11 @@ export interface FileRouteTypes {
     | '/config/drafts/$id'
     | '/o/$object/$id'
     | '/o/$object/new'
+    | '/settings/choices/$list'
     | '/activity/actions/'
     | '/config/drafts/'
     | '/o/$object/'
+    | '/settings/choices/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sign-in'
@@ -246,9 +266,11 @@ export interface FileRouteTypes {
     | '/config/drafts/$id'
     | '/o/$object/$id'
     | '/o/$object/new'
+    | '/settings/choices/$list'
     | '/activity/actions'
     | '/config/drafts'
     | '/o/$object'
+    | '/settings/choices'
   id:
     | '__root__'
     | '/_app'
@@ -269,9 +291,11 @@ export interface FileRouteTypes {
     | '/_app/config/drafts/$id'
     | '/_app/o/$object/$id'
     | '/_app/o/$object/new'
+    | '/_app/settings/choices/$list'
     | '/_app/activity/actions/'
     | '/_app/config/drafts/'
     | '/_app/o/$object/'
+    | '/_app/settings/choices/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -428,6 +452,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOObjectNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/choices/': {
+      id: '/_app/settings/choices/'
+      path: '/settings/choices'
+      fullPath: '/settings/choices/'
+      preLoaderRoute: typeof AppSettingsChoicesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/choices/$list': {
+      id: '/_app/settings/choices/$list'
+      path: '/settings/choices/$list'
+      fullPath: '/settings/choices/$list'
+      preLoaderRoute: typeof AppSettingsChoicesListRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -448,9 +486,11 @@ interface AppRouteChildren {
   AppConfigDraftsIdRoute: typeof AppConfigDraftsIdRoute
   AppOObjectIdRoute: typeof AppOObjectIdRoute
   AppOObjectNewRoute: typeof AppOObjectNewRoute
+  AppSettingsChoicesListRoute: typeof AppSettingsChoicesListRoute
   AppActivityActionsIndexRoute: typeof AppActivityActionsIndexRoute
   AppConfigDraftsIndexRoute: typeof AppConfigDraftsIndexRoute
   AppOObjectIndexRoute: typeof AppOObjectIndexRoute
+  AppSettingsChoicesIndexRoute: typeof AppSettingsChoicesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -470,9 +510,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfigDraftsIdRoute: AppConfigDraftsIdRoute,
   AppOObjectIdRoute: AppOObjectIdRoute,
   AppOObjectNewRoute: AppOObjectNewRoute,
+  AppSettingsChoicesListRoute: AppSettingsChoicesListRoute,
   AppActivityActionsIndexRoute: AppActivityActionsIndexRoute,
   AppConfigDraftsIndexRoute: AppConfigDraftsIndexRoute,
   AppOObjectIndexRoute: AppOObjectIndexRoute,
+  AppSettingsChoicesIndexRoute: AppSettingsChoicesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

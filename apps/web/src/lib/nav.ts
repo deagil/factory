@@ -24,6 +24,7 @@ export type NavLink =
   | { to: "/access/integrations" }
   | { to: "/access/roles" }
   | { to: "/config/drafts" }
+  | { to: "/settings/choices" }
   | { to: "/settings/reference" }
   | { to: "/settings/api" };
 
@@ -188,8 +189,19 @@ const sections: {
   {
     key: "settings",
     label: "Settings",
-    // Everyone gets these: each shows only what the caller can use.
-    pages: () => [
+    // Reference and API & MCP are for everyone: each shows only what the
+    // caller can use. Choice lists are for those who can change config.
+    pages: (description) => [
+      ...(has(description, "draft.save")
+        ? [
+            {
+              key: "settings:choices",
+              label: "Choice lists",
+              description: "The options people pick from, such as deal stages.",
+              link: { to: "/settings/choices" } as const,
+            },
+          ]
+        : []),
       {
         key: "settings:reference",
         label: "Reference",

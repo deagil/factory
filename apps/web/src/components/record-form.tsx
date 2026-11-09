@@ -1,5 +1,6 @@
 // A form for one action, with a control per field its input takes (P1.21).
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
@@ -7,6 +8,7 @@ import { useState } from "react";
 
 import { ApiCallError, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
+import { canEditConfig } from "../lib/choice-lists.ts";
 import type { FormField, FormValues } from "../lib/forms.ts";
 import { findObject, titleOf } from "../lib/records.ts";
 import type { ListPage } from "../lib/records.ts";
@@ -96,10 +98,13 @@ const ChoiceSelect = ({
   field,
   value,
   onChange,
+  canManage,
 }: {
   field: FormField;
   value: string;
   onChange: (value: string) => void;
+  /** Whether to link to the list's page, for people who can edit it. */
+  canManage: boolean;
 }) => {
   const options = (field.options ?? []).filter(
     (option) => !option.archived || option.key === value
@@ -132,6 +137,15 @@ const ChoiceSelect = ({
           {hint}
         </p>
       )}
+      {canManage && field.list ? (
+        <Link
+          to="/settings/choices/$list"
+          params={{ list: field.list }}
+          className="w-fit text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Manage options
+        </Link>
+      ) : null}
     </>
   );
 };
@@ -169,6 +183,7 @@ const FieldControl = ({
         field={field}
         value={String(value ?? "")}
         onChange={onChange}
+        canManage={canEditConfig(description)}
       />
     );
   }

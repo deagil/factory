@@ -10,6 +10,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import type { SystemDescription } from "../lib/api.ts";
+import { optionMarks } from "../lib/choice-lists.ts";
 import { humanise } from "../lib/forms.ts";
 
 type Value = Record<string, unknown>;
@@ -21,6 +22,11 @@ export interface EditorProps {
   onSave: (value: Value) => void;
   /** The save button's label; "Save to draft" by default. */
   saveLabel?: string;
+  /**
+   * A choice list's live options, to mark the rows that differ from them.
+   * Left out, no row is marked.
+   */
+  live?: Value[];
 }
 
 interface ColumnSchema {
@@ -34,7 +40,7 @@ interface ColumnsSchema {
 }
 
 /** The list's own columns, from a choice field that uses it. */
-const columnsOf = (
+export const columnsOf = (
   description: SystemDescription | undefined,
   list: string
 ): ColumnsSchema | null => {
@@ -131,6 +137,13 @@ const SaveBar = ({
   </div>
 );
 
+/** "New" or "Edited": how a row differs from the live list. */
+export const OptionBadge = ({ mark }: { mark: "new" | "changed" }) => (
+  <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-700 dark:text-amber-300">
+    {mark === "new" ? "New" : "Edited"}
+  </span>
+);
+
 /** Without undefined fields, so an emptied column leaves the file. */
 const tidy = (option: Value): Value =>
   Object.fromEntries(
@@ -153,6 +166,7 @@ export const ChoiceListEditor = ({
   saving,
   onSave,
   saveLabel,
+  live,
 }: EditorProps) => {
   const listKey = String(value.key ?? "");
   const saved = Array.isArray(value.options) ? (value.options as Value[]) : [];
@@ -174,6 +188,7 @@ export const ChoiceListEditor = ({
         ),
       ].map((key) => [key, { type: "string" }]);
   const dirty = JSON.stringify(options) !== JSON.stringify(saved);
+  const marks = live ? optionMarks(options.map(tidy), live) : new Map();
   const set = (index: number, key: string, next: unknown) =>
     setOptions((previous) =>
       previous.map((option, at) =>
@@ -212,14 +227,21 @@ export const ChoiceListEditor = ({
           <tbody>
             {options.map((option, index) => {
               const isSaved = savedKeys.has(String(option.key));
+              const mark = marks.get(String(option.key));
               return (
                 // Keys can be edited on new rows, so the row's place is its key.
                 // oxlint-disable-next-line react/no-array-index-key
-                <tr key={index} className="border-b last:border-0">
+                <tr
+                  key={index}
+                  className={`border-b last:border-0 ${mark ? "bg-amber-500/5" : ""}`}
+                >
                   <td className={cell}>
                     {isSaved ? (
-                      <span className="font-mono text-xs">
-                        {String(option.key)}
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono text-xs">
+                          {String(option.key)}
+                        </span>
+                        {mark ? <OptionBadge mark={mark} /> : null}
                       </span>
                     ) : (
                       <Input

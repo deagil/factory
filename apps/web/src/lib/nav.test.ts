@@ -14,6 +14,11 @@ const described = (
     events: [],
   }) as never;
 
+const settingsPages = (actions: string[]) =>
+  navFrom(described([], [], actions))
+    .find((section) => section.key === "settings")
+    ?.pages.map((page) => page.key);
+
 describe(navFrom, () => {
   it("puts the objects in Data, in plural, with their descriptions", () => {
     const nav = navFrom(
@@ -83,6 +88,18 @@ describe(navFrom, () => {
   it("leaves out a section with no pages, and always has Settings", () => {
     expect(navFrom(described([])).map((section) => section.key)).toStrictEqual([
       "settings",
+    ]);
+  });
+
+  it("shows Choice lists in Settings only to those who can change config", () => {
+    expect(settingsPages([])).toStrictEqual([
+      "settings:reference",
+      "settings:api",
+    ]);
+    expect(settingsPages(["draft.save"])).toStrictEqual([
+      "settings:choices",
+      "settings:reference",
+      "settings:api",
     ]);
   });
 });
