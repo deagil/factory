@@ -1,18 +1,21 @@
 # Phase 2: Config over git
 
-**Goal:** staff change how a system behaves without a deploy. Choice fields, roles, approval rules, workflows and email templates are files under `config/`, validated against the running code. Staff edit them in drafts that publish as one git commit, and the running system loads them within seconds. Workflows react to events and run actions durably, as themselves. At the end, a sales manager adds a deal stage and an email for it in one draft, publishes it, and the next deal moved to that stage sends the email, with every step in history.
+**Goal:** staff change how a system behaves without a deploy. Choice fields, roles, approval rules, workflows and email templates are files under `config/`, validated against the running code. Staff edit them in drafts that publish as one git commit, and the running system loads them within seconds. Every object has REST endpoints, and role rules on endpoints, fields and rows decide who may use them. Business processes are workflows: built from typed blocks, published only after validation, passing tests and a second person's approval, and then live as endpoints like any hand-coded route, running under the service key with every call traced. At the end, a sales manager adds a deal stage and a workflow that emails for it in one draft, an admin approves it, and the next deal moved to that stage sends the email, with every step in the run's trace.
 
 **Out of scope:**
 
 - Hosting, releases to `production` from a real remote, the release bot and client SSO (phase 3). Phase 2 publishes to a `production` branch of a local or test remote.
-- Scoped permissions beyond `all`, the page builder, reports and the in-app agent (later).
-- Payments, documents and other modules beyond comms (later).
+- Team row scopes and rules on related records, per-workflow grants, the page builder, reports and the in-app agent (later).
+- Replaying recent real traces against drafts, Playwright tests generated per workflow as a publish gate, and side-by-side rollout of a new workflow version (later; see the publish gate decision below).
+- Payments, ledgers, append-only objects and other modules beyond comms (later). `payment.make` is used below only as the example of a workflow with pauses; tests build it from fake blocks.
+- A CLI generated from the registry (later; the registry makes it a surface like the others).
 
 ## Resume here
 
-- **Status:** in progress. P2.01 to P2.10 are done: systems have their own migrations (decision 0036), agents see action ids, and config is YAML files with registered types (decision 0037), checked by `validateConfig` in `fx ship` and CI, and loaded live by the config loader (decision 0038). `f.choice` checks values against `config/choices/`, and each list's columns and any fixed keys are defined in code with `defineChoiceList` (decisions 0039, 0040). The CRM has organisations, contacts and deals; `deal.stage` is a mapped choice, a deal starts in an open stage, and `deal.moveStage` is the only way to change it. The web app shows choice fields as selects and refs to actors as a picker. With a `configRemote`, the server reads config from a git remote's production branch, and `draft.open`, `draft.save`, `draft.submit` and `draft.publish` change it: one commit per publish, copied to main (decision 0041). Approval rules in `config/approvals/` park a matching action as `pending_approval` until `approval.approve` runs it once, and hold a covered draft in `awaiting_approval` (decision 0042); rules can ask for several approvals, test the stored record, and name requester and exempt roles (decision 0043). The CRM's rules cover `organisation.archive` and changes to approvals, choices and roles. The web app has Inbox → Approvals and Config → Drafts, with editors for choice lists and roles and a plain-English diff; `CONFIG_REMOTE=local` runs the CRM against a bare repository in `.factory/` so drafts work by hand. P2.10a gave each person a working draft that their saves open, which they can undo or discard; publishing asks for approval when a rule covers it, and the last approval publishes it; requesters can withdraw, and `approval.check` says beforehand who must approve (decision 0044). P2.10b put the working draft in the header: a pill with its edits in plain English, Undo, Publish (named for whoever it will ask) and Discard, and the draft page became its review page. P2.10c to P2.10f move editing into place. The run inspector goes in Activity with workflows.
-- **Next task:** P2.10c, choice lists edited in place, then P2.10d to P2.10f; P2.11, workflow definitions, after them. Edit with `ConfigFiles` (no draft id: the working draft, or live config) and refresh with `useRefreshDrafts`, both from P2.10b. Its conditions should test event payloads, including a choice field's column such as `stage.category` (decision 0040); approval conditions test only the action's input for now.
-- **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has.
+- **Status:** in progress. P2.01 to P2.10b are done: systems have their own migrations (decision 0036), agents see action ids, and config is YAML files with registered types (decision 0037), checked by `validateConfig` in `fx ship` and CI, and loaded live by the config loader (decision 0038). `f.choice` checks values against `config/choices/`, and each list's columns and any fixed keys are defined in code with `defineChoiceList` (decisions 0039, 0040). The CRM has organisations, contacts and deals; `deal.stage` is a mapped choice, a deal starts in an open stage, and `deal.moveStage` is the only way to change it. With a `configRemote`, the server reads config from a git remote's production branch, and drafts change it: one commit per publish, copied to main (decision 0041). Approval rules in `config/approvals/` park a matching action until the last approval runs it (decisions 0042, 0043). Each person has a working draft, shown as a pill in the header, that publishes or asks for approval (decision 0044).
+- **The model changed on 9 Nov 2026.** After a design review, actions as hand-written commands give way to object REST endpoints and published workflows. The old P2.11 to P2.18 (workflows acting as themselves with derived permissions, decision 0011) are replaced by the tasks below. Read **The model** under Decisions for this phase before any task from P2.11 on; P2.11 writes it into decision records and SYSTEM_DESIGN.
+- **Next task:** P2.10c, choice lists edited in place, which the new model doesn't change. Edit with `ConfigFiles` (no draft id: the working draft, or live config) and refresh with `useRefreshDrafts`, both from P2.10b. Then P2.11, writing the model down, and on in order. P2.10d to P2.10f wait for the new role rules and workflow endpoints; their **Needs** say which.
+- **How to start:** see [docs/plans/README.md](README.md) and AGENTS.md. Every change goes through `pnpm fx start` → `pnpm fx ship` → `pnpm fx done`. `pnpm fx describe` shows what the CRM has. Until P2.11 merges, AGENTS.md's architecture rules still describe actions; where they conflict with **The model**, the model wins for work on these tasks.
 - **Carried over from phase 1:**
   - drizzle-kit can't tell a rename from a drop and an add without a terminal, and 0.31 re-adds `actor_roles`' primary key on every push. See [phase-1-handover.md](phase-1-handover.md) for these and the other traps.
 
@@ -25,6 +28,89 @@ These fill gaps until later phases replace them. Don't build further than this.
 - **The bot that copies a publish from `production` back to `main` is a function the config service calls after the merge,** not a separate service. Phase 3 moves it to wherever releases run.
 - **Email goes to a dev sink locally:** `comms.send` prints the message to the server console, the same way sign-in codes are printed. A real provider comes with hosting.
 - **Workflows run in the API process** with DBOS on the same Postgres. A separate worker is a phase 3 question.
+
+### The model (agreed 9 Nov 2026; written up by P2.11)
+
+**Principles.** Simple, consistent, robust: a few strong building blocks used the same way everywhere. One way to do each thing. Each capability is defined once and appears on the API, MCP, the CLI (later) and the web app with the same behaviour, the same permission check and the same trace. People can open any workflow or run and understand it visually, though agents do most of the building.
+
+**Endpoints.** The only endpoints are object endpoints and workflow endpoints. A caller's role is checked once, at the endpoint.
+
+- **Object endpoints** are generated by `defineObject` for every object, with no opt-in:
+
+  | Endpoint | Does |
+  | --- | --- |
+  | `GET /<objects>` | List, with query parameters to filter, sort and page (a cursor) |
+  | `GET /<objects>/{id}` | Read one record |
+  | `POST /<objects>` | Create |
+  | `PATCH /<objects>/{id}` | Update the fields given. `If-Match` carries the version for optimistic concurrency. There is no `PUT`: one way to update. |
+  | `POST /<objects>/{id}/archive`, `/restore` | Hide a record from lists, or bring it back |
+  | `GET /<objects>/{id}/history` | The record's field history and the runs that touched it |
+
+  Paths use the object's plural name (`/deals`, `/organisations`). The error shape, request ids, auth and `Idempotency-Key` stay as decision 0027 has them. Owned fields (`actions.update.readOnly`) go: role rules decide who writes a field.
+
+- **Workflow endpoints:** a published workflow with a request schema is `POST /workflows/<name>`, with the same request, response and errors a hand-coded route would have. A workflow whose steps only read is marked `read: true`, is served as `GET /workflows/<name>` with query parameters, and validation proves it never writes. Runs are resources: `GET /runs/{id}`.
+- **Every surface comes from one registry.** HTTP and OpenAPI, MCP (one tool per endpoint, named with `_` for the dot, as decision 0028), `system.describe`, and the web app's screens, forms and workflow buttons. The CLI joins later. Agents build workflows through the same endpoints the web app uses.
+
+**Roles.** One set of rules, the same on every surface. Routes never carry rules of their own.
+
+- **Endpoints:** which object endpoints and workflows a role may call. A workflow is granted by name like an object endpoint.
+- **Fields:** which fields a role may read and which it may write, per object. Lists and reads leave out unreadable fields; a write to an unwritable field is refused with a validation error naming the field.
+- **Rows:** `own` or `all`, applied to lists, reads and writes. `own` means the record's owner field (declared on the object, for example `owner: "owner"` on deal) is the caller, or for an agent, the person it acts for. Team scopes and rules on related records come later.
+- **Example:** senior back-end staff can `GET` most payments, and no role can `POST /payments`. Payments are made only through the `payment.make` workflow.
+- **Privilege ceiling:** nobody grants, mints or revokes a role or key with authority they don't hold themselves (review decision, P1 priority).
+
+**Blocks** are the small building blocks a workflow is made of: code, defined with `defineBlock`, with Zod inputs and outputs, declared error codes and their own unit tests. Each one either fully happens or doesn't. Blocks are internal and never on a surface. Modules and systems add their own. Each declares a kind:
+
+| Kind | Examples | In the segment's transaction? |
+| --- | --- | --- |
+| `data` | Read, create, update, archive records (generated per object); ready-made checks such as "record belongs to caller", "within limits" and "record is in the expected state"; transforms; later, balanced ledger postings | Yes. It gets the segment's repository and never opens its own transaction. |
+| `pause` | `wait`, `waitForApproval` | No |
+| `outside` | `http.send`, `comms.send`, later a payment provider | No |
+
+Control flow (condition, branch, run another workflow, emit, respond, fail) belongs to the interpreter and isn't a block.
+
+**Workflows** are where business processes live.
+
+- Client processes are YAML under `config/workflows/`, shown visually. The core and modules define theirs in TypeScript with `defineWorkflow`, in the same shape, run by the same engine, served on the same endpoints and traced the same way. So `draft.*`, `approval.*`, `actor.*`, `apiKey.*` and `user.invite` become code workflows; `system.describe`, `record.history`, `config.validate` and the log reads become read-only code workflows.
+- **Started** by a call to its endpoint (returning data like a route), by an event, or on a schedule.
+- **Checks are steps.** Any check you'd write in route code ("this account is mine") is a step that returns a declared error code and stops. The workflow's response schema lists its error codes, so OpenAPI and MCP show them.
+- **Nested:** a step can run another workflow. The parent waits for its result; if the child fails, that step fails.
+- **Example, moving a deal's stage:** by default it's a plain `PATCH`, governed by role rules like any field. When the business needs checks (a lost stage needs a reason), roles get no write on `stage` and a published `deal.moveStage` workflow does it with check steps and emits `deal.stageChanged`.
+
+**Running.**
+
+- **Service key.** Inside a workflow, blocks run with full internal access, like a code API running with its database rights. Getting each step right is the workflow's job; publishing (below) is the control. The run records the caller as `origin_user_id` and the workflow as the actor.
+- **Segments: steps between pauses commit together.** The engine opens a transaction and runs consecutive `data` steps in it; at each `pause` step, or an `outside` step whose result is used, it commits, checkpoints (DBOS), runs the step, checkpoints its result, and opens a new transaction. It's automatic: nobody marks segments, and the file has no setting for them. A run with no pauses is fully atomic. Dependencies between steps don't matter; a later step sees an earlier one's writes. Branches cut only on the path taken; a child workflow with no pauses joins its parent's transaction. The editor shows where a cut may happen and the trace where it did. Checkpoints are per segment, not per step.
+- **Outside calls whose output no later step uses** (a notification email, a webhook) are queued in the segment and sent after it commits, like `event_log`, so they don't cut it. An outside step whose output a later step or branch uses cuts the segment.
+- **Retry key = run id + step id,** sent to outside calls as `Idempotency-Key`, so a retried step never acts twice. A call to a workflow endpoint with `Idempotency-Key` returns the earlier run.
+- **Errors in a run with no pauses:** everything rolls back and the caller gets the typed error at once (validation, permission, not found, conflict, or the workflow's own codes such as `limit_exceeded`). The trace is written outside the transaction, so it survives.
+- **Errors after a commit:** the failing segment rolls back and earlier segments stay. Temporary errors from outside calls are retried with backoff and the same key. A permanent error runs the step's or segment's `onFailure` branch (for example `payment.reverse`) as a new segment. Validation refuses a step that can fail after a committed segment unless it has a failure branch or says `onFailure: leave`. With no way out, or a failing failure branch, the run is marked `needs_attention` in the inbox of the role the workflow names, where someone can retry from the failed step, run the failure branch, or mark it resolved, all traced.
+- **Records can change between segments.** A later segment re-reads what it relies on with the ready-made expected-state check (`settle` checks the payment is still pending).
+- **What a caller gets:** the endpoint waits until the run finishes or reaches its first `pause`; an outside call is waited for up to a timeout. Finished: the normal response. Still running: `202` with the run as a resource and `Location: /runs/{id}`. A run waiting for approval is that pending resource, so `approval_required` is no longer an error.
+- **Depth limit** on nested and event-started runs, as before.
+
+**Events.** Object endpoints and data blocks emit generated events (`<object>.created`, `.updated` with the changed fields and before and after, `.archived`, `.restored`) in the segment's transaction. A workflow may also declare its own events with payload schemas and emit them with an `emit` step (`deal.stageChanged` with the stage's category). Event triggers can test the payload, including changed fields and a choice field's column such as `stage.category`. Workflows are the only listeners; one dispatcher starts one run per event and matching workflow, exactly once.
+
+**Approvals.**
+
+- **Data needs sign-off only through a workflow.** If a write needs approval, roles don't get that write and a workflow does it with a `waitForApproval` step (approver role, number of approvals, requester and exempt roles, and conditions, from decision 0043). The CRM's archive rule becomes an `organisation.archive` workflow.
+- **Approval rules in `config/approvals/` cover config drafts only.**
+- **Two people** for any draft that touches `workflows/`, `roles/` or `approvals/`: the author and at least one different person with the approver role. There is no admin exemption for these.
+- One approvals table and one inbox for both. A request is a run waiting at a step, or a draft.
+- **Developer-written workflows** reach `main` through `fx ship` and a PR. CI runs their example cases and the PR review is the second person.
+
+**The publish gate.** Every new or changed workflow starts as a draft and publishes only after:
+
+1. **Validation on save:** step inputs and outputs line up; the blocks, fields, choice options and events it names exist; branches cover every outcome; failure branches exist where they must; `http.send` URLs are fixed in the file, never from data; a warning when a workflow takes a record id with no ownership check.
+2. **Example cases,** stored with the workflow: a caller, a request or event, fixture records, recorded fakes for outside steps, and the expected response or error, writes and emits. Failing cases are required: one per declared error code, and a wrong-caller case when the request takes a record id. In CI they run against a database built from migrations; in a running instance, inside a transaction that is always rolled back, with waits skipped and approvals and outside calls faked.
+3. **Regression:** every workflow's cases rerun in CI whenever a workflow, block, object or the core changes.
+4. **Two-person approval,** as above.
+
+**Runs replace `action_log`.** Every endpoint call is a run: one `runs` row (endpoint, actor, origin user, input, response or error, status, retry key, config sha, parent run, triggering event, timings) and one `run_steps` row per step (block or control, segment, input, output, error, branch taken, timings). An object endpoint call is a run with one step. `audit_log` and `event_log` rows carry `run_id` and `step_id`; approvals point at the run (or the draft). The run and its steps are the trace: people and agents read it the same way. The logs stay append-only.
+
+**What stays.** The pipeline's stages (identify, validate, retry check, authorise, run, record, commit) move to the endpoint; retry keys, dry runs (as the base for example cases), choice fields, config drafts over git, the loader and validation, Better Auth, the error shape and stateless MCP all carry over.
+
+**Open, not in this phase:** how team scopes and related records work; whether to have a protected owner role; the licence; API key policy; the admin approver exemption outside workflows, roles and approvals.
 
 ## Tasks
 
@@ -119,73 +205,154 @@ P2.10 made drafts and approvals their own screens, which follow git rather than 
   - **Needs:** P2.10b.
   - **Done when:** in the browser, a manager adds a deal stage from the deal stages page and publishes it from the pill.
 
-- [ ] **P2.10d Roles and approval rules edited in place**
-  - Access → Roles: a page per role with Edit, New role and the people who hold it. Settings → Approval rules: each rule as a sentence, and a form for its action, conditions, approver, approvals, requester and exempt roles.
-  - The Config section goes; published drafts become Activity → Config history, with others' open drafts for admins. Updates decision 0033.
-  - **Needs:** P2.10b.
-  - **Done when:** in the browser, an admin edits a role and an approval rule in place and publishes both in one draft.
+P2.10d to P2.10f are below, under **Staff screens on the new model**: they wait for role rules and workflow endpoints.
 
-- [ ] **P2.10e Approvals for requesters and approvers**
-  - Action buttons say beforehand when they need sign-off, and asking is confirmed, not shown as an error. Records show their pending approvals, with Withdraw; a waiting create or update shows what it would change.
-  - The inbox gets a count badge, tabs for Needs me, My requests and Decided, plain-English requests linking to their records, field diffs for updates, a draft's plain-English diff, and says why someone can't decide instead of showing the buttons.
-  - **Needs:** P2.10a.
-  - **Done when:** in the browser, a sales user archives an organisation, sees it waiting on the record and withdraws it; an admin approves another from the inbox's Needs me tab.
+### Write the model down
 
-- [ ] **P2.10f Home page**
-  - What's waiting for the caller, their requests and their unpublished edits, with links into their objects.
-  - **Needs:** P2.10b, P2.10e.
-  - **Done when:** in the browser, the home page shows an admin their approvals and a manager their draft.
+- [ ] **P2.11 Decision records and design docs**
+  - A new decision record for the model in **Decisions for this phase**, and one for runs, segments and errors. Mark as superseded, with a link, and rewrite where they still apply: 0001 (endpoints come from objects and published workflows, not every action), 0010 (workflows are endpoints as well as listeners; blocks replace "every side effect is an action"), 0011 (service key, the publish gate and two people instead of derived permissions), 0022 (generated actions become REST endpoints and data blocks), 0024 (role rules on endpoints, fields and rows), 0027 and 0028 (routes and tools). Amend 0020 and 0021 (the pipeline runs at the endpoint; retry key = run id + step id; dry runs back example cases), 0026, 0029, 0030, 0042 and 0043 (rules cover config drafts; the rest moves to `waitForApproval`). Check 0044 still fits.
+  - SYSTEM_DESIGN: the core tables (section 3), 4.2, 4.3, 4.6, 4.7, 4.8, 4.9, the walkthroughs in section 5 and the glossary (block, workflow, published workflow, service key, segment, run, trace; action and query retired or redefined). AGENTS.md: the current state, rules 1, 11, 12 and 13, and the naming list.
+  - Docs only.
+  - **Needs:** nothing.
+  - **Done when:** the records are merged, SYSTEM_DESIGN and AGENTS.md describe the model with no leftover rule that contradicts it, and the glossary defines every term the later tasks use.
 
-### Workflows (`@workspace/workflows`; SYSTEM_DESIGN §4.6, §4.7)
+### Runs, object endpoints and role rules
 
-- [ ] **P2.11 Workflow definitions**
-  - A `workflow` config type: trigger (event, schedule or manual), steps (`action`, `condition`, `wait`, `waitForApproval`), inputs as `from` or `value`, conditions as field, operator, value, and `onFailure`. Validation checks every action, event and input path.
-  - Each workflow's permissions are derived from its steps, and the workflow is an automation actor.
-  - **Needs:** P2.04.
-  - **Done when:** an example workflow validates, a step naming an unknown action or a missing trigger field fails with a clear message, and the derived permissions are listed by `fx describe`.
+- [ ] **P2.12 Runs replace `action_log`**
+  - New `runs` and `run_steps` tables, as **The model** describes them. The pipeline writes a run with one step for every call it makes today; `audit_log` and `event_log` get `run_id` and `step_id`; approvals and `drafts.publish_action_id` point at the run; the retry-key index moves to `runs` (actor, retry key).
+  - The log reads (`actionLog.*` today) and Activity → Actions read runs, renamed Runs. `action_log` stops being written; dropping it is the marked contract step in P2.26.
+  - **Needs:** P2.11.
+  - **Done when:** every existing test passes on runs, the contract tests compare run and step rows across HTTP and MCP, and Activity shows a run with its step.
 
-- [ ] **P2.12 The dispatcher and the interpreter**
-  - New `workflow_runs` and `workflow_step_runs` tables. The dispatcher reads new `event_log` rows and starts one DBOS run per event and matching workflow, exactly once. One DBOS workflow interprets every definition: it loads the pinned definition, resolves inputs and runs each step through the pipeline as the workflow's actor, with the event's origin user. Runs carry a depth count, and dispatch stops past a limit.
-  - **Needs:** P2.07, P2.11.
-  - **Done when:** moving a deal to won runs a workflow that creates a follow-up record, the run survives a server restart during a `wait`, and the step's `action_log` row has the workflow as actor and the person as origin user.
+- [ ] **P2.13 Object endpoints**
+  - `defineObject` generates the REST endpoints in **The model** for every object, through the same pipeline, beside `/actions` and `/queries`, which stay until P2.26. List filters, sort and cursor are query parameters; `PATCH` takes `If-Match`; history is `GET /<objects>/{id}/history`. Generated events are emitted as today.
+  - OpenAPI groups operations by object. MCP has one tool per endpoint. `system.describe` lists object endpoints. The web app's object screens (list, record, new, history) move to the REST endpoints.
+  - **Needs:** P2.12.
+  - **Done when:** the CRM's objects answer on REST over HTTP and MCP, the contract tests cover every generated endpoint, the web app's record screens use them, and `/actions` still works.
 
-- [ ] **P2.13 Publish guard and authority review**
-  - Publishing or approving a workflow needs every permission it derives. Any edit recalculates and checks again. A query lists workflows whose publisher or approver no longer holds a permission they use.
-  - **Needs:** P2.08, P2.12.
-  - **Done when:** a sales user can't publish a workflow that archives organisations, and removing a permission from the publisher's role puts the workflow on the review list.
+- [ ] **P2.14 Role rules on endpoints, fields and rows**
+  - A new role file shape: per object, the endpoints a role may call, the fields it may read and write, and its rows (`own` or `all`); workflows granted by name. `defineObject` takes `owner` to name the owner field. `validateConfig` checks it against the catalog. The CRM's roles move to it.
+  - Applied in the data access layer for every read and write on every surface: lists and reads are filtered by rows and leave out unreadable fields; writes to unwritable fields and to rows outside scope are refused with a typed error naming the field or record. `system.describe` gives each field's read and write for the caller, and the web app's forms follow it. `actions.update.readOnly` goes.
+  - The privilege ceiling: `actor.setRoles`, `actor.createAgent`, `actor.createIntegration`, `user.invite` and `apiKey.create`/`revoke` refuse to grant, mint or revoke what the caller doesn't hold.
+  - **Needs:** P2.13.
+  - **Done when:** a role without write on `deal.stage` can't change it over HTTP, MCP or the web app; a role with `own` on deals lists, reads and updates only its own; a manager can't give someone the admin role; and a role file naming an unknown field fails validation with file and line.
 
-- [ ] **P2.14 Dry runs and the run inspector**
-  - A draft workflow runs against a sample event with every action in dry-run mode, showing each step, its result and any missing permission. The record timeline shows the runs a record's events caused, step by step, and each object has a "What happens when…" view.
-  - **Needs:** P2.10, P2.12.
-  - **Done when:** in the browser, a dry run of a draft workflow shows each step's result without writing anything, and a deal's timeline shows the run its move caused.
+### Workflows (`@workspace/workflows`)
+
+- [ ] **P2.15 Blocks**
+  - `defineBlock({ name, kind, input, output, errors, run })` with Zod schemas and declared error codes, and a test helper that runs a block against a test database. Data blocks receive the segment's repository with the service key; the registry tells blocks from endpoints and never puts a block on a surface.
+  - Generated data blocks for every object (get, list, create, update, archive, restore). Ready-made checks: record belongs to caller (the object's owner field), within a limit, and record in an expected state (field equals or is one of). `fx describe` lists blocks with kinds and schemas.
+  - **Needs:** P2.12.
+  - **Done when:** the generated and check blocks exist with unit tests, a test proves no block is reachable over HTTP or MCP, and `fx describe` shows them.
+
+- [ ] **P2.16 Workflow definitions and validation**
+  - A `workflow` config type, `config/workflows/<name>.yaml`, and `defineWorkflow` in TypeScript taking the same shape. A workflow has a description; a trigger (endpoint, event with conditions, or schedule); a request schema built from field kinds; a response; declared error codes and events; the role whose inbox gets runs needing attention; and steps: run a block, check (a block or condition that fails with a declared code), condition and branch, `wait`, `waitForApproval`, run another workflow, `emit`, `respond`, `fail`. Inputs are `from` a path or a `value`; conditions are field, operator, value, with no expression language. `onFailure` is a branch or `leave`. `read: true` marks a read-only workflow.
+  - Validation, as in **The model**'s publish gate step 1, with errors naming the file, the path and line, in plain English. `workflow.validate` also returns the segments: where a cut may happen.
+  - **Needs:** P2.15.
+  - **Done when:** a YAML `deal.moveStage` and a TypeScript `payment.make` built from fake blocks validate; a step whose input type doesn't match, an unknown block, a missing failure branch after a commit and an `http.send` URL taken from `from` each fail with a clear message; and `fx describe` lists each workflow with its segments.
+
+- [ ] **P2.17 The runner, for runs with no pauses**
+  - Interprets a definition (pinned with the run's config sha) under the service key: consecutive data steps in one transaction, branches, nested workflows joining the parent's transaction, `emit`, `respond` and declared errors. Writes `runs` and `run_steps` for the trace outside the transaction, so a failed run keeps its trace; records the caller as origin user and the workflow as actor. Rolls everything back on any error.
+  - Measures `deal.moveStage` as a workflow against today's action and records the numbers in the log.
+  - **Needs:** P2.16.
+  - **Done when:** in a test, `deal.moveStage` as a workflow moves a deal and emits `deal.stageChanged` in one transaction; a lost stage with no reason returns the declared error and changes nothing; a failing nested workflow fails its parent; and the trace shows each step, its input and output and the branch taken.
+
+- [ ] **P2.18 Workflow endpoints everywhere**
+  - `POST /workflows/<name>` (and `GET` for `read: true`), `GET /runs/{id}`, `Idempotency-Key` returning the earlier run, and `202` with `Location` for a run still going. A tool per workflow on MCP, operations in OpenAPI with the declared errors, workflows the caller may call in `system.describe`. Roles grant workflows by name (from P2.14).
+  - The web app shows a workflow whose request takes a record of an object as a button on that record, with a form from its request schema, and the rest from a Workflows page. The `<object>.<verb>` custom-action buttons stay until P2.26.
+  - **Needs:** P2.14, P2.17.
+  - **Done when:** `deal.moveStage` runs from HTTP, MCP and a button on the deal with the same run rows, a lost stage without a reason shows the declared error on each, and the contract tests cover workflow endpoints.
+
+- [ ] **P2.19 Events and the dispatcher**
+  - `packages/events`: the dispatcher reads new `event_log` rows and starts one run per event and matching workflow, exactly once, with the event's origin user, a parent link to the run that emitted it and the depth limit. Event triggers test the payload, including changed fields and choice columns. Schedules start runs too.
+  - **Needs:** P2.17.
+  - **Done when:** moving a deal to won runs a workflow that creates a follow-up record; a workflow triggered by `deal.updated` when `owner` changed runs only for that change; the follow-up's run links back to the move; and a chain past the depth limit stops with a clear trace.
+
+- [ ] **P2.20 Durable runs: pauses, outside calls and failures**
+  - DBOS checkpoints at segment boundaries; `wait`; outside blocks run outside the transaction with the retry key as `Idempotency-Key`, retried with backoff on temporary errors; outside steps whose output nothing uses are queued and sent after commit; failure branches as new segments; `needs_attention` runs with retry from the failed step, run the failure branch, and mark resolved, each traced. The ready-made expected-state check is used across segments. The trace shows segment boundaries and what was undone.
+  - **Needs:** P2.17, P2.19.
+  - **Done when:** in tests with a fake outside endpoint, `payment.make` survives a server restart during a `wait`; a temporary failure is retried with the same `Idempotency-Key` and acts once; a permanent failure runs `payment.reverse`; a failing failure branch lands the run in the named role's inbox; and a queued notification is sent only after its segment commits.
+
+- [ ] **P2.21 Approvals as a step, and two people for config**
+  - `waitForApproval` creates a request in the approvals table and the inbox, with the options from decision 0043, and the last approval resumes the run; rejecting runs its failure branch; withdrawing cancels the run. `approval.check` answers for a workflow and request beforehand.
+  - Approval rules cover config drafts only; rules on actions go. Drafts touching `workflows/`, `roles/` or `approvals/` need the author and one other approver, with no admin exemption, enforced in the core.
+  - **Needs:** P2.20.
+  - **Done when:** an `organisation.archive` workflow waits for an admin and finishes on approval, survives a restart while waiting, and can be withdrawn by the requester; and an admin's own draft changing a role can't be published without a second admin.
+
+- [ ] **P2.22 Example cases and the publish gate**
+  - Example cases stored with each workflow (`config/workflows/<name>.cases.yaml`, or `cases` in `defineWorkflow`), in the shape **The model** describes, with the required failing cases. A runner for CI (database from migrations, run by `fx ship` and the `check`, rerun when a workflow, block, object or the core changes) and for a running instance (one rolled-back transaction, waits skipped, approvals and outside calls faked from recordings).
+  - A draft with workflows publishes only when validation passes, every case passes and the required failing cases exist, then through P2.21's two people. The review page shows each case's result.
+  - **Needs:** P2.18, P2.21.
+  - **Done when:** in the browser, a manager's draft workflow with no wrong-caller case is refused with a clear reason; with its cases it passes, and an admin approves and publishes it; and changing a block so a case fails turns CI red.
+
+- [ ] **P2.23 The run inspector and the workflow view**
+  - Activity → Runs: a run's steps as a diagram, with segments, inputs, outputs, branches taken, errors, retries and the records touched, and links to parent and child runs. A record's history shows the runs that touched it. Each workflow has a read-only visual view of its definition, showing where it may pause, and each object a "What happens when…" view of the workflows its events start.
+  - **Needs:** P2.18, P2.20.
+  - **Done when:** in the browser, a deal's history links to the run its move caused, the run shows each step and its segment, and `payment.make`'s view shows its pauses and failure branch.
+
+### Moving onto the model
+
+- [ ] **P2.24 Core operations as code workflows**
+  - `draft.*`, `approval.*`, `actor.*`, `apiKey.*` and `user.invite` become `defineWorkflow` workflows made of core blocks; `system.describe`, `record.history`, `config.validate`, `role.list` and the log reads become `read: true` workflows. Git work in drafts is an outside block, so a publish's push is outside the transaction and checkpointed. Roles grant them by name; the web app calls them on `/workflows`.
+  - **Needs:** P2.18, P2.21.
+  - **Done when:** every core operation runs as a workflow on every surface with a trace, the existing auth, drafts and approvals tests pass against the workflow endpoints, and nothing in the core is still a `defineAction`.
+
+- [ ] **P2.25 The CRM on the model**
+  - `deal.moveStage` becomes `config/workflows/deal-move-stage.yaml` with its checks and `emit`; sales lose write on `stage`. Creating a deal in an open stage becomes a role rule plus a field default, or a `deal.create` workflow if that can't express it. `contact.moveToOrganisation` becomes a rule or a workflow. `organisation.archive` becomes a workflow with `waitForApproval`, and sales lose direct archive. Roles gain field and row rules (sales: `own` on deals). The hand-written actions and their tests go; each workflow has its cases.
+  - **Needs:** P2.14, P2.19, P2.22.
+  - **Done when:** the CRM has no `defineAction`, its tests pass on endpoints and workflows, and `pnpm fx describe` shows its objects, workflows and blocks.
+
+- [ ] **P2.26 Remove actions and queries**
+  - Remove `/actions/<name>`, `/queries/<name>`, `defineAction`, the per-action MCP tools and the custom-action buttons; regenerate OpenAPI; update `fx describe`. Drop `action_log` as the marked contract step. The contract tests cover object and workflow endpoints only.
+  - **Needs:** P2.24, P2.25.
+  - **Done when:** `rg defineAction` finds nothing outside decision records, the web app and MCP work end to end on the new endpoints, and the migration check passes with the contract step.
 
 ### Comms and calls out (SYSTEM_DESIGN §4.6, §4.10)
 
-- [ ] **P2.15 `defineModule` and comms**
-  - `defineModule({ name, objects, actions, configTypes, events })`, switched on in `defineSystem`. The comms module has an `email_send` object, an `email-template` config type, and `comms.send`, which renders a template and sends through the dev sink, emitting `email.sent` or `email.failed`.
-  - **Needs:** P2.11.
-  - **Done when:** a workflow step sends a templated email that appears in the console and in the record's history.
+- [ ] **P2.27 `defineModule` and comms**
+  - `defineModule({ name, objects, blocks, workflows, configTypes, events })`, switched on in `defineSystem`. The comms module has an `email_send` object, an `email-template` config type, and a `comms.send` outside block that renders a template and sends through the dev sink, recording the send on `email_send`.
+  - **Needs:** P2.20.
+  - **Done when:** a workflow step sends a templated email after its segment commits; it appears in the console, in the run's trace and in the record's history; and a rolled-back run sends nothing.
 
-- [ ] **P2.16 `http.send`**
-  - An action that posts a signed payload in a standard envelope to a URL fixed in the workflow file, with retries and backoff, recording the response. Validation refuses a URL taken from `from`. `onFailure` defaults to `continue`.
-  - **Needs:** P2.12.
-  - **Done when:** a workflow step calls a local test endpoint, the signature verifies, and a failing endpoint doesn't stop the rest of the run.
+- [ ] **P2.28 `http.send`**
+  - An outside block that posts a signed payload in a standard envelope to a URL fixed in the workflow file, with the retry key as `Idempotency-Key`, retries and backoff, recording the response on the step. Validation refuses a URL from `from`.
+  - **Needs:** P2.20.
+  - **Done when:** a workflow step calls a local test endpoint and the signature verifies; a step whose response a later step uses cuts the segment, and one whose response nothing uses is sent after commit; and a failing endpoint runs the failure branch or lands in needs attention.
+
+### Staff screens on the new model (decision 0044)
+
+- [ ] **P2.10d Roles and approval rules edited in place**
+  - Access → Roles: a page per role with Edit, New role and the people who hold it, editing the endpoints, fields and rows a role has per object, and the workflows it may run. Settings → Approval rules: each config rule as a sentence, with a form for the config types it covers, the approver, approvals, requester and exempt roles.
+  - The Config section goes; published drafts become Activity → Config history, with others' open drafts for admins. Updates decision 0033.
+  - **Needs:** P2.10b, P2.14, P2.21.
+  - **Done when:** in the browser, an admin edits a role's field rules and an approval rule in place, and a second admin approves the draft.
+
+- [ ] **P2.10e Approvals for requesters and approvers**
+  - Workflow buttons and forms say beforehand when a run may wait for approval and from whom, and a run that waits is confirmed as a request, not shown as an error. Records show runs waiting on them, with Withdraw and what the run would change. Runs needing attention appear for their role.
+  - The inbox gets a count badge, tabs for Needs me, My requests and Decided, plain-English requests linking to their records and runs, a draft's plain-English diff and its case results, and says why someone can't decide instead of showing the buttons.
+  - **Needs:** P2.18, P2.21.
+  - **Done when:** in the browser, a sales user archives an organisation through the workflow, sees it waiting on the record and withdraws it; an admin approves another from the inbox's Needs me tab.
+
+- [ ] **P2.10f Home page**
+  - What's waiting for the caller (approvals and runs needing attention), their requests and their unpublished edits, with links into their objects.
+  - **Needs:** P2.10b, P2.10e, P2.23.
+  - **Done when:** in the browser, the home page shows an admin their approvals and a manager their draft.
 
 ### The Effect trial (decision 0008)
 
-- [ ] **P2.17 Effect 4 trial** _(time-boxed: two days)_
-  - On a branch that is never merged, rebuild the action pipeline, one HTTP route, one MCP tool and one workflow in Effect 4. Compare it with the plain TypeScript version on: agent first-time success at small changes (the same three tasks given to an agent on each), lines of code, readability for a newcomer, and unstable Effect APIs touched.
+- [ ] **P2.29 Effect 4 trial** _(time-boxed: two days)_
+  - On a branch that is never merged, rebuild the runner (segments, a pause and an outside call), one object endpoint, one MCP tool and one workflow in Effect 4. Compare it with the plain TypeScript version on: agent first-time success at small changes (the same three tasks given to an agent on each), lines of code, readability for a newcomer, and unstable Effect APIs touched.
   - Write a decision record with the numbers and a recommendation: adopt inside the core, defer again with a new trigger, or drop. Decision 0008's revisit triggers still apply.
-  - **Needs:** P2.12.
+  - **Needs:** P2.20.
   - **Done when:** the decision record is merged and links the trial branch.
 
 ### Exit
 
-- [ ] **P2.18 Phase exit demo**
-  - In `examples/crm`, a sales manager adds the deal stage "Negotiation" (category: open) and a workflow that emails the sales director when a deal enters it, in one draft from the web app. An admin approves; it publishes; the loader picks it up with no restart or deploy.
-  - Then a deal moved to Negotiation from the web, and another moved by Claude Code over MCP, each send the email. History and the run inspector show the workflow as actor and the right origin user.
+- [ ] **P2.30 Phase exit demo**
+  - In `examples/crm`, a sales manager adds the deal stage "Negotiation" (category: open), a workflow that emails the sales director when `deal.stageChanged` enters it, and its example cases, in one draft from the web app. The publish gate runs the cases; an admin approves; it publishes; the loader picks it up with no restart or deploy.
+  - Then a deal moved to Negotiation with the web app's button, and another moved by Claude Code over MCP, each send the email. A sales user can't `PATCH` the stage directly, and moving to lost without a reason fails with the declared error on both surfaces. The run inspector shows each run, its segments and the right origin user.
   - Record any surprises in the log, update AGENTS.md and the README status, set phase 2 to Done in `docs/plans/README.md`, and write `phase-3.md`.
-  - **Needs:** all of the above except P2.17.
+  - **Needs:** all of the above except P2.29.
   - **Done when:** the demo works end to end from a clean clone.
 
 ## Log
@@ -204,3 +371,4 @@ P2.10 made drafts and approvals their own screens, which follow git rather than 
 - 2026-11-08 · P2.10 · The web app gets Inbox (Approvals) and Config (Drafts) sections, each shown when the caller has `approval.list` or `draft.list`. The editors don't parse YAML in the browser: `draft.files` returns each file's value and `draft.save` takes a `value`, which the server writes as YAML, so comments in a file an editor saves are lost. The choices editor reads the list's columns from `system.describe`, which now gives each choice field its `list`; saved options can be archived but not removed, since records hold their keys. The CRM has a `manager` role (sales plus drafts) and Mo Manager. Drafts need a git remote, so `CONFIG_REMOTE=local` makes one in `.factory/` from `config/`. Checked in the browser: Mo added "Negotiation" and submitted, Admin approved from the inbox, Mo published, and the deal form lists the stage between "Proposal sent" and "Won". Surprise: `fx dev` stops when another checkout's dev servers hold its ports (Drizzle Studio's 4983 here); I ran the API and web on 4100 and 3100 instead.
 - 2026-11-08 · P2.10a · Added P2.10a to P2.10f after reviewing how staff would expect to change config and follow approvals (decision 0044). `draft.submit` went: `draft.publish` asks for approval itself and parks the same call with `ctx.approvals.park()`, which the last approval resumes like any pending action, so the commit is the requester's. Withdrawn requests get a new action status, `withdrawn`. Queries get `ctx.signOffs` from the pipeline for `approval.check`, so it reads a rule's record the same way the approve stage does. The `decidable` filter needed `coalesce` around its asked-by test: the left joins to `action_log` and `drafts` make it null, not false, for the other subject.
 - 2026-11-08 · P2.10b · The header pill reads `draft.mine` and, for its Publish label, `approval.check`; the review page reads `draft.get`, which now returns an invalid draft's problems so they survive a reload. `draft.files` without an id gives the caller's working draft or production's files, so Config → Drafts edits straight away and the first save opens the draft; the New draft form went. Added shadcn's popover to `@workspace/ui`. Checked in the browser on ports 4100 and 3100 with `CONFIG_REMOTE=local`: Mo renamed a stage, the pill offered "Request approval from Admin", Admin approved from the inbox and it published; Admin's own edit offered plain Publish, and Undo and Discard worked. Surprise: `cn` here doesn't merge Tailwind classes, so the popover's own `w-72` beat a plain `w-96`; `sm:w-96` sorts later and wins.
+- 2026-11-09 · plan · Reworked from P2.11 on after a design review (9 Nov): object REST endpoints, role rules on endpoints, fields and rows, typed blocks, workflows as endpoints running under a service key, segments (steps between pauses commit together), runs replacing `action_log`, approval as a workflow step with rules only for config drafts, and a publish gate of validation, example cases and two people. **The model** under Decisions for this phase records it; P2.11 writes the decision records. The old P2.11 to P2.18 (derived permissions, decision 0011) are gone; P2.10d to P2.10f now wait for role rules and workflow endpoints. `PATCH` only, no `PUT`, and archive and restore as `POST` sub-resources, to keep one way to update.
