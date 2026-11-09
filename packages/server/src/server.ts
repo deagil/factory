@@ -10,7 +10,6 @@ import { createAuth, createDevOutbox } from "@workspace/auth";
 import type { SendCode } from "@workspace/auth";
 import {
   ConfigError,
-  coreConfigTypes,
   createConfigLoader,
   createGitConfigService,
 } from "@workspace/config";
@@ -88,7 +87,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
         cacheDir: remote.cacheDir,
         production: remote.production,
         main: remote.main,
-        types: coreConfigTypes,
+        types: system.configTypes,
         catalog: system.catalog,
         onPublished: async () => {
           await reload.load?.();
@@ -99,7 +98,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
   const loader = createConfigLoader({
     dir: system.config ?? "",
     source: git?.source,
-    types: coreConfigTypes,
+    types: system.configTypes,
     catalog: system.catalog,
     record: (version) => recordConfigVersion(db, version),
     log: options.log,

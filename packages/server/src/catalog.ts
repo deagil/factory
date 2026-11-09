@@ -1,6 +1,6 @@
 // What config can refer to in a system (P2.04): its objects and fields, its
 // actions and queries, and the events they emit.
-import type { AnyDefinition } from "@workspace/actions";
+import type { AnyActionDefinition, AnyDefinition } from "@workspace/actions";
 import type { ChoiceListUse, ConfigCatalog } from "@workspace/config";
 import type {
   AnyChoiceList,
@@ -41,10 +41,30 @@ export const choiceListsOf = (
   }));
 };
 
-/** The objects, actions, queries and events that config can refer to. */
+/** What workflows can use: the step actions and workflows in code. */
+export interface WorkflowParts {
+  readonly stepActions?: ReadonlyMap<string, AnyActionDefinition>;
+  readonly workflows?: ReadonlyMap<string, unknown>;
+}
+
+/** Each event's payload schema, from what emits it. */
+const eventPayloadsOf = (
+  definitions: readonly (AnyDefinition | AnyActionDefinition)[]
+) =>
+  new Map(
+    definitions.flatMap((definition) =>
+      definition.kind === "query" ? [] : Object.entries(definition.emits)
+    )
+  );
+
+/**
+ * The objects, actions, queries and events that config can refer to, and
+ * the step actions and code workflows a workflow file can use.
+ */
 export const catalogOf = (
   objects: readonly AnyObjectDefinition[],
-  definitions: readonly AnyDefinition[]
+  definitions: readonly AnyDefinition[],
+  parts: WorkflowParts = {}
 ): ConfigCatalog => ({
   objects: new Map(
     objects.map((object) => [object.name, Object.keys(object.fields)])
@@ -70,4 +90,10 @@ export const catalogOf = (
     )
   ),
   choiceLists: choiceListsOf(objects),
+  stepActions: parts.stepActions ?? new Map(),
+  eventPayloads: eventPayloadsOf([
+    ...definitions,
+    ...(parts.stepActions?.values() ?? []),
+  ]),
+  workflows: parts.workflows ?? new Map(),
 });

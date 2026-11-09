@@ -43,6 +43,30 @@ export interface Description {
   events: { type: string; payload: JsonSchema }[];
   /** The actions workflow steps run (P2.15); never callable. */
   stepActions?: Definition[];
+  /** Workflows, in code and config, with their segments (P2.16). */
+  workflows?: WorkflowSummary[];
+}
+
+interface Problem {
+  path: (string | number)[];
+  message: string;
+}
+
+/** A workflow as `System.describe` gives it. */
+interface WorkflowSummary {
+  key: string;
+  label: string | null;
+  description: string;
+  source: string;
+  startsWhen: "called" | { event: string } | { schedule: string };
+  readOnly: boolean;
+  segments: {
+    steps: string[];
+    queued: string[];
+    ends: { step: string; why: string; conditional: boolean } | null;
+  }[];
+  problems: Problem[];
+  warnings: Problem[];
 }
 
 interface Definition {
@@ -69,7 +93,7 @@ export interface DescribeResult {
   dir: string;
   description: Description;
   /** What `name` matched, when one was given. */
-  match: "object" | "action" | "query" | "event" | null;
+  match: "object" | "action" | "query" | "event" | "workflow" | null;
 }
 
 /** Workspace packages that declare a system, one folder deep under each top folder. */
@@ -162,6 +186,9 @@ export const narrow = (
           ours({ name: event.type })
         ),
         stepActions: (description.stepActions ?? []).filter(ours),
+        workflows: (description.workflows ?? []).filter((workflow) =>
+          ours({ name: workflow.key })
+        ),
       },
     };
   }
@@ -180,6 +207,13 @@ export const narrow = (
     return {
       match: "action",
       description: { ...empty, stepActions: [step] },
+    };
+  }
+  const workflow = description.workflows?.find((each) => each.key === name);
+  if (workflow) {
+    return {
+      match: "workflow",
+      description: { ...empty, workflows: [workflow] },
     };
   }
   const query = description.queries.find((each) => each.name === name);
@@ -248,6 +282,47 @@ const fieldText = (field: Description["objects"][number]["fields"][number]) => {
   return labels.length > 0 ? `${line}  ${labels.join(", ")}` : line;
 };
 
+const startsText = (starts: WorkflowSummary["startsWhen"]) => {
+  if (starts === "called") {
+    return "called";
+  }
+  return "event" in starts
+    ? `on ${starts.event}`
+    : `on schedule ${starts.schedule}`;
+};
+
+const at = (problem: Problem) =>
+  `${problem.path.join(".") || "(file)"}: ${problem.message}`;
+
+/** A workflow: what starts it, its segments, and anything to fix. */
+const workflowLines = (workflow: WorkflowSummary): string[] => {
+  const notes = [
+    startsText(workflow.startsWhen),
+    workflow.readOnly ? "read-only" : "",
+  ].filter(Boolean);
+  const { segments } = workflow;
+  const segmentLines =
+    segments.length === 1
+      ? [`    1 segment: ${segments[0]?.steps.join(", ") ?? ""}`]
+      : [
+          `    ${segments.length} segments:`,
+          ...segments.flatMap((segment, index) => [
+            `      ${index + 1}. ${segment.steps.join(", ") || "(nothing)"}${segment.queued.length > 0 ? `; after it commits: ${segment.queued.join(", ")}` : ""}`,
+            ...(segment.ends
+              ? [
+                  `         then ${segment.ends.step}${segment.ends.conditional ? " (if its branch runs)" : ""}: ${segment.ends.why}`,
+                ]
+              : []),
+          ]),
+        ];
+  return [
+    `  ${workflow.key} (${notes.join(", ")})  ${workflow.description}  ${workflow.source}`,
+    ...segmentLines,
+    ...workflow.problems.map((problem) => `    problem at ${at(problem)}`),
+    ...workflow.warnings.map((warning) => `    warning at ${at(warning)}`),
+  ];
+};
+
 /** The human-readable form: a summary, or schemas when one definition matched. */
 export const formatDescribe = ({
   system,
@@ -300,6 +375,14 @@ export const formatDescribe = ({
     "Step actions (workflow steps run these; never callable)",
     description.stepActions ?? []
   );
+  const workflows = description.workflows ?? [];
+  if (workflows.length > 0) {
+    lines.push(
+      "",
+      "Workflows (and where a run may commit and go on later)",
+      ...workflows.flatMap(workflowLines)
+    );
+  }
   if (description.events.length > 0) {
     lines.push("", "Events");
     for (const event of description.events) {

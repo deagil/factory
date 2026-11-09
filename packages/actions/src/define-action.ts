@@ -383,6 +383,16 @@ export interface ActionOptions<
    * handler must, such as `approval.approve` checking the approver's role.
    */
   everyone?: boolean;
+  /**
+   * It only reads, so a `read_only` workflow may run it, and a run that has
+   * done nothing else has nothing to undo (P2.16).
+   */
+  readOnly?: boolean;
+  /**
+   * Inputs a workflow file must set with a fixed `value`, never `from`
+   * data, such as `http_send`'s `url` (AGENTS.md rule 14).
+   */
+  fixedInputs?: readonly string[];
   handler: (
     ctx: ContextFor<TKind, TEmits, TErrors>,
     input: z.output<TInput>
@@ -442,6 +452,8 @@ export interface AnyActionDefinition {
   readonly errors: Readonly<ErrorMessages>;
   readonly redact: readonly string[];
   readonly everyone?: boolean;
+  readonly readOnly: boolean;
+  readonly fixedInputs: readonly string[];
   readonly handler: (ctx: any, input: any) => unknown;
   readonly objectPermission?: ObjectPermission;
 }
@@ -552,6 +564,18 @@ export const defineAction = <
       `${labelOf("defineAction", options.name)}: an external action can't emit events; a workflow's emit step does that`
     );
   }
+  for (const key of options.fixedInputs ?? []) {
+    if (!Object.hasOwn(options.input.shape, key)) {
+      throw new Error(
+        `${labelOf("defineAction", options.name)}: the fixed input "${key}" isn't in its input`
+      );
+    }
+  }
+  if (options.readOnly && Object.keys(options.emits ?? {}).length > 0) {
+    throw new Error(
+      `${labelOf("defineAction", options.name)}: a read-only action can't emit events`
+    );
+  }
   return Object.freeze({
     kind: options.kind,
     name: options.name,
@@ -562,6 +586,8 @@ export const defineAction = <
     errors: Object.freeze({ ...options.errors }) as TErrors,
     redact: Object.freeze([...(options.redact ?? [])]),
     everyone: options.everyone ?? false,
+    readOnly: options.readOnly ?? false,
+    fixedInputs: Object.freeze([...(options.fixedInputs ?? [])]),
     handler: options.handler,
   });
 };

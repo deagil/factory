@@ -452,6 +452,9 @@ importers:
       '@workspace/objects':
         specifier: workspace:*
         version: link:../objects
+      '@workspace/workflows':
+        specifier: workspace:*
+        version: link:../workflows
       hono:
         specifier: ^4.13.17
         version: 4.13.17
@@ -538,6 +541,19 @@ importers:
         version: 7.0.2
 
   packages/workflows:
+    dependencies:
+      '@workspace/actions':
+        specifier: workspace:*
+        version: link:../actions
+      '@workspace/config':
+        specifier: workspace:*
+        version: link:../config
+      '@workspace/objects':
+        specifier: workspace:*
+        version: link:../objects
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@workspace/testing':
         specifier: workspace:*

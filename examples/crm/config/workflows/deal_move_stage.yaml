@@ -1,0 +1,42 @@
+# Moving a deal's stage as a workflow (P2.16). Nothing runs it yet: P2.17
+# runs it beside deal.moveStage to compare them, P2.18 serves it, and P2.25
+# replaces deal.moveStage with it. Roles get no write on stage, so this is
+# how a stage changes: a lost deal needs a reason.
+key: deal_move_stage
+label: Move stage
+description: Move a deal to another stage. A lost deal needs a reason.
+starts_when: called
+input:
+  deal: { type: ref, object: deal }
+  stage: { type: choice, list: deal_stages }
+  reason: { type: text, optional: true }
+errors:
+  reason_required: A lost deal needs a reason.
+events:
+  deal_stage_changed:
+    deal: { type: ref, object: deal }
+    from: { type: choice, list: deal_stages }
+    to: { type: choice, list: deal_stages }
+steps:
+  - id: load
+    action: deal_get
+    with: { id: { from: input.deal } }
+  - id: check_reason
+    if:
+      - { field: input.stage.category, is: lost }
+      - { field: input.reason, empty: true }
+    then:
+      - fail: reason_required
+  - id: update
+    action: deal_update
+    with:
+      id: { from: input.deal }
+      stage: { from: input.stage }
+  - id: announce
+    emit: deal_stage_changed
+    with:
+      deal: { from: input.deal }
+      from: { from: steps.load.output.record.stage }
+      to: { from: input.stage }
+output:
+  deal: { from: steps.update.output.record }

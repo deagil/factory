@@ -1,3 +1,4 @@
+import type { AnyActionDefinition } from "@workspace/actions";
 import type { z } from "zod";
 
 import { plainChoiceOption } from "./choices.ts";
@@ -42,6 +43,12 @@ export interface ConfigCatalog {
   readonly events: ReadonlySet<string>;
   /** Every choice list code defines, for checking its file (P2.06). */
   readonly choiceLists: readonly ChoiceListUse[];
+  /** The actions workflow steps run (P2.15), by name. */
+  readonly stepActions?: ReadonlyMap<string, AnyActionDefinition>;
+  /** Each event's payload schema, generated ones included. */
+  readonly eventPayloads?: ReadonlyMap<string, z.ZodType>;
+  /** Workflows defined in code, by key, as `@workspace/workflows` has them. */
+  readonly workflows?: ReadonlyMap<string, unknown>;
 }
 
 /** The config type whose file keys a reference of this kind names. */
@@ -77,11 +84,21 @@ const unresolvedChoice = (
     : null;
 };
 
+/** Whether `name` is a workflow, in code or in `config/workflows`. */
+const isWorkflow = (
+  name: string,
+  catalog: ConfigCatalog,
+  files: readonly ConfigFile[]
+) =>
+  catalog.workflows?.has(name) === true ||
+  files.some((file) => file.type === "workflows" && file.key === name);
+
 /** Why an action or config type a file names doesn't resolve, or null. */
 const unresolvedTarget = (
   kind: "action" | "anyAction" | "configType",
   name: string,
   catalog: ConfigCatalog,
+  files: readonly ConfigFile[],
   types: readonly string[]
 ): string | null => {
   if (kind === "configType") {
@@ -89,7 +106,10 @@ const unresolvedTarget = (
       ? null
       : `There is no config type "${name}". Types: ${listed(types)}.`;
   }
-  if (catalog.actions.has(name)) {
+  if (
+    catalog.actions.has(name) ||
+    (kind === "action" && isWorkflow(name, catalog, files))
+  ) {
     return null;
   }
   const generated = catalog.objectActions.get(name);
@@ -158,7 +178,7 @@ const unresolved = (
     case "action":
     case "anyAction":
     case "configType": {
-      return unresolvedTarget(kind, name, catalog, types);
+      return unresolvedTarget(kind, name, catalog, files, types);
     }
     case "endpoint":
     case "owner": {
@@ -287,7 +307,10 @@ export const checkChoiceLists = (
   return [...missing, ...rows];
 };
 
-/** The problems with each file's references. */
+/**
+ * The problems with each file's references, and those its type's own check
+ * finds.
+ */
 export const checkReferences = (
   files: readonly ConfigFile[],
   types: readonly AnyConfigType[],
@@ -296,14 +319,21 @@ export const checkReferences = (
   const byType = new Map(types.map((each) => [each.type, each]));
   const typeNames = [...byType.keys()];
   return files.flatMap((file) => {
-    const references = byType.get(file.type)?.references(file.value) ?? [];
-    return references.flatMap((reference): ConfigProblem[] => {
-      const message = unresolved(reference, catalog, files, typeNames);
-      const at: ConfigPath = reference.path;
-      return message
-        ? [{ file: file.file, path: at, line: file.lineOf(at), message }]
-        : [];
-    });
+    const type = byType.get(file.type);
+    const references = type?.references(file.value) ?? [];
+    const found = [
+      ...references.flatMap((reference) => {
+        const message = unresolved(reference, catalog, files, typeNames);
+        return message ? [{ path: reference.path, message }] : [];
+      }),
+      ...(type?.check?.(file.value, { catalog, files }) ?? []),
+    ];
+    return found.map(({ path, message }): ConfigProblem => ({
+      file: file.file,
+      path,
+      line: file.lineOf(path),
+      message,
+    }));
   });
 };
 

@@ -3,6 +3,9 @@
 // points to, which validateConfig checks against the running code.
 import type { z } from "zod";
 
+import type { ConfigFile } from "./read.ts";
+import type { ConfigCatalog } from "./validate.ts";
+
 /** What a config file can point to in the running code or other config. */
 export const referenceKinds = [
   "object",
@@ -38,11 +41,31 @@ export interface Keyed {
   readonly key: string;
 }
 
+/** What a type's own check can read: the system and every other file. */
+export interface ConfigCheckContext {
+  readonly catalog: ConfigCatalog;
+  readonly files: readonly ConfigFile[];
+}
+
+/** One problem a type's own check finds, at a path in the file. */
+export interface ConfigCheckProblem {
+  readonly path: ConfigPath;
+  readonly message: string;
+}
+
 export interface ConfigType<TValue extends Keyed = Keyed> {
   /** The folder under `config/`, such as `roles`. */
   readonly type: string;
   readonly schema: z.ZodType<TValue>;
   readonly references: (value: TValue) => readonly Reference[];
+  /**
+   * Checks beyond names: a workflow's steps line up (P2.16). Runs after
+   * the schema, on a file that fits it.
+   */
+  readonly check?: (
+    value: TValue,
+    context: ConfigCheckContext
+  ) => readonly ConfigCheckProblem[];
 }
 
 /** Any config type, for lists of them. */
