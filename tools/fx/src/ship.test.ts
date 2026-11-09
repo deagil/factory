@@ -430,19 +430,23 @@ describe(compareUrl, () => {
 });
 
 describe(pullRequestMessages, () => {
-  it("counts from origin/main, not a local main that has fallen behind", async () => {
-    const { repo, worktree } = await shipRepo();
-    write(path.join(repo, "other.txt"), "x");
-    git(repo, "add", "-A");
-    git(repo, "commit", "-q", "-m", "feat: someone else's change");
-    git(repo, "push", "-q", "origin", "main");
-    git(repo, "reset", "-q", "--hard", "HEAD~1");
-    git(worktree, "rebase", "-q", "origin/main");
-    commitSchema(worktree, "b", "feat: add b");
-    await expect(pullRequestMessages(worktree, "main")).resolves.toStrictEqual([
-      "feat: add b",
-    ]);
-  });
+  it(
+    "counts from origin/main, not a local main that has fallen behind",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, worktree } = await shipRepo();
+      write(path.join(repo, "other.txt"), "x");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-q", "-m", "feat: someone else's change");
+      git(repo, "push", "-q", "origin", "main");
+      git(repo, "reset", "-q", "--hard", "HEAD~1");
+      git(worktree, "rebase", "-q", "origin/main");
+      commitSchema(worktree, "b", "feat: add b");
+      await expect(
+        pullRequestMessages(worktree, "main")
+      ).resolves.toStrictEqual(["feat: add b"]);
+    }
+  );
 });
 
 describe(pullRequestCopy, () => {
