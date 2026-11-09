@@ -53,7 +53,7 @@ import type {
 import { allGranted } from "./describe.ts";
 import { failures, isActionFailure } from "./errors.ts";
 import type { ActionError, ActionFailure } from "./errors.ts";
-import { allowAll } from "./permissions.ts";
+import { allowAll, beyond, grantedBy } from "./permissions.ts";
 import type { Granted, Permissions } from "./permissions.ts";
 
 /** Who is calling: an actor, and the person at the start of the chain. */
@@ -472,11 +472,24 @@ export const createPipeline = ({
         actorId: actor.id,
         now: clock.now,
         choices: state.config.choices,
+        // An object endpoint writes under the caller's rules; a hand-written
+        // action, as a workflow will, under the service key's (P2.14).
+        rules: action.objectPermission
+          ? (object) => state.granted.writeRules(object)
+          : undefined,
       }),
       identity: createIdentityStore(tx),
       drafts: createDraftStore(tx),
       approvals,
       dryRun,
+      grantsBeyond: (roles) =>
+        beyond(
+          state.granted,
+          grantedBy(
+            state.config.roles.filter((role) => roles.includes(role.key))
+          ),
+          objects
+        ),
       dal: dalFor(tx, state.granted, state.config),
       granted: state.granted,
       config: state.config,

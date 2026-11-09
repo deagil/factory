@@ -7,7 +7,7 @@ export {
   defineAction,
   defineQuery,
   namePattern,
-  objectVerbs,
+  objectJobs,
 } from "./define-action.ts";
 export type {
   ActionContext,
@@ -29,9 +29,9 @@ export type {
   GitService,
   HandlerResult,
   NoEvents,
+  ObjectJob,
   ObjectPermission,
   ObjectSchema,
-  ObjectVerb,
   PublishResult,
   QueryContext,
   QueryDefinition,
@@ -100,20 +100,30 @@ export type {
 export {
   generateDefinitions,
   type ObjectEndpoint,
-  type ObjectJob,
   objectEndpoints,
 } from "./generated.ts";
 export {
   allowAll,
+  beyond,
+  everythingRole,
+  fieldListSchema,
   grantedBy,
   intersect,
+  objectRulesSchema,
   permissionNameOf,
-  permissionSchema,
   rolePermissions,
   roleSchema,
-  scopes,
+  rowScopes,
 } from "./permissions.ts";
-export type { Granted, Permission, Permissions, Role } from "./permissions.ts";
+export type {
+  FieldList,
+  Granted,
+  ObjectGrant,
+  ObjectRules,
+  Permissions,
+  Role,
+  RowScope,
+} from "./permissions.ts";
 export {
   allGranted,
   describeFor,

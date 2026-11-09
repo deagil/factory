@@ -16,6 +16,7 @@ export const organisation = defineObject({
   },
   customFields: true,
   list: ["name", "owner"],
+  owner: "owner",
 });
 
 export const contact = defineObject({
@@ -29,7 +30,6 @@ export const contact = defineObject({
     birthday: f.date(),
     lifetimeValue: f.money({ currency: "GBP" }),
   },
-  actions: { update: { readOnly: ["organisation"] } },
   drizzle: (t) => [index("contacts_last_name_idx").on(t.lastName)],
 });
 

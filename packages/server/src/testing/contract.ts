@@ -274,10 +274,8 @@ const normalise = (value: unknown) => {
  * the endpoint's path has an id, a bad page size for a list, else `{}`.
  */
 const invalidFor = (definition: AnyDefinition) => {
-  const job = definition.objectPermission
-    ? definition.name.slice(definition.name.lastIndexOf("_") + 1)
-    : null;
-  if (job === null || job === "create") {
+  const job = definition.objectPermission?.job;
+  if (job === undefined || job === "create") {
     return {};
   }
   return job === "list" ? { limit: 0 } : { id: "not-a-uuid" };
@@ -344,26 +342,22 @@ export const runContract = async ({
     if (!(needed && object)) {
       return null;
     }
-    switch (needed.can) {
+    switch (needed.job) {
       case "create": {
         return () => fieldsOf(object, 1);
       }
       case "update": {
         return async () => ({
           id: await createRecord(object.name),
-          ...(await fieldsOf(object, 2, object.actions.update.readOnly)),
+          ...(await fieldsOf(object, 2)),
         });
       }
-      case "archive": {
-        return async () => ({ id: await createRecord(object.name) });
-      }
-      case "view": {
-        return definition.name.endsWith("_list")
-          ? () => Promise.resolve({ limit: 5 })
-          : async () => ({ id: await createRecord(object.name) });
+      case "list": {
+        return () => Promise.resolve({ limit: 5 });
       }
       default: {
-        return null;
+        // get, history, archive and restore: one record by id.
+        return async () => ({ id: await createRecord(object.name) });
       }
     }
   };

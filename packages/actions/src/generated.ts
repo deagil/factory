@@ -5,8 +5,13 @@
 // `_updated`, `_archived` and `_restored`.
 // See docs/SYSTEM_DESIGN.md section 4.2 and decisions 0022, 0045 and 0047.
 
-import { listInputSchema, refKeysOf } from "@workspace/objects";
-import type { AnyObjectDefinition } from "@workspace/objects";
+import {
+  listInputSchema,
+  parseSort,
+  readRulesOf,
+  refKeysOf,
+} from "@workspace/objects";
+import type { AnyObjectDefinition, Refused } from "@workspace/objects";
 import { z } from "zod";
 
 import { defineAction, defineQuery } from "./define-action.ts";
@@ -15,9 +20,12 @@ import type {
   AnyDefinition,
   AnyQueryDefinition,
   ObjectSchema,
-  ObjectVerb,
+  ObjectJob,
 } from "./define-action.ts";
+import { failures } from "./errors.ts";
 import { historyEntrySchema } from "./history.ts";
+
+type Row = Record<string, unknown>;
 
 const changes = z.record(z.string(), z.unknown());
 const related = z.record(z.string(), z.record(z.string(), z.unknown()));
@@ -25,13 +33,21 @@ const customFieldsInput = z.record(z.string(), z.json());
 
 /** The schemas an object's generated definitions share. */
 const schemasOf = (object: AnyObjectDefinition) => {
-  const { record } = object.schemas;
+  const full = object.schemas.record as ObjectSchema;
+  // What a caller gets back leaves out fields its role can't read (P2.14),
+  // so each field may be missing; events carry the whole record.
+  const record = full.partial(
+    Object.fromEntries(
+      Object.keys(object.fields).map((key) => [key, true])
+    ) as never
+  ) as ObjectSchema;
   const custom = object.customFields
     ? { customFields: customFieldsInput.optional() }
     : {};
   return {
     record,
     output: z.object({ record }),
+    event: z.object({ record: full }),
     create: (object.schemas.create as ObjectSchema).extend(custom),
     update: (object.schemas.update as ObjectSchema).extend({
       ...custom,
@@ -43,6 +59,37 @@ const schemasOf = (object: AnyObjectDefinition) => {
   };
 };
 
+/**
+ * A write the caller's role rules refuse (P2.14, decision 0045): a field it
+ * can't write is a validation error naming the field, and a record outside
+ * its rows a permission error naming the record.
+ */
+const refusal = (object: AnyObjectDefinition, job: string, refused: Refused) =>
+  refused.reason === "field"
+    ? failures.invalid(refused.message)
+    : failures.forbidden(`${object.name}_${job}`, refused.message);
+
+/**
+ * The first field a list's filter or sort names that the caller can't read,
+ * if there is one: filtering on it would tell what it holds.
+ */
+const unreadableIn = (
+  object: AnyObjectDefinition,
+  input: { filter?: Record<string, unknown>; sort?: string },
+  readable: ReadonlySet<string> | undefined
+) => {
+  if (!readable) {
+    return;
+  }
+  const keys = [
+    ...Object.keys(input.filter ?? {}),
+    ...(input.sort ? [parseSort(input.sort).key] : []),
+  ];
+  return keys.find(
+    (key) => Object.hasOwn(object.fields, key) && !readable.has(key)
+  );
+};
+
 const createAction = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   return defineAction({
@@ -50,11 +97,15 @@ const createAction = (object: AnyObjectDefinition) => {
     description: `Create a ${object.label.toLowerCase()}`,
     input: schemas.create,
     output: schemas.output,
-    emits: { [`${object.name}_created`]: schemas.output },
+    emits: { [`${object.name}_created`]: schemas.event },
     handler: async (ctx, input) => {
-      const record = await ctx.repo.create(object, input);
-      ctx.emit(`${object.name}_created`, { record });
-      return { record };
+      const result = await ctx.repo.create(object, input);
+      if (result.status === "refused") {
+        return refusal(object, "create", result);
+      }
+      const { record } = result;
+      ctx.emit(`${object.name}_created`, { record: record as Row });
+      return { record: ctx.dal.visible(object, record) };
     },
   });
 };
@@ -62,7 +113,7 @@ const createAction = (object: AnyObjectDefinition) => {
 const updateAction = (object: AnyObjectDefinition) => {
   const schemas = schemasOf(object);
   const updated = z.object({
-    record: schemas.record,
+    record: schemas.event.shape.record,
     before: changes,
     after: changes,
   });
@@ -85,6 +136,9 @@ const updateAction = (object: AnyObjectDefinition) => {
         case "not_found": {
           return ctx.notFound(object.name, id);
         }
+        case "refused": {
+          return refusal(object, "update", result);
+        }
         case "archived": {
           return ctx.conflict(
             `This ${object.label.toLowerCase()} is archived, so it can't be changed`
@@ -97,11 +151,15 @@ const updateAction = (object: AnyObjectDefinition) => {
         }
         case "updated": {
           const { record, before, after } = result;
-          ctx.emit(`${object.name}_updated`, { record, before, after });
-          return { record };
+          ctx.emit(`${object.name}_updated`, {
+            record: record as Row,
+            before,
+            after,
+          });
+          return { record: ctx.dal.visible(object, record) };
         }
         default: {
-          return { record: result.record };
+          return { record: ctx.dal.visible(object, result.record) };
         }
       }
     },
@@ -115,11 +173,14 @@ const archiveAction = (object: AnyObjectDefinition) => {
     description: `Archive a ${object.label.toLowerCase()}. Archived records are hidden, not deleted.`,
     input: schemas.byId,
     output: schemas.output,
-    emits: { [`${object.name}_archived`]: schemas.output },
+    emits: { [`${object.name}_archived`]: schemas.event },
     handler: async (ctx, { id }) => {
       const result = await ctx.repo.archive(object, id);
       if (result.status === "not_found") {
         return ctx.notFound(object.name, id);
+      }
+      if (result.status === "refused") {
+        return refusal(object, "archive", result);
       }
       if (result.status === "conflict") {
         return ctx.conflict(
@@ -127,9 +188,9 @@ const archiveAction = (object: AnyObjectDefinition) => {
         );
       }
       if (result.status === "archived") {
-        ctx.emit(`${object.name}_archived`, { record: result.record });
+        ctx.emit(`${object.name}_archived`, { record: result.record as Row });
       }
-      return { record: result.record };
+      return { record: ctx.dal.visible(object, result.record) };
     },
   });
 };
@@ -142,11 +203,14 @@ const restoreAction = (object: AnyObjectDefinition) => {
     description: `Restore an archived ${object.label.toLowerCase()}, so it shows in lists again.`,
     input: schemas.byId,
     output: schemas.output,
-    emits: { [`${object.name}_restored`]: schemas.output },
+    emits: { [`${object.name}_restored`]: schemas.event },
     handler: async (ctx, { id }) => {
       const result = await ctx.repo.restore(object, id);
       if (result.status === "not_found") {
         return ctx.notFound(object.name, id);
+      }
+      if (result.status === "refused") {
+        return refusal(object, "restore", result);
       }
       if (result.status === "conflict") {
         return ctx.conflict(
@@ -154,9 +218,9 @@ const restoreAction = (object: AnyObjectDefinition) => {
         );
       }
       if (result.status === "restored") {
-        ctx.emit(`${object.name}_restored`, { record: result.record });
+        ctx.emit(`${object.name}_restored`, { record: result.record as Row });
       }
-      return { record: result.record };
+      return { record: ctx.dal.visible(object, result.record) };
     },
   });
 };
@@ -178,7 +242,9 @@ const getQuery = (object: AnyObjectDefinition) => {
     output: z.object({ record: schemas.record, related }),
     handler: async (ctx, { id, ...options }) => {
       const found = await ctx.dal.get(object, id, options);
-      return found ?? ctx.notFound(object.name, id);
+      return found
+        ? { record: found.record as Row, related: found.related }
+        : ctx.notFound(object.name, id);
     },
   });
 };
@@ -194,7 +260,17 @@ const listQuery = (object: AnyObjectDefinition) => {
       nextCursor: z.string().nullable(),
       related,
     }),
-    handler: (ctx, input) => ctx.dal.list(object, input),
+    handler: async (ctx, input) => {
+      const rules = readRulesOf(ctx.granted.canRead(object));
+      const unreadable = unreadableIn(object, input, rules?.fields);
+      if (unreadable !== undefined) {
+        return ctx.invalid(
+          `You can't filter or sort on ${object.fieldLabels[unreadable] ?? unreadable}: you can't read it.`
+        );
+      }
+      const page = await ctx.dal.list(object, input);
+      return { ...page, records: page.records as Row[] };
+    },
   });
 };
 
@@ -208,16 +284,6 @@ const historyOf = (object: AnyObjectDefinition) =>
       entries: await ctx.dal.history(object, id),
     }),
   });
-
-/** What an object endpoint does: its generated action or query. */
-export type ObjectJob =
-  | "list"
-  | "get"
-  | "create"
-  | "update"
-  | "archive"
-  | "restore"
-  | "history";
 
 /**
  * One REST endpoint of an object (decision 0045): its method, its path in
@@ -283,11 +349,11 @@ export const objectEndpoints = (
 const needs = <TDefinition extends AnyDefinition>(
   definition: TDefinition,
   object: AnyObjectDefinition,
-  can: ObjectVerb
+  job: ObjectJob
 ): TDefinition =>
   Object.freeze({
     ...definition,
-    objectPermission: { object: object.name, can },
+    objectPermission: { object: object.name, job },
   });
 
 export const generateDefinitions = (
@@ -303,13 +369,13 @@ export const generateDefinitions = (
   if (object.actions.archive.generated) {
     actions.push(
       needs(archiveAction(object), object, "archive"),
-      needs(restoreAction(object), object, "archive")
+      needs(restoreAction(object), object, "restore")
     );
   }
   const queries: AnyQueryDefinition[] = [
-    needs(getQuery(object), object, "view"),
-    needs(listQuery(object), object, "view"),
-    needs(historyOf(object), object, "view"),
+    needs(getQuery(object), object, "get"),
+    needs(listQuery(object), object, "list"),
+    needs(historyOf(object), object, "history"),
   ];
   return [...actions, ...queries];
 };

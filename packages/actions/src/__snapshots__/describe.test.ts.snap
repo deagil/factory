@@ -180,10 +180,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "name",
-              "website",
-              "employees",
-              "owner",
               "customFields",
             ],
             "type": "object",
@@ -382,10 +378,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "name",
-              "website",
-              "employees",
-              "owner",
               "customFields",
             ],
             "type": "object",
@@ -502,10 +494,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "name",
-              "website",
-              "employees",
-              "owner",
               "customFields",
             ],
             "type": "object",
@@ -622,10 +610,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "name",
-              "website",
-              "employees",
-              "owner",
               "customFields",
             ],
             "type": "object",
@@ -823,13 +807,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "firstName",
-              "lastName",
-              "email",
-              "organisation",
-              "active",
-              "birthday",
-              "lifetimeValue",
             ],
             "type": "object",
           },
@@ -909,6 +886,11 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "type": "null",
               },
             ],
+          },
+          "organisation": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
           },
           "version": {
             "maximum": 9007199254740991,
@@ -1029,13 +1011,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "firstName",
-              "lastName",
-              "email",
-              "organisation",
-              "active",
-              "birthday",
-              "lifetimeValue",
             ],
             "type": "object",
           },
@@ -1173,13 +1148,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "firstName",
-              "lastName",
-              "email",
-              "organisation",
-              "active",
-              "birthday",
-              "lifetimeValue",
             ],
             "type": "object",
           },
@@ -1317,13 +1285,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "firstName",
-              "lastName",
-              "email",
-              "organisation",
-              "active",
-              "birthday",
-              "lifetimeValue",
             ],
             "type": "object",
           },
@@ -2338,7 +2299,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": true,
           "schema": {
             "maxLength": 200,
@@ -2347,6 +2308,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "text",
+          "write": true,
         },
         {
           "description": null,
@@ -2363,7 +2325,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "type": [
@@ -2373,6 +2335,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "text",
+          "write": true,
         },
         {
           "description": null,
@@ -2391,7 +2354,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "anyOf": [
@@ -2407,6 +2370,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "number",
+          "write": true,
         },
         {
           "description": null,
@@ -2421,7 +2385,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "anyOf": [
@@ -2437,6 +2401,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": "actor",
           "type": "ref",
+          "write": true,
         },
       ],
       "label": "Organisation",
@@ -2445,6 +2410,8 @@ exports[`system.describe > describes everything to an admin 1`] = `
         "owner",
       ],
       "name": "organisation",
+      "owner": "owner",
+      "rows": "all",
     },
     {
       "customFields": false,
@@ -2502,7 +2469,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": true,
           "schema": {
             "minLength": 1,
@@ -2510,6 +2477,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "text",
+          "write": true,
         },
         {
           "description": null,
@@ -2526,7 +2494,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "type": [
@@ -2536,6 +2504,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "text",
+          "write": true,
         },
         {
           "description": null,
@@ -2552,7 +2521,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "type": [
@@ -2562,6 +2531,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "text",
+          "write": true,
         },
         {
           "description": null,
@@ -2576,7 +2546,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": true,
+          "read": true,
           "required": true,
           "schema": {
             "format": "uuid",
@@ -2585,6 +2555,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": "organisation",
           "type": "ref",
+          "write": true,
         },
         {
           "description": null,
@@ -2597,13 +2568,14 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": true,
           "schema": {
             "type": "boolean",
           },
           "target": null,
           "type": "boolean",
+          "write": true,
         },
         {
           "description": null,
@@ -2622,7 +2594,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "anyOf": [
@@ -2638,6 +2610,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "date",
+          "write": true,
         },
         {
           "description": null,
@@ -2656,7 +2629,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           "list": null,
           "optionColumns": null,
           "options": null,
-          "readOnly": false,
+          "read": true,
           "required": false,
           "schema": {
             "anyOf": [
@@ -2686,6 +2659,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
           },
           "target": null,
           "type": "money",
+          "write": true,
         },
       ],
       "label": "Contact",
@@ -2697,6 +2671,8 @@ exports[`system.describe > describes everything to an admin 1`] = `
         "active",
       ],
       "name": "contact",
+      "owner": null,
+      "rows": "all",
     },
   ],
   "queries": [
@@ -2818,10 +2794,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "name",
-              "website",
-              "employees",
-              "owner",
               "customFields",
             ],
             "type": "object",
@@ -3250,10 +3222,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "updatedBy",
                 "archivedAt",
                 "version",
-                "name",
-                "website",
-                "employees",
-                "owner",
                 "customFields",
               ],
               "type": "object",
@@ -3551,13 +3519,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
               "updatedBy",
               "archivedAt",
               "version",
-              "firstName",
-              "lastName",
-              "email",
-              "organisation",
-              "active",
-              "birthday",
-              "lifetimeValue",
             ],
             "type": "object",
           },
@@ -4197,13 +4158,6 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "updatedBy",
                 "archivedAt",
                 "version",
-                "firstName",
-                "lastName",
-                "email",
-                "organisation",
-                "active",
-                "birthday",
-                "lifetimeValue",
               ],
               "type": "object",
             },
@@ -4563,7 +4517,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
                           },
                         ],
                       },
-                      "readOnly": {
+                      "read": {
                         "type": "boolean",
                       },
                       "required": {
@@ -4585,6 +4539,9 @@ exports[`system.describe > describes everything to an admin 1`] = `
                       "type": {
                         "type": "string",
                       },
+                      "write": {
+                        "type": "boolean",
+                      },
                     },
                     "required": [
                       "key",
@@ -4592,7 +4549,8 @@ exports[`system.describe > describes everything to an admin 1`] = `
                       "description",
                       "type",
                       "required",
-                      "readOnly",
+                      "read",
+                      "write",
                       "target",
                       "filters",
                       "options",
@@ -4616,6 +4574,19 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "name": {
                   "type": "string",
                 },
+                "owner": {
+                  "type": [
+                    "string",
+                    "null",
+                  ],
+                },
+                "rows": {
+                  "enum": [
+                    "own",
+                    "all",
+                  ],
+                  "type": "string",
+                },
               },
               "required": [
                 "name",
@@ -4624,6 +4595,8 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "fields",
                 "list",
                 "customFields",
+                "owner",
+                "rows",
                 "endpoints",
               ],
               "type": "object",

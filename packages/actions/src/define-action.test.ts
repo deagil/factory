@@ -232,6 +232,7 @@ describe("types", () => {
       | "drafts"
       | "approvals"
       | "dryRun"
+      | "grantsBeyond"
       | "dal"
       | "granted"
       | "config"

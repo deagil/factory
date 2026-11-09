@@ -19,17 +19,23 @@ const roles: Role[] = [
   {
     key: "admin",
     label: "Admin",
-    permissions: [
-      { object: "*", can: ["view", "create", "update"], scope: "all" },
-      { action: "*", scope: "all" },
-    ],
+    objects: {
+      "*": {
+        endpoints: ["list", "get", "create", "update", "history"],
+        rows: "all",
+      },
+    },
+    workflows: "*",
   },
   {
     key: "sales",
     label: "Sales",
-    permissions: [
-      { object: "organisation", can: ["view", "create"], scope: "all" },
-    ],
+    objects: {
+      organisation: {
+        endpoints: ["list", "get", "create", "history"],
+        rows: "all",
+      },
+    },
   },
 ];
 

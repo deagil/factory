@@ -1,40 +1,35 @@
-# Sales managers: what sales can do, and changes to config in drafts, which
-# an admin approves (config/approvals/config_changes.yaml).
+# Sales managers: every deal, not just their own, and changes to config in
+# drafts, which an admin approves (config/approvals/config_changes.yaml).
+# They invite people and set roles, but can't give a role that does more
+# than theirs, such as admin: the privilege ceiling.
 key: manager
 label: Manager
-permissions:
-  - object: organisation
-    can: [view, create, update, archive]
-    scope: all
-  - object: contact
-    can: [view, create, update]
-    scope: all
-  - action: contact.moveToOrganisation
-    scope: all
-  - object: deal
-    can: [view, update]
-    scope: all
-  - action: deal_create
-    scope: all
-  - action: deal.moveStage
-    scope: all
-  - action: draft.open
-    scope: all
-  - action: draft.save
-    scope: all
-  - action: draft.mine
-    scope: all
-  - action: draft.revert
-    scope: all
-  - action: draft.discard
-    scope: all
-  - action: draft.publish
-    scope: all
-  - action: draft.list
-    scope: all
-  - action: draft.get
-    scope: all
-  - action: draft.files
-    scope: all
-  - action: role.list
-    scope: all
+objects:
+  organisation: { endpoints: "*", rows: all }
+  contact:
+    endpoints: [list, get, create, update, history]
+    rows: all
+    write: { except: [organisation] } # contact.moveToOrganisation moves it
+  deal:
+    endpoints: [list, get, update, history]
+    rows: all
+    write: { except: [stage] } # deal.moveStage moves it
+workflows:
+  - contact.moveToOrganisation
+  - deal_create
+  - deal.moveStage
+  - actor.createAgent
+  - apiKey.create
+  - apiKey.revoke
+  - user.invite
+  - actor.setRoles
+  - draft.open
+  - draft.save
+  - draft.mine
+  - draft.revert
+  - draft.discard
+  - draft.publish
+  - draft.list
+  - draft.get
+  - draft.files
+  - role.list

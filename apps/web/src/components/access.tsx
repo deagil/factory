@@ -9,6 +9,7 @@ import { useState } from "react";
 import { runAction, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
 import { findAction, humanise } from "../lib/forms.ts";
+import type { Role } from "../lib/roles.ts";
 import { ErrorText, when } from "./activity.tsx";
 import { PageHeader } from "./page-header.tsx";
 
@@ -28,15 +29,6 @@ export interface ApiKeyEntry {
   at: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
-}
-
-export interface Role {
-  key: string;
-  label: string;
-  permissions: (
-    | { object: string; can: string[]; scope: string }
-    | { action: string; scope: string }
-  )[];
 }
 
 /** The system's roles, when the caller can read them. */

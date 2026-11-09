@@ -31,11 +31,13 @@ export interface ConfigCatalog {
   readonly objects: ReadonlyMap<string, readonly string[]>;
   /** Actions and queries a role grants by name: the hand-written ones. */
   readonly actions: ReadonlySet<string>;
-  /** Generated actions and queries, which roles grant through their object. */
+  /** Object endpoints, by name, which roles grant under the object. */
   readonly objectActions: ReadonlyMap<
     string,
-    { readonly object: string; readonly can: string }
+    { readonly object: string; readonly job: string }
   >;
+  /** The objects with an owner field, which `rows: own` needs. */
+  readonly owners: ReadonlySet<string>;
   /** Every event an action emits. */
   readonly events: ReadonlySet<string>;
   /** Every choice list code defines, for checking its file (P2.06). */
@@ -95,18 +97,16 @@ const unresolvedTarget = (
     return generated ? null : `There is no action "${name}".`;
   }
   return generated
-    ? `${name} is generated for ${generated.object}, so grant it as an object permission: object: ${generated.object}, can: [${generated.can}].`
-    : `There is no action or query "${name}".`;
+    ? `${name} is ${generated.object}'s ${generated.job} endpoint, so grant it under objects: ${generated.object}: endpoints: [${generated.job}].`
+    : `There is no workflow, action or query "${name}".`;
 };
 
-/** Why `reference` doesn't resolve, or null when it does. */
-const unresolved = (
-  reference: Reference,
-  catalog: ConfigCatalog,
-  files: readonly ConfigFile[],
-  types: readonly string[]
+/** Why a reference to an object, or a part of one, doesn't resolve. */
+const unresolvedObjectPart = (
+  kind: "object" | "field" | "endpoint" | "owner",
+  name: string,
+  catalog: ConfigCatalog
 ): string | null => {
-  const { kind, name } = reference;
   switch (kind) {
     case "object": {
       return catalog.objects.has(name)
@@ -123,10 +123,46 @@ const unresolved = (
         ? null
         : `${object} has no field "${field}". Fields: ${listed(fields)}.`;
     }
+    case "endpoint": {
+      const object = name.slice(0, name.lastIndexOf("_"));
+      const job = name.slice(name.lastIndexOf("_") + 1);
+      // An object that isn't there is reported once, by its own reference.
+      return catalog.objectActions.has(name) || !catalog.objects.has(object)
+        ? null
+        : `${object} has no ${job} endpoint: an action of its own does that job, so grant that under workflows.`;
+    }
+    case "owner": {
+      return catalog.owners.has(name) || !catalog.objects.has(name)
+        ? null
+        : `${name} has no owner field, so rows: own can't apply. Give it one in defineObject (owner: "owner"), or use rows: all.`;
+    }
+    default: {
+      return null;
+    }
+  }
+};
+
+/** Why `reference` doesn't resolve, or null when it does. */
+const unresolved = (
+  reference: Reference,
+  catalog: ConfigCatalog,
+  files: readonly ConfigFile[],
+  types: readonly string[]
+): string | null => {
+  const { kind, name } = reference;
+  switch (kind) {
+    case "object":
+    case "field": {
+      return unresolvedObjectPart(kind, name, catalog);
+    }
     case "action":
     case "anyAction":
     case "configType": {
       return unresolvedTarget(kind, name, catalog, types);
+    }
+    case "endpoint":
+    case "owner": {
+      return unresolvedObjectPart(kind, name, catalog);
     }
     case "event": {
       return catalog.events.has(name)

@@ -10,6 +10,7 @@ import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, objectApi } from "../../lib/api.ts";
 import { plural } from "../../lib/nav.ts";
 import {
+  readableFields,
   columnsOf,
   displayValue,
   expandable,
@@ -108,7 +109,7 @@ const ListScreen = () => {
       <div className="min-w-0 overflow-hidden rounded-2xl border bg-background">
         <div className="border-b px-3 py-2">
           <FilterBar
-            fields={object.fields}
+            fields={readableFields(object)}
             filter={search.filter ?? {}}
             onChange={(filter) =>
               update({

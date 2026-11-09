@@ -1,12 +1,21 @@
 // Access → Roles: what each role lets its holders see and do, from
-// `role.list` (P1b.06). Roles come from config; phase 2 edits them there.
+// `role.list`. Per object: the endpoints it may call, whose rows and which
+// fields it may read and write (P2.14); then the workflows it may call.
+// Roles come from config and are edited in a draft.
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useRoles } from "../../components/access.tsx";
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
+import {
+  fieldListText,
+  jobsOf,
+  objectJobs,
+  objectName,
+  workflowsOf,
+} from "../../lib/roles.ts";
 
-const verbs = ["view", "create", "update", "archive"];
+const cell = "px-3 py-2";
 
 const RolesScreen = () => {
   const roles = useRoles();
@@ -15,13 +24,8 @@ const RolesScreen = () => {
       <PageHeader title="Roles" />
       <ErrorText error={roles.error} />
       {roles.data?.map((role) => {
-        const objects = role.permissions.filter(
-          (line): line is { object: string; can: string[]; scope: string } =>
-            "object" in line
-        );
-        const actions = role.permissions.filter(
-          (line): line is { action: string; scope: string } => "action" in line
-        );
+        const objects = Object.entries(role.objects ?? {});
+        const workflows = workflowsOf(role);
         return (
           <section key={role.key} className="flex flex-col gap-2">
             <h2 className="font-medium">
@@ -35,45 +39,52 @@ const RolesScreen = () => {
                 <table className="w-full text-left text-sm">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 font-medium">Object</th>
-                      {verbs.map((verb) => (
+                      <th className={`${cell} font-medium`}>Object</th>
+                      {objectJobs.map((job) => (
                         <th
-                          key={verb}
-                          className="px-3 py-2 text-center font-medium capitalize"
+                          key={job}
+                          className={`${cell} text-center font-medium capitalize`}
                         >
-                          {verb}
+                          {job}
                         </th>
                       ))}
+                      <th className={`${cell} font-medium`}>Rows</th>
+                      <th className={`${cell} font-medium`}>Reads</th>
+                      <th className={`${cell} font-medium`}>Writes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {objects.map((line) => (
-                      <tr key={line.object} className="border-b last:border-0">
-                        <td className="px-3 py-2">
-                          {line.object === "*" ? "Every object" : line.object}
-                        </td>
-                        {verbs.map((verb) => (
-                          <td key={verb} className="px-3 py-2 text-center">
-                            {line.can.includes(verb) ? "✓" : ""}
+                    {objects.map(([object, rules]) => {
+                      const jobs = jobsOf(rules);
+                      return (
+                        <tr key={object} className="border-b last:border-0">
+                          <td className={cell}>{objectName(object)}</td>
+                          {objectJobs.map((job) => (
+                            <td key={job} className={`${cell} text-center`}>
+                              {jobs.includes(job) ? "✓" : ""}
+                            </td>
+                          ))}
+                          <td className={cell}>
+                            {rules.rows === "own" ? "Own" : "All"}
                           </td>
-                        ))}
-                      </tr>
-                    ))}
+                          <td className={cell}>{fieldListText(rules.read)}</td>
+                          <td className={cell}>{fieldListText(rules.write)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
-            {actions.length > 0 && (
+            {workflows.length > 0 && (
               <p className="text-sm">
-                <span className="text-muted-foreground">Actions: </span>
-                {actions
-                  .map((line) =>
-                    line.action === "*" ? "every action" : line.action
-                  )
+                <span className="text-muted-foreground">Workflows: </span>
+                {workflows
+                  .map((name) => (name === "*" ? "every workflow" : name))
                   .join(", ")}
               </p>
             )}
-            {role.permissions.length === 0 && (
+            {objects.length === 0 && workflows.length === 0 && (
               <p className="text-sm text-muted-foreground">No permissions.</p>
             )}
           </section>

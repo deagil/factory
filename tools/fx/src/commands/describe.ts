@@ -25,7 +25,8 @@ export interface Description {
       label: string;
       type: string;
       required: boolean;
-      readOnly: boolean;
+      read: boolean;
+      write: boolean;
       target: string | null;
       options:
         | {
@@ -221,7 +222,8 @@ const fieldText = (field: Description["objects"][number]["fields"][number]) => {
   const type = field.target ? `ref → ${field.target}` : field.type;
   const notes = [
     field.required ? "required" : "",
-    field.readOnly ? "read-only" : "",
+    field.read ? "" : "hidden",
+    field.read && !field.write ? "read-only" : "",
   ].filter(Boolean);
   const labels = (field.options ?? [])
     .filter((option) => !option.archived)

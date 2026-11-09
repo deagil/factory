@@ -18,8 +18,10 @@ const catalog: ConfigCatalog = {
   objects: new Map([["contact", ["firstName", "email"]]]),
   actions: new Set(["contact.moveToOrganisation"]),
   objectActions: new Map([
-    ["contact_create", { object: "contact", can: "create" }],
+    ["contact_create", { object: "contact", job: "create" }],
+    ["contact_list", { object: "contact", job: "list" }],
   ]),
+  owners: new Set(),
   events: new Set(["contact_created"]),
   choiceLists: [],
 };
@@ -35,27 +37,27 @@ describe(validateConfig, () => {
       path.join(dir, "roles", "sales.yaml"),
       `key: sales
 label: Sales
-permissions:
-  - object: contact
-    can: [view]
-    scope: all
-  - object: deal
-    can: [view]
-    scope: all
-  - action: contact.moveToOrganisation
-    scope: all
-  - action: contact_create
-    scope: all
-  - action: contact.merge
-    scope: all
+objects:
+  contact:
+    endpoints: [list, update]
+    rows: own
+    write: { except: [phone] }
+  deal: { endpoints: [list], rows: all }
+workflows:
+  - contact.moveToOrganisation
+  - contact_create
+  - contact.merge
 `
     );
     const { files, problems } = validateConfig(dir, [roleConfigType], catalog);
     expect(files).toHaveLength(1);
     expect(problems.map(formatProblem)).toStrictEqual([
-      'config/roles/sales.yaml:7 permissions.1.object: There is no object "deal". Objects: contact.',
-      "config/roles/sales.yaml:12 permissions.3.action: contact_create is generated for contact, so grant it as an object permission: object: contact, can: [create].",
-      'config/roles/sales.yaml:14 permissions.4.action: There is no action or query "contact.merge".',
+      "config/roles/sales.yaml:5 objects.contact.endpoints.1: contact has no update endpoint: an action of its own does that job, so grant that under workflows.",
+      'config/roles/sales.yaml:6 objects.contact.rows: contact has no owner field, so rows: own can\'t apply. Give it one in defineObject (owner: "owner"), or use rows: all.',
+      'config/roles/sales.yaml:7 objects.contact.write.except.0: contact has no field "phone". Fields: email, firstName.',
+      'config/roles/sales.yaml:8 objects.deal: There is no object "deal". Objects: contact.',
+      "config/roles/sales.yaml:11 workflows.1: contact_create is contact's create endpoint, so grant it under objects: contact: endpoints: [create].",
+      'config/roles/sales.yaml:12 workflows.2: There is no workflow, action or query "contact.merge".',
     ]);
   });
 });

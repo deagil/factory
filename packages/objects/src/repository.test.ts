@@ -3,7 +3,7 @@ import type { Tx } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createRepository } from "./repository.ts";
+import { createdRecord, createRepository } from "./repository.ts";
 import type { Repository } from "./repository.ts";
 import {
   createCrmDatabase,
@@ -60,7 +60,11 @@ describe("repositories", () => {
       .orderBy(auditLog.id);
 
   const newOrganisation = (values: Record<string, unknown> = {}) =>
-    inAction((repo) => repo.create(organisation, { name: "Acme", ...values }));
+    inAction(async (repo) =>
+      createdRecord(
+        await repo.create(organisation, { name: "Acme", ...values })
+      )
+    );
 
   beforeAll(async () => {
     crm = await createCrmDatabase();
@@ -119,7 +123,9 @@ describe("repositories", () => {
 
     it("points the audit row at the run", async () => {
       const { org, runId } = await inAction(async (repo, tx) => {
-        const created = await repo.create(organisation, { name: "Acme" });
+        const created = createdRecord(
+          await repo.create(organisation, { name: "Acme" })
+        );
         const [row] = await tx
           .select({ runId: auditLog.runId })
           .from(auditLog)
@@ -146,13 +152,15 @@ describe("repositories", () => {
     it("refuses custom fields on an object without them", async () => {
       const org = await newOrganisation();
       await expect(
-        inAction((repo) =>
-          repo.create(contact, {
-            firstName: "Ada",
-            organisation: org.id,
-            active: true,
-            customFields: { x: 1 },
-          })
+        inAction(async (repo) =>
+          createdRecord(
+            await repo.create(contact, {
+              firstName: "Ada",
+              organisation: org.id,
+              active: true,
+              customFields: { x: 1 },
+            })
+          )
         )
       ).rejects.toThrow(/no custom fields/u);
     });
@@ -213,7 +221,9 @@ describe("repositories", () => {
         birthday: "1815-12-10",
         lifetimeValue: { amount: 1250, currency: "GBP" },
       };
-      const ada = await inAction((repo) => repo.create(contact, values));
+      const ada = await inAction(async (repo) =>
+        createdRecord(await repo.create(contact, values))
+      );
       const result = await inAction((repo) =>
         repo.update(contact, ada.id, {
           birthday: "1815-12-10",

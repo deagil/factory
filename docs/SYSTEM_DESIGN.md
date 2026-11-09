@@ -294,7 +294,7 @@ export const scheduleFollowUp = defineAction({
 - **Workflows run under the service key** once the caller's role allowed the call (section 4.6). The run records the workflow as the actor.
 - **Every run and row records two people-facing facts:** `actor_id` (who performed it: Sarah, an agent, a workflow) and `origin_user_id` (the person at the start of the chain, copied down through every nested and event-started run).
 
-**Roles are config,** and one set of rules covers every surface. Routes never carry rules of their own. A role says, per object, which endpoints it may call, which fields it may read and write, and which rows (`own` or `all`); and which workflows it may call, by name. A sketch (P2.14 settles the format):
+**Roles are config,** and one set of rules covers every surface. Routes never carry rules of their own. A role says, per object, which endpoints it may call, which fields it may read and write, and which rows (`own` or `all`); and which workflows it may call, by name. The format (P2.14):
 
 ```yaml
 # config/roles/sales.yaml
@@ -309,10 +309,12 @@ objects:
 workflows: [deal_move_stage, organisation_archive]
 ```
 
-- **Rows:** `own` means the record's owner field (declared on the object, `owner: "owner"`) is the caller, or for an agent, the person it acts for. Lists and reads are filtered by it, and a write to a row outside it is refused. Team scopes and rules on related records come later.
-- **Fields:** lists and reads leave out fields a role can't read; a write to a field it can't write is refused with a validation error naming the field.
+- **Adding up:** an actor's roles add up per object: endpoints and fields are joined, and `all` rows win over `own`. `"*"` stands for every object (`objects: { "*": … }`), every endpoint (`endpoints: "*"`) or every workflow (`workflows: "*"`). A field list is `only: [...]` or `except: [...]`; without one, every field. An agent with roles of its own gets only what both it and its person have.
+- **Rows:** `own` means the record's owner field (declared on the object, `owner: "owner"`) is the caller, or for an agent, the person it acts for. Lists, reads, related records and history are filtered by it; reading a record outside it is `not_found`, and a write to one is refused with a permission error naming the record. A new record is the caller's: its owner is set to them, and naming anyone else is refused. Team scopes and rules on related records come later.
+- **Fields:** lists, reads and history leave out fields a role can't read, and a list can't filter or sort by one; a write to a field it can't write is refused with a validation error naming the field. `system_describe` gives each field's `read` and `write` for the caller, and the web app's forms follow them.
+- **Inside a workflow** rules don't apply: its actions run under the service key. Until P2.25, the hand-written actions that stand in for workflows (`deal_create`, `deal.moveStage`) do the same, so they check rows themselves where it matters.
 - **Endpoints, not actions:** "nobody may `POST /payments`; payments are made only through `payment_make`" is a role with no `create` on payment and `payment_make` in its workflows.
-- **Privilege ceiling:** nobody grants, mints or revokes a role or key with authority they don't hold themselves.
+- **Privilege ceiling:** nobody grants, mints or revokes a role or key with authority they don't hold themselves. Inviting people, setting roles (the new ones and the ones taken away), making agents and integrations, and making or revoking API keys each refuse a role that gives more than the caller has on any object or workflow.
 
 **Approval rules cover config drafts** (decisions 0042 to 0045). Data that needs sign-off goes through a workflow with a `wait_for_approval` step (section 4.6), which takes the same options.
 

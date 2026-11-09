@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { approvals, auditLog, eventLog, runs, runSteps } from "@workspace/db";
+import { createdRecord } from "@workspace/objects";
 import {
   createCrmDatabase,
   createStaffActor,
@@ -12,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { defineAction, defineQuery } from "./define-action.ts";
-import { failures } from "./errors.ts";
+import { grantedBy } from "./permissions.ts";
 import { createPipeline } from "./pipeline.ts";
 import type { Pipeline } from "./pipeline.ts";
 
@@ -31,7 +32,7 @@ const createOrg = (
     output: z.object({ id: z.string() }),
     emits: { organisation_created: created },
     handler: async (ctx, input) => {
-      const org = await ctx.repo.create(organisation, input);
+      const org = createdRecord(await ctx.repo.create(organisation, input));
       ctx.emit("organisation_created", { id: org.id, name: org.name });
       if (then === "fail") {
         return ctx.conflict("Changed my mind");
@@ -53,7 +54,7 @@ const slowCreate = (name: string) => {
     output: z.object({ id: z.string() }),
     handler: async (ctx, input) => {
       counter.runs += 1;
-      const org = await ctx.repo.create(organisation, input);
+      const org = createdRecord(await ctx.repo.create(organisation, input));
       await sleep(100);
       return { id: org.id };
     },
@@ -174,12 +175,8 @@ describe("the action pipeline", () => {
       config: { sha: null, roles: [] },
       clock: { now: () => clock },
       permissions: {
-        load: () =>
-          Promise.resolve({
-            authorise: (definition) => failures.forbidden(definition.name),
-            canRead: () => "all" as const,
-            holds: () => false,
-          }),
+        // Nothing granted: every run is refused at authorise.
+        load: () => Promise.resolve(grantedBy([])),
       },
     });
     const result = await strict.run(

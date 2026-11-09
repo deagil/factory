@@ -1,6 +1,7 @@
 key: support
 label: Support
-permissions:
-  - object: contact
-    can: [view, update]
-    scope: all
+objects:
+  contact:
+    endpoints: [list, get, update, history]
+    rows: all
+    write: { except: [organisation] }

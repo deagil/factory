@@ -23,12 +23,12 @@ const configWith = (files: Record<string, string>): string => {
 
 const support = `key: support
 label: Support
-permissions:
-  - object: contact
-    can: [view, update]
-    scope: all
-  - action: contact.moveToOrganisation
-    scope: all
+objects:
+  contact:
+    endpoints: [get, update]
+    rows: all
+workflows:
+  - contact.moveToOrganisation
 `;
 
 describe(readConfig, () => {
@@ -42,11 +42,21 @@ describe(readConfig, () => {
       { type: "roles", key: "support", file: "config/roles/support.yaml" },
     ]);
     expect(roleReferences(files[0]?.value as never)).toStrictEqual([
-      { kind: "object", name: "contact", path: ["permissions", 0, "object"] },
+      { kind: "object", name: "contact", path: ["objects", "contact"] },
+      {
+        kind: "endpoint",
+        name: "contact_get",
+        path: ["objects", "contact", "endpoints", 0],
+      },
+      {
+        kind: "endpoint",
+        name: "contact_update",
+        path: ["objects", "contact", "endpoints", 1],
+      },
       {
         kind: "action",
         name: "contact.moveToOrganisation",
-        path: ["permissions", 1, "action"],
+        path: ["workflows", 0],
       },
     ]);
   });
@@ -57,8 +67,8 @@ describe(readConfig, () => {
         "roles/renamed.yaml": support,
         "roles/bad.yaml": support
           .replace("key: support", "key: bad")
-          .replace("scope: all\n  - action", "scope: some\n  - action"),
-        "roles/alias.yaml": "key: &k alias\nlabel: *k\npermissions: []\n",
+          .replace("rows: all", "rows: some"),
+        "roles/alias.yaml": "key: &k alias\nlabel: *k\n",
         "roles/notes.txt": "",
         "widgets/a.yaml": "key: a\n",
       }),
@@ -68,7 +78,7 @@ describe(readConfig, () => {
     expect(problems.map(formatProblem)).toStrictEqual([
       "config/roles/alias.yaml:2 Anchors and aliases aren't allowed; write the value out.",
       expect.stringMatching(
-        /^config\/roles\/bad\.yaml:6 permissions\.0\.scope: /u
+        /^config\/roles\/bad\.yaml:6 objects\.contact\.rows: /u
       ),
       "config/roles/notes.txt Config files end in .yaml.",
       'config/roles/renamed.yaml:1 key: The key is "support" but the file is named renamed.yaml; they must match.',

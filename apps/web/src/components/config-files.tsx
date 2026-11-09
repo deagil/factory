@@ -88,7 +88,7 @@ export const ConfigFiles = ({
       type: "roles",
       key,
       content: "",
-      value: { key, label: key, permissions: [] },
+      value: { key, label: key },
     };
     setCreated(file);
     setPath(file.path);

@@ -42,6 +42,11 @@ export const moveToOrganisation = defineAction({
       case "archived": {
         return ctx.conflict("This contact is archived, so it can't be moved");
       }
+      case "refused": {
+        // A hand-written action writes as the service key does, so its
+        // repository has no rules to refuse it; kept for the type.
+        return ctx.invalid(result.message);
+      }
       case "conflict": {
         return ctx.conflict(
           "This contact changed since you read it. Read it again and retry."

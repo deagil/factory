@@ -25,6 +25,7 @@ import {
 import type { ActionDescription, FormValues } from "../../lib/forms.ts";
 import { plural } from "../../lib/nav.ts";
 import {
+  readableFields,
   displayValue,
   expandable,
   findObject,
@@ -142,7 +143,9 @@ const Details = ({
       ),
     onSuccess: refresh,
   });
-  const fixed = object.fields.filter((field) => !editable.has(field.key));
+  const fixed = readableFields(object).filter(
+    (field) => !editable.has(field.key)
+  );
 
   return (
     <div className="flex flex-col gap-6">

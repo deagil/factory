@@ -1,7 +1,16 @@
 // A config draft's changes in plain English (P2.10): what each file it
 // touches now says differently, line by line. Choice lists are compared
-// option by option and roles permission by permission; any other type falls
+// option by option and roles object by object (P2.14); any other type falls
 // back to its changed fields.
+
+import {
+  fieldListText,
+  jobsOf,
+  objectName,
+  roleOf,
+  workflowsOf,
+} from "./roles.ts";
+import type { ObjectRules } from "./roles.ts";
 
 export interface ConfigChange {
   path: string;
@@ -131,57 +140,79 @@ const optionLines = (before: unknown, after: unknown): string[] => {
   return [...fieldLines(restBefore, restAfter), ...lines];
 };
 
-interface Permission extends Value {
-  object?: string;
-  action?: string;
-  can?: string[];
-}
+const workflowName = (name: string) => (name === "*" ? "every workflow" : name);
 
-const permissionsOf = (value: unknown): Permission[] =>
-  isValue(value) && Array.isArray(value.permissions)
-    ? (value.permissions.filter(isValue) as Permission[])
-    : [];
-
-const objectName = (object: string) =>
-  object === "*" ? "every object" : object;
-
-const actionName = (action: string) =>
-  action === "*" ? "every action" : action;
-
-const actions = (list: Permission[]) =>
-  list.flatMap((line) => (line.action ? [line.action] : []));
-
-const permissionLines = (before: unknown, after: unknown): string[] => {
-  const from = permissionsOf(before);
-  const to = permissionsOf(after);
+const ruleLines = (
+  object: string,
+  had: ObjectRules | undefined,
+  has: ObjectRules | undefined
+): string[] => {
   const lines: string[] = [];
-  const objects = new Set(
-    [...from, ...to].flatMap((line) => (line.object ? [line.object] : []))
-  );
+  const name = objectName(object);
+  const from = jobsOf(had);
+  const to = jobsOf(has);
+  const gained = to.filter((job) => !from.includes(job));
+  const lost = from.filter((job) => !to.includes(job));
+  if (gained.length > 0) {
+    lines.push(`Can now ${gained.join(", ")} ${name}.`);
+  }
+  if (lost.length > 0) {
+    lines.push(`Can no longer ${lost.join(", ")} ${name}.`);
+  }
+  if (!had || !has) {
+    return lines;
+  }
+  if (had.rows !== has.rows) {
+    lines.push(
+      has.rows === "own"
+        ? `Now reaches only its own ${name} records.`
+        : `Now reaches every ${name} record.`
+    );
+  }
+  for (const [side, verb] of [
+    ["read", "Reads"],
+    ["write", "Writes"],
+  ] as const) {
+    const before = fieldListText(had[side]);
+    const after = fieldListText(has[side]);
+    if (before !== after) {
+      lines.push(`${verb} ${after} of ${name}, not ${before}.`);
+    }
+  }
+  return lines;
+};
+
+const roleLines = (before: unknown, after: unknown): string[] => {
+  const from = roleOf(before);
+  const to = roleOf(after);
+  const lines: string[] = [];
+  const objects = new Set([
+    ...Object.keys(from.objects ?? {}),
+    ...Object.keys(to.objects ?? {}),
+  ]);
   for (const object of objects) {
-    const had = from.find((line) => line.object === object)?.can ?? [];
-    const has = to.find((line) => line.object === object)?.can ?? [];
-    const gained = has.filter((verb) => !had.includes(verb));
-    const lost = had.filter((verb) => !has.includes(verb));
-    if (gained.length > 0) {
-      lines.push(`Can now ${gained.join(", ")} ${objectName(object)}.`);
-    }
-    if (lost.length > 0) {
-      lines.push(`Can no longer ${lost.join(", ")} ${objectName(object)}.`);
-    }
+    lines.push(
+      ...ruleLines(object, from.objects?.[object], to.objects?.[object])
+    );
   }
-  for (const action of actions(to)) {
-    if (!actions(from).includes(action)) {
-      lines.push(`Can now run ${actionName(action)}.`);
-    }
+  const had = workflowsOf(from);
+  const has = workflowsOf(to);
+  for (const name of has.filter((each) => !had.includes(each))) {
+    lines.push(`Can now call ${workflowName(name)}.`);
   }
-  for (const action of actions(from)) {
-    if (!actions(to).includes(action)) {
-      lines.push(`Can no longer run ${actionName(action)}.`);
-    }
+  for (const name of had.filter((each) => !has.includes(each))) {
+    lines.push(`Can no longer call ${workflowName(name)}.`);
   }
-  const { permissions: _before, ...restBefore } = isValue(before) ? before : {};
-  const { permissions: _after, ...restAfter } = isValue(after) ? after : {};
+  const {
+    objects: _objectsBefore,
+    workflows: _workflowsBefore,
+    ...restBefore
+  } = isValue(before) ? before : {};
+  const {
+    objects: _objectsAfter,
+    workflows: _workflowsAfter,
+    ...restAfter
+  } = isValue(after) ? after : {};
   return [...fieldLines(restBefore, restAfter), ...lines];
 };
 
@@ -211,7 +242,7 @@ export const describeChange = (change: ConfigChange): DescribedChange => {
   if (change.type === "choices") {
     lines = optionLines(before, after);
   } else if (change.type === "roles") {
-    lines = permissionLines(before, after);
+    lines = roleLines(before, after);
   } else {
     lines = fieldLines(
       isValue(before) ? before : {},

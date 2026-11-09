@@ -22,29 +22,28 @@ const roles: Role[] = [
   {
     key: "sales",
     label: "Sales",
-    permissions: [
-      { object: "organisation", can: ["view", "create"], scope: "all" },
-      { action: "actor.createAgent", scope: "all" },
-      { action: "apiKey.create", scope: "all" },
-      { action: "apiKey.revoke", scope: "all" },
-    ],
+    objects: {
+      organisation: {
+        endpoints: ["list", "get", "create", "history"],
+        rows: "all",
+      },
+    },
+    workflows: ["actor.createAgent", "apiKey.create", "apiKey.revoke"],
   },
   {
     key: "admin",
     label: "Admin",
-    permissions: [
-      {
-        object: "*",
-        can: ["view", "create", "update", "archive"],
-        scope: "all",
-      },
-      { action: "*", scope: "all" },
-    ],
+    objects: {
+      "*": { endpoints: "*", rows: "all" },
+    },
+    workflows: "*",
   },
   {
     key: "website",
     label: "Website",
-    permissions: [{ object: "organisation", can: ["create"], scope: "all" }],
+    objects: {
+      organisation: { endpoints: ["create"], rows: "all" },
+    },
   },
 ];
 
@@ -152,7 +151,7 @@ describe("API keys, agents and integrations", () => {
     // Sarah can't archive, so neither can her agent.
     expect(archived).toMatchObject({
       ok: false,
-      error: { permission: "organisation.archive" },
+      error: { permission: "organisation_archive" },
     });
   });
 
@@ -212,7 +211,7 @@ describe("API keys, agents and integrations", () => {
     expect(created.ok).toBeTruthy();
     expect(listed).toMatchObject({
       ok: false,
-      error: { permission: "organisation.view" },
+      error: { permission: "organisation_list" },
     });
   });
 

@@ -15,7 +15,13 @@ import type { ConfigCatalog } from "./index.ts";
 const catalog: ConfigCatalog = {
   objects: new Map([["contact", ["firstName"]]]),
   actions: new Set(),
-  objectActions: new Map(),
+  objectActions: new Map(
+    ["list", "create", "update", "archive"].map((job) => [
+      `contact_${job}`,
+      { object: "contact", job },
+    ])
+  ),
+  owners: new Set(),
   events: new Set(),
   choiceLists: [],
 };
@@ -37,8 +43,8 @@ const git = (cwd: string, ...args: string[]) =>
     stdio: "pipe",
   }).trim();
 
-const role = (key: string, can: string) =>
-  `key: ${key}\nlabel: ${key}\npermissions:\n  - object: contact\n    can: [${can}]\n    scope: all\n`;
+const role = (key: string, endpoints: string) =>
+  `key: ${key}\nlabel: ${key}\nobjects:\n  contact:\n    endpoints: [${endpoints}]\n    rows: all\n`;
 
 /** A bare remote whose main and production both have one role. */
 const remote = () => {
@@ -50,7 +56,7 @@ const remote = () => {
   mkdirSync(path.join(work, "config", "roles"), { recursive: true });
   writeFileSync(
     path.join(work, "config", "roles", "sales.yaml"),
-    role("sales", "view")
+    role("sales", "list")
   );
   writeFileSync(path.join(work, "README.md"), "code lives here\n");
   git(work, "add", ".");
@@ -77,14 +83,14 @@ describe(createGitConfigService, { timeout: 30_000 }, () => {
     await service.commit({
       branch: "draft/one",
       path: "config/roles/sales.yaml",
-      content: role("sales", "view, update"),
+      content: role("sales", "list, update"),
       message: "Edit sales",
       author,
     });
     await service.commit({
       branch: "draft/one",
       path: "config/roles/support.yaml",
-      content: role("support", "view"),
+      content: role("support", "list"),
       message: "Add support",
       author,
     });
@@ -162,13 +168,13 @@ describe(createGitConfigService, { timeout: 30_000 }, () => {
     await service.commit({
       branch: "draft/bad",
       path: "config/roles/sales.yaml",
-      content: role("sales", "view, create"),
+      content: role("sales", "list, create"),
       message: "Fix sales",
       author,
     });
     writeFileSync(
       path.join(work, "config", "roles", "sales.yaml"),
-      role("sales", "view, archive")
+      role("sales", "list, archive")
     );
     git(work, "commit", "--quiet", "-am", "Someone else");
     git(work, "push", "--quiet", "origin", "HEAD:production");

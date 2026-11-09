@@ -80,7 +80,7 @@ describe("the CRM's config", () => {
     });
     writeFileSync(
       supportFile,
-      `${original}  - object: organisation\n    can: [view]\n    scope: all\n`
+      `${original}  organisation:\n    endpoints: [list]\n    rows: all\n`
     );
     await expect(server.config.load()).resolves.toMatchObject({
       status: "loaded",
@@ -102,7 +102,7 @@ describe("the CRM's config", () => {
 
   it("keeps the last good version when a file breaks", async () => {
     const live = server.config.current()?.sha;
-    writeFileSync(supportFile, original.replace("scope: all", "scope: some"));
+    writeFileSync(supportFile, original.replace("rows: all", "rows: some"));
     const result = await server.config.load();
     const [latest] = await listConfigVersions(server.db, 1);
     expect(result.status).toBe("refused");

@@ -69,6 +69,8 @@ export const customActions = (
  * The controls a form for `action` shows, in the action's input order. An
  * input key that is one of the object's fields takes that field's label and
  * type, so `organisation` on `contact.moveToOrganisation` is a ref picker.
+ * A generated create or update leaves out the fields the caller's roles
+ * can't write (P2.14); a hand-written action takes what it takes.
  */
 export const formFields = (
   action: ActionDescription,
@@ -76,8 +78,13 @@ export const formFields = (
 ): FormField[] => {
   const schema = action.input as InputSchema;
   const required = new Set(schema.required);
+  const verb = verbOf(action.name, object.name);
+  const generated = verb !== undefined && generatedVerbs.has(verb);
+  const unwritable = (key: string) =>
+    generated &&
+    object.fields.some((field) => field.key === key && field.write === false);
   return Object.entries(schema.properties ?? {})
-    .filter(([key]) => !filledIn.has(key))
+    .filter(([key]) => !filledIn.has(key) && !unwritable(key))
     .map(([key, property]) => {
       const field: FieldDescription | undefined = object.fields.find(
         (each) => each.key === key

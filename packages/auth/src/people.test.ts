@@ -20,17 +20,24 @@ const roles: Role[] = [
   {
     key: "admin",
     label: "Admin",
-    permissions: [{ action: "*", scope: "all" }],
+    workflows: "*",
   },
   {
     key: "sales",
     label: "Sales",
-    permissions: [
-      { action: "actor.createAgent", scope: "all" },
-      { action: "apiKey.create", scope: "all" },
+    workflows: ["actor.createAgent", "apiKey.create"],
+  },
+  { key: "support", label: "Support", objects: {} },
+  {
+    key: "manager",
+    label: "Manager",
+    workflows: [
+      "user.invite",
+      "actor.setRoles",
+      "actor.createAgent",
+      "apiKey.create",
     ],
   },
-  { key: "support", label: "Support", permissions: [] },
 ];
 
 const registry = createRegistry([...identityActions]);
@@ -202,6 +209,47 @@ describe("inviting people, roles and disabling (P1b.05)", () => {
       ali
     );
     expect(bySales).toMatchObject({ ok: false, error: { code: "permission" } });
+  });
+
+  it("keeps the privilege ceiling: nobody gives or takes away more than they hold", async () => {
+    const boss = await createStaffActor(crm.db, "Manager");
+    await crm.db
+      .insert(actorRoles)
+      .values({ actorId: boss.id, roleKey: "manager" });
+    const manager = { actorId: boss.id };
+    const promoted = await call(
+      "user.invite",
+      { name: "Max", email: "max@example.com", roles: ["admin"] },
+      manager
+    );
+    const { actorId: hired = "" } = await must(
+      "user.invite",
+      { name: "Mo", email: "mo@example.com", roles: ["sales"] },
+      manager
+    );
+    const moved = await must(
+      "actor.setRoles",
+      { id: hired, roles: ["support"] },
+      manager
+    );
+    const demoted = await call(
+      "actor.setRoles",
+      { id: admin.actorId, roles: ["sales"] },
+      manager
+    );
+    expect(promoted).toMatchObject({
+      ok: false,
+      error: {
+        code: "permission",
+        message: expect.stringContaining("the role admin"),
+      },
+    });
+    expect(moved.roles).toStrictEqual(["support"]);
+    expect(demoted).toMatchObject({
+      ok: false,
+      error: { code: "permission" },
+    });
+    await expect(rolesOf(admin.actorId)).resolves.toStrictEqual(["admin"]);
   });
 
   describe("disabling a person", () => {
