@@ -3,7 +3,7 @@
 // wrote, each linking to its record.
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import type { RunDetail } from "@workspace/actions";
+import type { RunDetail, RunStepEntry } from "@workspace/actions";
 import type { ReactNode } from "react";
 
 import {
@@ -37,6 +37,13 @@ const Section = ({
     {children}
   </section>
 );
+
+const stepState = (step: RunStepEntry) => {
+  if (step.error) {
+    return "failed";
+  }
+  return step.finishedAt ? "done" : "…";
+};
 
 const RunScreen = () => {
   const { id } = Route.useParams();
@@ -129,7 +136,7 @@ const RunScreen = () => {
                     </span>
                   ) : null}
                   <span className="text-muted-foreground">
-                    {step.error ? "failed" : step.finishedAt ? "done" : "…"}
+                    {stepState(step)}
                   </span>
                 </div>
                 {step.error ? (
