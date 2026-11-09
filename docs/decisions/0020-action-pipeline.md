@@ -1,7 +1,9 @@
 # 0020. How the action pipeline runs and records
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0046](0046-runs-segments-and-errors.md)
 - **Date:** 2026-11-07
+
+> **Amended by 0046.** The pipeline's stages run at the endpoint, and it writes a `runs` row with one `run_steps` row per step instead of `action_log`. The trace is written outside the transaction, so a failed run keeps it.
 
 ## Context
 

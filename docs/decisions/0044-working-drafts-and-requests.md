@@ -1,8 +1,10 @@
 # 0044. Working drafts, and requests that publish when approved
 
-- **Status:** Accepted
+- **Status:** Accepted; checked against [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-08
 - **Amends:** [0041](0041-drafts-over-git.md), whose drafts were opened by hand and couldn't be undone or thrown away, and [0042](0042-approval-rules.md), whose drafts were submitted, approved and then published by hand, and whose requests couldn't be withdrawn.
+
+> **Still fits 0045.** Working drafts, revert, discard, withdraw and `approval.check` all carry over. When the draft operations become code workflows (P2.24), the parked publish is a `draft_publish` run waiting at its approval step instead of a `pending_approval` action_log row, and `approval_check` also answers for a workflow and its input.
 
 ## Context
 

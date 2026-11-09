@@ -1,7 +1,9 @@
 # 0026. API transport: our own generator on Hono
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-07
+
+> **Amended by 0045.** The generator serves object endpoints and workflow endpoints, not a route per action and query. Still our own generator on Hono, with the pipeline the only place input is validated.
 
 ## Context
 

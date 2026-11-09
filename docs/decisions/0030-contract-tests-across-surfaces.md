@@ -1,7 +1,9 @@
 # 0030. Contract tests across surfaces
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-07
+
+> **Amended by 0045.** The contract runs every object endpoint and workflow endpoint on every surface and compares `runs` and `run_steps` rows instead of `action_log`.
 
 ## Context
 

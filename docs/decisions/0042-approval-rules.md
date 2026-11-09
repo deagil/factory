@@ -1,8 +1,10 @@
 # 0042. Approval rules
 
-- **Status:** Accepted; amended by [0043](0043-approval-limits.md) and [0044](0044-working-drafts-and-requests.md)
+- **Status:** Accepted; amended by [0043](0043-approval-limits.md), [0044](0044-working-drafts-and-requests.md) and [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-08
 - **Amends:** [0020](0020-action-pipeline.md), whose pipeline took an `approvals` function that returned a rule key, and SYSTEM_DESIGN §3's `approvals` and `approval_decisions` tables.
+
+> **Amended by 0045.** Rules in `config/approvals/` cover config drafts only. Approval of data moves to the `wait_for_approval` workflow step, which takes the same options. Drafts touching `workflows/`, `roles/` or `approvals/` need the author and a second person, with no admin exemption.
 
 ## Context
 

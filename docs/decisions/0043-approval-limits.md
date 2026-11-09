@@ -1,8 +1,10 @@
 # 0043. Approval limits
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-08
 - **Amends:** [0042](0042-approval-rules.md), whose rules asked one person, tested only the action's input and exempted only holders of the approver role.
+
+> **Amended by 0045.** These options (approvals, requester, exempt, conditions on input and record) move to the `wait_for_approval` step. The rules that stay in `config/approvals/` cover config drafts.
 
 ## Context
 
