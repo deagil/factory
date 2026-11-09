@@ -51,6 +51,7 @@ These fill gaps until later phases replace them. Don't build further than this.
   | `GET /<objects>/{id}/history` | The record's field history and the runs that touched it | `<object>_history` |
 
   The error shape, request ids and auth stay as decision 0027 has them. Owned fields (`actions.update.readOnly`) go: role rules decide who writes a field.
+
 - **Workflow endpoints:** a published workflow that starts when called is `POST /workflows/<name>`, with the same input, output and errors a hand-coded route would have. A workflow whose steps only read is marked `read_only: true`, is served as `GET /workflows/<name>` with query parameters, and validation proves it never writes. Runs are resources: `GET /runs/{id}`.
 - **Every surface comes from one registry.** HTTP and OpenAPI, MCP (one tool per endpoint, named exactly as the endpoint), `system_describe`, and the web app's screens, forms and workflow buttons. The CLI joins later. Agents build workflows through the same endpoints the web app uses. Actions are never on a surface.
 
