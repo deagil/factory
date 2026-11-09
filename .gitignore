@@ -27,3 +27,6 @@ todos.json
 
 #cursor config
 .cursor
+
+# Scratch files from editors and agents
+_tmp_*

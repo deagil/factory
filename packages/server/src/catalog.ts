@@ -2,11 +2,8 @@
 // actions and queries, and the events they emit.
 import type { AnyActionDefinition, AnyDefinition } from "@workspace/actions";
 import type { ChoiceListUse, ConfigCatalog } from "@workspace/config";
-import type {
-  AnyChoiceList,
-  AnyObjectDefinition,
-  ChoiceField,
-} from "@workspace/objects";
+import type { AnyChoiceList, AnyObjectDefinition } from "@workspace/objects";
+import { isChoiceField } from "@workspace/objects";
 
 /**
  * The choice lists the objects' fields use, each once with the fields that
@@ -18,10 +15,10 @@ export const choiceListsOf = (
   const lists = new Map<string, { list: AnyChoiceList; usedBy: string[] }>();
   for (const object of objects) {
     for (const [key, field] of Object.entries(object.fields)) {
-      if (field.kind !== "choice") {
+      if (!isChoiceField(field)) {
         continue;
       }
-      const { list } = field as unknown as ChoiceField;
+      const { list } = field;
       const seen = lists.get(list.key);
       if (seen && seen.list !== list) {
         throw new Error(
