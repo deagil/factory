@@ -180,6 +180,28 @@ export const createIdentityStore = (executor: Executor) => ({
     return actor;
   },
   /** The user's staff actor, if they have one. */
+  /**
+   * The actor a workflow runs as: an automation named for it, made the
+   * first time it runs (P2.17, AGENTS.md rule 13).
+   */
+  workflowActor: async (key: string) => {
+    const [made] = await executor
+      .insert(actors)
+      .values({ kind: "automation", name: key })
+      .onConflictDoNothing()
+      .returning();
+    if (made) {
+      return made;
+    }
+    const [found] = await executor
+      .select()
+      .from(actors)
+      .where(and(eq(actors.kind, "automation"), eq(actors.name, key)));
+    if (!found) {
+      throw new Error(`No actor for the workflow "${key}"`);
+    }
+    return found;
+  },
   staffActorOf: async (userId: string) => {
     const [actor] = await executor
       .select()

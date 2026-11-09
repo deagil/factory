@@ -486,6 +486,7 @@ output:
 - **Approval is a step.** `wait_for_approval` takes an approver role, a number of approvals, requester and exempt roles, and conditions (decision 0043). It asks in the inbox; the last approval resumes the run, a rejection runs its `on_failure` steps, and the requester can withdraw it, which cancels the run.
 - **The dispatcher** reads new `event_log` rows and starts one run per event and matching workflow, exactly once, with the event's origin user and a link to the run that emitted it. Each run carries a depth, and dispatch stops past a limit.
 - **Pinning.** A run uses the definition from the config commit it started under.
+- **The trace.** The engine is the only writer of `runs` and `run_steps`. It inserts a run, and each step that changes data, as it starts, since `audit_log` points at them; the other steps and the events are written once as the segment's transaction ends, to save round trips. After a rollback it writes the runs and steps again, failed, so a failed run keeps its trace and none of its changes or events. A workflow's actor is an automation actor named for its key.
 
 **Who a workflow acts as.** The caller's role must allow calling the workflow; after that its actions run under the service key. The run records the workflow as actor and the caller as origin user. Because the workflow can do more than its caller, publishing it is the control.
 
