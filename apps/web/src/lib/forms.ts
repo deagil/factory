@@ -16,6 +16,8 @@ export interface FormField {
   required: boolean;
   /** A choice field's options. Null when the field isn't a choice. */
   options: FieldDescription["options"];
+  /** A choice field's list, `config/choices/<list>.yaml`. Null otherwise. */
+  list: string | null;
 }
 
 /** Values as the form holds them: text for inputs, booleans for checkboxes. */
@@ -76,6 +78,7 @@ export const formFields = (
         target: field?.target ?? null,
         required: required.has(key),
         options: field?.options ?? null,
+        list: field?.list ?? null,
       };
     });
 };
