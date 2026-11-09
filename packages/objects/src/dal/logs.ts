@@ -14,7 +14,18 @@ import {
   users,
 } from "@workspace/db/schema";
 import type { runStatuses, runStepKinds } from "@workspace/db/schema";
-import { and, desc, eq, gte, inArray, like, lt, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  like,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type { ActorSummary } from "./data-access.ts";
@@ -328,6 +339,19 @@ export const createLogReader = (executor: Executor) => {
     page: LogPage = {}
   ): Promise<LogResult<RunEntry>> => {
     const size = sizeOf(page.limit);
+    const person = filter.involving;
+    const forPerson = person?.userId
+      ? eq(runs.originUserId, person.userId)
+      : undefined;
+    const involving = person
+      ? or(eq(runs.actorId, person.actorId), forPerson)
+      : undefined;
+    const roles = filter.attentionRoles;
+    let attention: SQL | undefined;
+    if (roles !== undefined) {
+      attention =
+        roles.length > 0 ? inArray(runs.attentionRole, [...roles]) : sql`false`;
+    }
     const rows = await executor
       .select(runColumns)
       .from(runs)
@@ -344,19 +368,8 @@ export const createLogReader = (executor: Executor) => {
           filter.dryRun === undefined
             ? undefined
             : eq(runs.dryRun, filter.dryRun),
-          filter.involving
-            ? or(
-                eq(runs.actorId, filter.involving.actorId),
-                filter.involving.userId
-                  ? eq(runs.originUserId, filter.involving.userId)
-                  : undefined
-              )
-            : undefined,
-          filter.attentionRoles
-            ? filter.attentionRoles.length > 0
-              ? inArray(runs.attentionRole, [...filter.attentionRoles])
-              : sql`false`
-            : undefined,
+          involving,
+          attention,
           ...within(runs.startedAt, filter),
           before(runs.startedAt, runs.id, decode(page.cursor))
         )

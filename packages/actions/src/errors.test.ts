@@ -11,6 +11,7 @@ describe("typed errors", () => {
       failures.needsApproval("large-refund"),
       failures.conflict("Moved on"),
       failures.notFound("deal", "d1"),
+      failures.unavailable("The bank is busy"),
     ].map((failure) => failure.error.code);
     expect(codes).toStrictEqual([...actionErrorCodes]);
   });

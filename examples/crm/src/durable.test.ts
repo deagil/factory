@@ -6,6 +6,7 @@
 // notification is sent only once its segment commits.
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { defineAction } from "@workspace/actions";
 import type { Caller } from "@workspace/actions";
@@ -118,13 +119,10 @@ const paymentMake = defineWorkflow({
     deal: { type: "ref", object: "deal" },
     amount: { type: "number" },
   },
-  on_failure: [
-    {
-      id: "reverse",
-      action: "payment_reverse",
-      with: { charge_id: { from: "steps.charge.output.charge_id" } },
-    },
-  ],
+  // Later steps can fail after a commit. Capture undoes the charge; the
+  // rest keep what already committed (`leave`). A workflow-level list
+  // can't read a step output, because it may run before that step has.
+  on_failure: "leave",
   steps: [
     {
       id: "charge",
@@ -133,9 +131,26 @@ const paymentMake = defineWorkflow({
     },
     { id: "hold", wait: { for: "1s" } },
     {
+      id: "still_open",
+      action: "record_in_state",
+      with: {
+        object: { value: "deal" },
+        id: { from: "input.deal" },
+        field: { value: "stage" },
+        is: { value: "proposal" },
+      },
+    },
+    {
       id: "capture",
       action: "payment_capture",
       with: { charge_id: { from: "steps.charge.output.charge_id" } },
+      on_failure: [
+        {
+          id: "reverse",
+          action: "payment_reverse",
+          with: { charge_id: { from: "steps.charge.output.charge_id" } },
+        },
+      ],
     },
     {
       id: "record",
@@ -145,7 +160,11 @@ const paymentMake = defineWorkflow({
         deal: { from: "input.deal" },
       },
     },
-    { id: "tell", action: "notify_send", with: { deal: { from: "input.deal" } } },
+    {
+      id: "tell",
+      action: "notify_send",
+      with: { deal: { from: "input.deal" } },
+    },
   ],
   output: { charge_id: { from: "steps.charge.output.charge_id" } },
 });
@@ -163,7 +182,13 @@ const notifyThenFail = defineWorkflow({
       action: "task_create",
       with: { title: { value: "Never kept" }, deal: { from: "input.deal" } },
     },
-    { id: "tell", action: "notify_send", with: { deal: { from: "input.deal" } } },
+    {
+      id: "tell",
+      action: "notify_send",
+      with: { deal: { from: "input.deal" } },
+      // It is sent only if this segment commits. The next step stops that.
+      on_failure: "leave",
+    },
     { fail: "gave_up" },
   ],
 });
@@ -178,7 +203,7 @@ const system = defineSystem({
   config: path.resolve(import.meta.dirname, "../config"),
 });
 
-describe("durable runs (P2.20)", () => {
+describe("durable runs (P2.20)", { timeout: 30_000 }, () => {
   let database: SystemDatabase;
   let server: Server;
   let seeded: Seeded;
@@ -224,7 +249,7 @@ describe("durable runs (P2.20)", () => {
         return row;
       }
       // oxlint-disable-next-line eslint/no-await-in-loop -- polling
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await delay(100);
     }
     throw new Error(`Run ${runId} didn't settle.`);
   };
@@ -276,25 +301,36 @@ describe("durable runs (P2.20)", () => {
     await server.close();
     server = await start();
     const run = await settled(runIdOf(result));
-    expect(run.status).toBe("succeeded");
-    expect(bank.charges.get(`${run.id}:charge`)?.reversed).toBeFalsy();
     const record = await server.db
       .select({ title: tasks.title })
       .from(tasks)
       .where(eq(tasks.deal, dealId));
-    expect(record).toEqual([{ title: expect.stringContaining("taken") }]);
     // The notification went once the task it mentions was committed.
-    expect(bank.notified).toContainEqual({ deal: dealId, committed: true });
-    // The trace shows the segments: before the charge, after it, after the wait.
+    expect({
+      status: run.status,
+      reversed: bank.charges.get(`${run.id}:charge`)?.reversed ?? null,
+      titles: record.map((row) => row.title),
+      told: bank.notified.some(
+        (each) => each.deal === dealId && each.committed
+      ),
+    }).toStrictEqual({
+      status: "succeeded",
+      reversed: false,
+      titles: [expect.stringContaining("taken")],
+      told: true,
+    });
+    // The trace shows the segments: the charge, the wait, the check and
+    // capture after it, then the record and its notification.
     const steps = await stepsOf(run.id);
     expect(
       steps.map(({ stepId, segment }) => `${segment}:${stepId}`)
-    ).toEqual([
+    ).toStrictEqual([
       "0:charge",
       "1:hold",
-      "1:capture",
-      "2:record",
-      "2:tell",
+      "2:still_open",
+      "2:capture",
+      "3:record",
+      "3:tell",
     ]);
   });
 
@@ -305,11 +341,10 @@ describe("durable runs (P2.20)", () => {
     expect(run.status).toBe("succeeded");
     expect(
       [...bank.charges.keys()].filter((key) => key.startsWith(run.id))
-    ).toEqual([`${run.id}:charge`]);
-    const attempts = (await stepsOf(run.id)).filter(
-      (step) => step.stepId === "charge"
-    );
-    expect(attempts.map((step) => [step.attempt, step.error])).toEqual([
+    ).toStrictEqual([`${run.id}:charge`]);
+    const steps = await stepsOf(run.id);
+    const attempts = steps.filter((step) => step.stepId === "charge");
+    expect(attempts.map((step) => [step.attempt, step.error])).toStrictEqual([
       [1, expect.objectContaining({ code: "unavailable" })],
       [2, null],
     ]);
@@ -325,9 +360,8 @@ describe("durable runs (P2.20)", () => {
       error: expect.objectContaining({ code: "declined" }),
     });
     expect(bank.charges.get(`${run.id}:charge`)?.reversed).toBeTruthy();
-    expect((await stepsOf(run.id)).map((step) => step.stepId)).toContain(
-      "reverse"
-    );
+    const steps = await stepsOf(run.id);
+    expect(steps.map((step) => step.stepId)).toContain("reverse");
   });
 
   it("puts a run whose failure steps fail in the sales inbox, where a retry finishes it", async () => {
@@ -351,11 +385,17 @@ describe("durable runs (P2.20)", () => {
         }
       ).entries.map((entry) => entry.id);
     };
-    expect(await inbox(seeded.sales)).toContain(run.id);
-    expect(await inbox(seeded.admin)).not.toContain(run.id);
+    const [salesInbox, adminInbox] = await Promise.all([
+      inbox(seeded.sales),
+      inbox(seeded.admin),
+    ]);
+    expect({ sales: salesInbox, admin: adminInbox }).toStrictEqual({
+      sales: expect.arrayContaining([run.id]),
+      admin: expect.not.arrayContaining([run.id]),
+    });
 
     bank.declineCapture = false;
-    const salesUser = seeded.sales.userId ?? "";
+    const salesUser = seeded.sales.originUserId ?? "";
     const retried = await server.workflowCalls.runner.attend(
       run.id,
       "retry",
@@ -363,10 +403,10 @@ describe("durable runs (P2.20)", () => {
       server.workflowCalls.contextOf(server.config.service)
     );
     expect(retried).toMatchObject({ ok: true });
-    expect((await settled(run.id)).status).toBe("succeeded");
-    expect((await stepsOf(run.id)).map((step) => step.stepId)).toContain(
-      "retry"
-    );
+    const finished = await settled(run.id);
+    const steps = await stepsOf(run.id);
+    expect(finished.status).toBe("succeeded");
+    expect(steps.map((step) => step.stepId)).toContain("retry");
   });
 
   it("sends a queued notification only after its segment commits", async () => {

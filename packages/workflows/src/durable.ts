@@ -52,7 +52,11 @@ export const attach = (name: string, drive: Drive) => {
     if (attached.size === 0 && engine) {
       const stopping = engine;
       engine = null;
-      await stopping.ready.catch(() => undefined);
+      try {
+        await stopping.ready;
+      } catch {
+        // A launch that failed still has to shut DBOS down.
+      }
       await DBOS.shutdown({ deregister: true });
     }
   };
@@ -86,10 +90,15 @@ export const launch = (databaseUrl: string): Promise<void> => {
     systemDatabaseUrl: databaseUrl,
     logLevel: "warn",
   });
-  const ready = DBOS.launch().catch((error: unknown) => {
-    engine = null;
-    throw error;
-  });
+  const start = async () => {
+    try {
+      await DBOS.launch();
+    } catch (error) {
+      engine = null;
+      throw error;
+    }
+  };
+  const ready = start();
   engine = { url: databaseUrl, ready, run };
   return ready;
 };

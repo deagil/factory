@@ -30,6 +30,7 @@
 // actor and the caller its origin user (AGENTS.md rule 13). Approvals come
 // with P2.21.
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { isDeepStrictEqual } from "node:util";
 
 import { failures, runExternalStep, runInternalStep } from "@workspace/actions";
@@ -479,6 +480,71 @@ const fromStart = (list: ListRef): Phase => ({
   closed: false,
 });
 
+/** A durable segment that already committed, so a replay must not run it again. */
+const remembered = async (
+  tx: Tx,
+  runId: string,
+  n: number
+): Promise<Checkpoint | null> => {
+  const row = await lockRun(tx, runId);
+  const done = row?.checkpoint as Checkpoint | null | undefined;
+  if (done && done.segment >= n) {
+    return done;
+  }
+  return null;
+};
+
+/** Where `ended` stopped the segment, if it stopped one. */
+const cutOf = (ended: Ended): Cut | null =>
+  ended && "cut" in ended ? ended.cut : null;
+
+/** The segment's output: nothing yet when it paused or is recovering. */
+const outputOf = (
+  ended: Ended,
+  cut: Cut | null,
+  recovering: boolean,
+  frame: Frame,
+  workflow: WorkflowDefinition,
+  options: WorkflowRunOptions
+) => {
+  if (cut || recovering) {
+    return {};
+  }
+  const produced = ended && "output" in ended ? ended.output : null;
+  return produced ?? given(workflow.output, frame, options.config);
+};
+
+/** The checkpoint a segment writes as it commits. */
+const checkpointOf = (place: {
+  readonly n: number;
+  readonly workflow: WorkflowDefinition;
+  readonly frame: Frame;
+  readonly from: Checkpoint | null;
+  readonly wrote: boolean;
+  readonly phase: Phase;
+  readonly cut: Cut | null;
+  readonly output: Record<string, unknown>;
+  readonly queued: readonly Queued[];
+}): Checkpoint => ({
+  segment: place.n,
+  definition: place.workflow,
+  input: place.frame.input,
+  start: place.frame.event ?? null,
+  outputs: Object.fromEntries(place.frame.outputs),
+  depth: place.frame.depth,
+  wrote: (place.from?.wrote ?? false) || place.wrote,
+  phase: {
+    list: place.phase.list,
+    resume: place.cut?.path ?? null,
+    queued: place.queued,
+    pending: place.cut,
+    finished: place.cut ? null : place.output,
+    // Done, with nothing left to send: the run ends here.
+    closed: !place.cut && place.queued.length === 0,
+  },
+  failed: place.from?.failed ?? null,
+});
+
 /** Who acts on a run that needs attention. */
 export interface Attending {
   readonly userId: string;
@@ -731,7 +797,9 @@ export const createRunner = ({
     const until =
       "for" in step.wait
         ? new Date(clock.now().getTime() + msOf(step.wait.for))
-        : new Date(String(valueOf(step.wait.until, frame, shared.options.config)));
+        : new Date(
+            String(valueOf(step.wait.until, frame, shared.options.config))
+          );
     const valid = !Number.isNaN(until.getTime());
     const row = rowOf(shared, frame, step.id, "control", "wait", {
       until: valid ? until.toISOString() : null,
@@ -802,13 +870,13 @@ export const createRunner = ({
   };
 
   /** Runs one step; what it ends the segment with, if it does. */
-  const one = async (
+  const one = (
     shared: Shared,
     step: Step,
     frame: Frame,
     path: Path,
     where: string
-  ): Promise<Ended> => {
+  ): Ended | Promise<Ended> => {
     if ("action" in step) {
       return actionStep(shared, step, frame, path);
     }
@@ -828,7 +896,14 @@ export const createRunner = ({
     if ("fail" in step) {
       const message =
         step.message ?? frame.workflow.errors?.[step.fail] ?? step.fail;
-      const row = rowOf(shared, frame, step.id ?? where, "control", "fail", null);
+      const row = rowOf(
+        shared,
+        frame,
+        step.id ?? where,
+        "control",
+        "fail",
+        null
+      );
       shared.trace.addStep(row);
       return failStep(
         shared,
@@ -1045,6 +1120,73 @@ export const createRunner = ({
   };
 
   /**
+   * Runs one segment inside `tx` and returns the checkpoint it commits.
+   * A durable segment that already committed hands that checkpoint back.
+   */
+  const commitSegment = async (
+    tx: Tx,
+    place: SegmentPlace,
+    n: number,
+    trace: Trace,
+    actor: Actor
+  ): Promise<SegmentResult> => {
+    const { runId, workflow, options, from } = place;
+    if (place.durable) {
+      const done = await remembered(tx, runId, n);
+      if (done) {
+        return { kind: "committed", checkpoint: done };
+      }
+    }
+    const shared: Shared = {
+      tx,
+      trace,
+      options,
+      segment: n,
+      queued: place.durable ? [] : null,
+      wrote: false,
+    };
+    const frame = await frameFor(shared, place, actor);
+    const phase = from?.phase ?? fromStart("steps");
+    const recovering = phase.list !== "steps";
+    const ended = await walk(
+      shared,
+      listOf(workflow, phase.list),
+      frame,
+      { path: [], where: recovering ? "on_failure" : "steps" },
+      phase.resume
+    );
+    const cut = cutOf(ended);
+    const output = outputOf(ended, cut, recovering, frame, workflow, options);
+    const queued = shared.queued ?? [];
+    const checkpoint = checkpointOf({
+      n,
+      workflow,
+      frame,
+      from,
+      wrote: shared.wrote,
+      phase,
+      cut,
+      output,
+      queued,
+    });
+    if (!place.durable) {
+      trace.endRun(runId, {
+        status: "succeeded",
+        output,
+        finishedAt: clock.now(),
+      });
+    }
+    await trace.finish(tx);
+    if (place.durable) {
+      await updateRun(tx, runId, {
+        checkpoint,
+        ...rowAfter(checkpoint, cut),
+      });
+    }
+    return { kind: "committed", checkpoint };
+  };
+
+  /**
    * One segment of the top run, in one transaction: from the start, or from
    * a checkpoint. A durable run's segment saves its checkpoint as it
    * commits, and one that already committed hands that back instead of
@@ -1056,74 +1198,9 @@ export const createRunner = ({
     const trace = new Trace();
     const actor = await actorOf(workflow.key);
     try {
-      return await db.transaction(async (tx): Promise<SegmentResult> => {
-        if (place.durable) {
-          const row = await lockRun(tx, runId);
-          const done = row?.checkpoint as Checkpoint | null | undefined;
-          if (done && done.segment >= n) {
-            return { kind: "committed", checkpoint: done };
-          }
-        }
-        const shared: Shared = {
-          tx,
-          trace,
-          options,
-          segment: n,
-          queued: place.durable ? [] : null,
-          wrote: false,
-        };
-        const frame = await frameFor(shared, place, actor);
-        const phase = from?.phase ?? fromStart("steps");
-        const recovering = phase.list !== "steps";
-        const ended = await walk(
-          shared,
-          listOf(workflow, phase.list),
-          frame,
-          { path: [], where: recovering ? "on_failure" : "steps" },
-          phase.resume
-        );
-        const cut = ended && "cut" in ended ? ended.cut : null;
-        const output =
-          cut || recovering
-            ? {}
-            : ((ended && "output" in ended ? ended.output : null) ??
-              given(workflow.output, frame, options.config));
-        const queued = shared.queued ?? [];
-        const checkpoint: Checkpoint = {
-          segment: n,
-          definition: workflow,
-          input: frame.input,
-          start: frame.event ?? null,
-          outputs: Object.fromEntries(frame.outputs),
-          depth: frame.depth,
-          wrote: (from?.wrote ?? false) || shared.wrote,
-          phase: {
-            list: phase.list,
-            resume: cut?.path ?? null,
-            queued,
-            pending: cut,
-            finished: cut ? null : output,
-            // Done, with nothing left to send: the run ends here.
-            closed: !cut && queued.length === 0,
-          },
-          failed: from?.failed ?? null,
-        };
-        if (!place.durable) {
-          trace.endRun(runId, {
-            status: "succeeded",
-            output,
-            finishedAt: clock.now(),
-          });
-        }
-        await trace.finish(tx);
-        if (place.durable) {
-          await updateRun(tx, runId, {
-            checkpoint,
-            ...rowAfter(checkpoint, cut),
-          });
-        }
-        return { kind: "committed", checkpoint };
-      });
+      return await db.transaction((tx) =>
+        commitSegment(tx, place, n, trace, actor)
+      );
     } catch (error) {
       if (
         isUniqueViolation(error, "runs_event_unique") ||
@@ -1297,7 +1374,11 @@ export const createRunner = ({
     cut: Cut,
     options: WorkflowRunOptions
   ): Promise<
-    | { readonly ok: true; readonly output: unknown; readonly closing: Closing[] }
+    | {
+        readonly ok: true;
+        readonly output: unknown;
+        readonly closing: Closing[];
+      }
     | { readonly ok: false; readonly error: RunError }
   > => {
     if (cut.kind === "wait") {
@@ -1416,86 +1497,6 @@ export const createRunner = ({
     return phase.finished ? { ended: await finish(runId, state) } : null;
   };
 
-  /**
-   * A durable run, as its DBOS workflow: segments, and between them the
-   * sends, waits, external steps and child runs, each checkpointed, so a
-   * restart replays what finished and carries on.
-   */
-  const drive = async (args: DurableArgs): Promise<WorkflowResult> => {
-    const { runId, begin } = args;
-    let state: Checkpoint | null = null;
-    let origin = begin?.originUserId ?? null;
-    if (!begin) {
-      const row = await durableStep("load", () => findRun(db, runId));
-      state = (row?.checkpoint as Checkpoint | null | undefined) ?? null;
-      origin = row?.originUserId ?? null;
-      if (!state) {
-        throw new Error(`Run ${runId} has no checkpoint to go on from.`);
-      }
-    }
-    // Started here, it has its caller's options; picked up after a
-    // restart, it reads the config as it is now.
-    const options: WorkflowRunOptions = live.get(runId) ?? {
-      ...contextNow(),
-      originUserId: origin,
-      ...(begin?.retryKey === undefined ? {} : { retryKey: begin.retryKey }),
-      ...(begin?.start ? { start: begin.start } : {}),
-    };
-    const workflow = state?.definition ?? begin?.definition;
-    if (!workflow) {
-      throw new Error(`Run ${runId} has no definition.`);
-    }
-    let closing: readonly Closing[] = [];
-    for (;;) {
-      if (state) {
-        // oxlint-disable-next-line eslint/no-await-in-loop -- one at a time
-        const step = await between(runId, state, options);
-        if (step && "ended" in step) {
-          return step.ended;
-        }
-        if (step) {
-          state = step.next;
-          closing = step.closing ?? closing;
-          continue;
-        }
-      }
-      const from = state;
-      const toClose = closing;
-      closing = [];
-      // oxlint-disable-next-line eslint/no-await-in-loop -- one at a time
-      const result = await durableStep(
-        `segment ${from ? from.segment + 1 : 0}`,
-        () =>
-          segment({
-            runId,
-            workflow,
-            input: begin?.input,
-            options,
-            from,
-            durable: true,
-            closing: toClose,
-          })
-      );
-      if (result.kind === "duplicate") {
-        return { ok: false, runId, error: result.error, duplicate: true };
-      }
-      if (result.kind === "committed") {
-        state = result.checkpoint;
-        continue;
-      }
-      if (!from) {
-        // Nothing was committed: the whole run rolled back.
-        return { ok: false, runId, error: result.error };
-      }
-      // oxlint-disable-next-line eslint/no-await-in-loop
-      const after = await afterFailure(runId, from, result.error, result.path);
-      if (!("segment" in after)) {
-        return after;
-      }
-      state = after;
-    }
-  };
-
   const needDurable = () => {
     if (!durable) {
       throw new Error("This runner has no durable options.");
@@ -1504,6 +1505,132 @@ export const createRunner = ({
   };
 
   const contextNow = () => needDurable().context();
+
+  /** A run a restart picked up: its checkpoint, and who started it. */
+  const resumed = async (runId: string) => {
+    const row = await durableStep("load", () => findRun(db, runId));
+    const state = (row?.checkpoint as Checkpoint | null | undefined) ?? null;
+    if (!state) {
+      throw new Error(`Run ${runId} has no checkpoint to go on from.`);
+    }
+    return { state, origin: row?.originUserId ?? null };
+  };
+
+  /**
+   * Started here, a run has its caller's options; picked up after a
+   * restart, it reads the config as it is now.
+   */
+  const optionsFor = (
+    runId: string,
+    origin: string | null,
+    begin: DurableArgs["begin"]
+  ): WorkflowRunOptions =>
+    live.get(runId) ?? {
+      ...contextNow(),
+      originUserId: origin,
+      ...(begin?.retryKey === undefined ? {} : { retryKey: begin.retryKey }),
+      ...(begin?.start ? { start: begin.start } : {}),
+    };
+
+  /**
+   * One move of a durable run: the send or pause its checkpoint still owes,
+   * or its next segment. `done` is how the run ended.
+   */
+  const turn = async (
+    runId: string,
+    state: Checkpoint | null,
+    workflow: WorkflowDefinition,
+    options: WorkflowRunOptions,
+    closing: readonly Closing[],
+    input: unknown
+  ): Promise<
+    | { readonly done: true; readonly result: WorkflowResult }
+    | {
+        readonly done: false;
+        readonly state: Checkpoint;
+        readonly closing: readonly Closing[];
+      }
+  > => {
+    if (state) {
+      const step = await between(runId, state, options);
+      if (step && "ended" in step) {
+        return { done: true, result: step.ended };
+      }
+      if (step) {
+        return {
+          done: false,
+          state: step.next,
+          closing: step.closing ?? closing,
+        };
+      }
+    }
+    const from = state;
+    const result = await durableStep(
+      `segment ${from ? from.segment + 1 : 0}`,
+      () =>
+        segment({
+          runId,
+          workflow,
+          input,
+          options,
+          from,
+          durable: true,
+          closing,
+        })
+    );
+    if (result.kind === "duplicate") {
+      return {
+        done: true,
+        result: { ok: false, runId, error: result.error, duplicate: true },
+      };
+    }
+    if (result.kind === "committed") {
+      return { done: false, state: result.checkpoint, closing: [] };
+    }
+    if (!from) {
+      // Nothing was committed: the whole run rolled back.
+      return { done: true, result: { ok: false, runId, error: result.error } };
+    }
+    const after = await afterFailure(runId, from, result.error, result.path);
+    if (!("segment" in after)) {
+      return { done: true, result: after };
+    }
+    return { done: false, state: after, closing: [] };
+  };
+
+  /**
+   * A durable run, as its DBOS workflow: segments, and between them the
+   * sends, waits, external steps and child runs, each checkpointed, so a
+   * restart replays what finished and carries on.
+   */
+  const drive = async (args: DurableArgs): Promise<WorkflowResult> => {
+    const { runId, begin } = args;
+    const loaded = begin
+      ? { state: null, origin: begin.originUserId ?? null }
+      : await resumed(runId);
+    let { state } = loaded;
+    const options = optionsFor(runId, loaded.origin, begin);
+    const workflow = state?.definition ?? begin?.definition;
+    if (!workflow) {
+      throw new Error(`Run ${runId} has no definition.`);
+    }
+    let closing: readonly Closing[] = [];
+    for (;;) {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- one at a time
+      const stepped = await turn(
+        runId,
+        state,
+        workflow,
+        options,
+        closing,
+        begin?.input
+      );
+      if (stepped.done) {
+        return stepped.result;
+      }
+      ({ state, closing } = stepped);
+    }
+  };
 
   /** Launches DBOS for this runner, which recovers the runs a stop left. */
   const start = async () => {
@@ -1529,9 +1656,8 @@ export const createRunner = ({
   ): Promise<WorkflowResult> => {
     await start();
     const { runId } = args;
-    const paused = new Promise<"running" | "waiting">((resolve) => {
-      waiters.set(runId, resolve);
-    });
+    const paused = Promise.withResolvers<"running" | "waiting">();
+    waiters.set(runId, paused.resolve);
     const handle = await startDurable(id, args);
     const finished = (handle.getResult() as Promise<WorkflowResult>).finally(
       () => {
@@ -1539,18 +1665,18 @@ export const createRunner = ({
       }
     );
     // A stop while it waits rejects this; the next start picks the run up.
-    finished.catch(() => undefined);
-    let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<"running">((resolve) => {
-      timer = setTimeout(() => resolve("running"), durable?.waitMs ?? 10_000);
-    });
+    finished.catch(() => null);
+    const controller = new AbortController();
+    const timeout = delay(durable?.waitMs ?? 10_000, "running" as const, {
+      signal: controller.signal,
+    }).catch(() => "running" as const);
     try {
-      const first = await Promise.race([finished, paused, timeout]);
+      const first = await Promise.race([finished, paused.promise, timeout]);
       return typeof first === "string"
         ? { ok: true, runId, pending: true, status: first }
         : first;
     } finally {
-      clearTimeout(timer);
+      controller.abort();
       waiters.delete(runId);
     }
   };

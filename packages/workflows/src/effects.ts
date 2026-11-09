@@ -17,7 +17,7 @@ export const effectsOf = (
   workflow: WorkflowDefinition,
   actions: ReadonlyMap<string, AnyActionDefinition>,
   workflows: ReadonlyMap<string, WorkflowDefinition> | undefined,
-  seen: Set<string> = new Set()
+  seen = new Set<string>()
 ): Effects => {
   if (seen.has(workflow.key)) {
     return { external: false, pauses: false };
