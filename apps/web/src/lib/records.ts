@@ -24,10 +24,14 @@ export const findObject = (
   name: string
 ) => description?.objects.find((object) => object.name === name);
 
-/** The fields a list shows, in order: the object's `list`. */
+/** The fields the caller's roles let them see (P2.14). */
+export const readableFields = (object: ObjectDescription) =>
+  object.fields.filter((field) => field.read !== false);
+
+/** The fields a list shows, in order: the object's `list`, less hidden ones. */
 export const columnsOf = (object: ObjectDescription): FieldDescription[] =>
   object.list
-    .map((key) => object.fields.find((field) => field.key === key))
+    .map((key) => readableFields(object).find((field) => field.key === key))
     .filter((field): field is FieldDescription => field !== undefined);
 
 /** Ref fields among `fields` whose targets the list should fetch. */

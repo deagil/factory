@@ -1,7 +1,10 @@
 // deal_create, hand-written so a new deal starts in an open stage. A deal
 // reaches won or lost only through deal.moveStage, which needs a reason for
-// lost and says so with deal.stageChanged.
+// lost and says so with deal.stageChanged. A new deal is the caller's (their
+// person's, for an agent) unless they name an owner, which only someone who
+// reaches every deal may do (P2.14).
 import { defineAction } from "@workspace/actions";
+import { createdRecord } from "@workspace/objects";
 import { z } from "zod";
 
 import { dealStages } from "./choices.ts";
@@ -29,7 +32,17 @@ export const createDeal = defineAction({
         `A new deal starts in an open stage, not "${option.label}". Create it, then move it with deal.moveStage.`
       );
     }
-    const record = await ctx.repo.create(deal, values);
+    const { ownerId } = ctx.granted;
+    const owner = values.owner ?? ownerId;
+    if (ctx.granted.on(deal)?.rows === "own" && owner !== ownerId) {
+      return ctx.forbidden(
+        "deal_create",
+        "A new deal has to be yours: leave its owner empty or set it to you."
+      );
+    }
+    const record = createdRecord(
+      await ctx.repo.create(deal, { ...values, owner })
+    );
     ctx.emit("deal_created", { record });
     return { record };
   },

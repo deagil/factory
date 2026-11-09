@@ -48,7 +48,7 @@ const rules: ApprovalRule[] = [
 ];
 
 const holding = (...keys: string[]) =>
-  grantedBy(keys.map((key) => ({ key, label: key, permissions: [] })));
+  grantedBy(keys.map((key) => ({ key, label: key, objects: {} })));
 const staff = { id: "a", name: "Jo", userId: "u", kind: "staff" as const };
 
 /** Whether `rule` asks a staff member or agent holding `roles`. */

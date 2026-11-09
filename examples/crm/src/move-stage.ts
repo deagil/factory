@@ -1,5 +1,6 @@
-// deal.moveStage: the only way to change a deal's stage. It owns the field,
-// so deal_update can't, and it records the stage's category on the event.
+// deal.moveStage: the way to change a deal's stage. Roles get no write on
+// stage, so deal_update can't, and it records the stage's category on the
+// event. Only deals the caller can read can be moved.
 import { defineAction } from "@workspace/actions";
 import { z } from "zod";
 
@@ -35,6 +36,11 @@ export const moveStage = defineAction({
     if (option.category === "lost" && !input.reason?.trim()) {
       return ctx.invalid("A reason is required for lost deals.");
     }
+    // It writes with full access, as a workflow will; reading first keeps a
+    // caller with `rows: own` to their own deals (P2.14).
+    if (!(await ctx.dal.get(deal, input.id, { archived: "include" }))) {
+      return ctx.notFound("deal", input.id);
+    }
     const result = await ctx.repo.update(
       deal,
       input.id,
@@ -47,6 +53,11 @@ export const moveStage = defineAction({
       }
       case "archived": {
         return ctx.conflict("This deal is archived, so it can't be moved");
+      }
+      case "refused": {
+        // A hand-written action writes as the service key does, so its
+        // repository has no rules to refuse it; kept for the type.
+        return ctx.invalid(result.message);
       }
       case "conflict": {
         return ctx.conflict(

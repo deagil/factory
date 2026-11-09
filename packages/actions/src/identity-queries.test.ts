@@ -22,12 +22,14 @@ const roles: Role[] = [
   {
     key: "admin",
     label: "Admin",
-    permissions: [{ action: "*", scope: "all" }],
+    workflows: "*",
   },
   {
     key: "sales",
     label: "Sales",
-    permissions: [{ object: "organisation", can: ["view"], scope: "all" }],
+    objects: {
+      organisation: { endpoints: ["list", "get", "history"], rows: "all" },
+    },
   },
 ];
 

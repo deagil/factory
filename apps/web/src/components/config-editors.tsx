@@ -12,6 +12,15 @@ import type { ReactNode } from "react";
 import type { SystemDescription } from "../lib/api.ts";
 import { optionMarks } from "../lib/choice-lists.ts";
 import { humanise } from "../lib/forms.ts";
+import {
+  fieldListText,
+  jobsOf,
+  objectJobs,
+  objectName,
+  roleOf,
+  workflowsOf,
+} from "../lib/roles.ts";
+import type { FieldList, ObjectRules } from "../lib/roles.ts";
 
 type Value = Record<string, unknown>;
 
@@ -354,36 +363,95 @@ export const ChoiceListEditor = ({
   );
 };
 
-const verbs = ["view", "create", "update", "archive"];
+const listText = (list: string[]) => list.join(", ");
 
-interface ObjectLine {
-  object: string;
-  can: string[];
-  scope: string;
-}
+const listFrom = (text: string) =>
+  text
+    .split(",")
+    .map((each) => each.trim())
+    .filter((each) => each !== "");
 
-interface ActionLine {
-  action: string;
-  scope: string;
-}
+/** A rule's file shape: `*` when it has every endpoint, empty lists left out. */
+const tidyRules = (rules: ObjectRules): Value => {
+  const jobs = jobsOf(rules);
+  const out: Value = {
+    endpoints: objectJobs.every((job) => jobs.includes(job))
+      ? "*"
+      : objectJobs.filter((job) => jobs.includes(job)),
+    rows: rules.rows,
+  };
+  for (const side of ["read", "write"] as const) {
+    const list = rules[side];
+    if (list?.only || (list?.except && list.except.length > 0)) {
+      out[side] = list;
+    }
+  }
+  return out;
+};
 
-const linesOf = (value: Value) => {
-  const permissions = Array.isArray(value.permissions)
-    ? (value.permissions as Value[])
-    : [];
+const roleValue = (
+  value: Value,
+  label: string,
+  objects: Record<string, ObjectRules>,
+  workflows: string[]
+): Value => {
+  const {
+    permissions: _old,
+    objects: _objects,
+    workflows: _w,
+    ...rest
+  } = value;
+  const kept = Object.entries(objects).filter(
+    ([, rules]) => jobsOf(rules).length > 0
+  );
   return {
-    objects: permissions.filter(
-      (line): line is ObjectLine & Value => typeof line.object === "string"
-    ),
-    actions: permissions.filter(
-      (line): line is ActionLine & Value => typeof line.action === "string"
-    ),
+    ...rest,
+    label,
+    ...(kept.length > 0
+      ? {
+          objects: Object.fromEntries(
+            kept.map(([name, rules]) => [name, tidyRules(rules)])
+          ),
+        }
+      : {}),
+    ...(workflows.length > 0
+      ? { workflows: workflows.includes("*") ? "*" : workflows }
+      : {}),
   };
 };
 
+/** One side's field rule: an `except` list typed in, or an `only` list shown. */
+const FieldRuleInput = ({
+  label,
+  list,
+  onChange,
+}: {
+  label: string;
+  list: FieldList | undefined;
+  onChange: (list: FieldList | undefined) => void;
+}) =>
+  list?.only ? (
+    <span className="text-xs text-muted-foreground">
+      {fieldListText(list)} (set in the file)
+    </span>
+  ) : (
+    <Input
+      aria-label={label}
+      className="h-8 min-w-32 font-mono"
+      placeholder="none"
+      value={listText(list?.except ?? [])}
+      onChange={(event) => {
+        const except = listFrom(event.target.value);
+        onChange(except.length > 0 ? { except } : undefined);
+      }}
+    />
+  );
+
 /**
- * A role: its label, what it can do to each object, and the actions it can
- * run. Every line's scope is `all`, the only scope there is so far.
+ * A role (P2.14): its label; per object the endpoints it may call, whose
+ * rows, and the fields it can't see or can't change; then the workflows it
+ * may call. Hand-written actions are granted under workflows until they
+ * become workflows.
  */
 export const RoleEditor = ({
   value,
@@ -392,57 +460,64 @@ export const RoleEditor = ({
   onSave,
   saveLabel,
 }: EditorProps) => {
-  const saved = linesOf(value);
+  const saved = roleOf(value);
   const [label, setLabel] = useState(String(value.label ?? ""));
-  const [objects, setObjects] = useState<ObjectLine[]>(saved.objects);
-  const [actions, setActions] = useState<string[]>(
-    saved.actions.map((line) => line.action)
+  const [objects, setObjects] = useState<Record<string, ObjectRules>>(
+    saved.objects ?? {}
   );
+  const [workflows, setWorkflows] = useState<string[]>(workflowsOf(saved));
   const [adding, setAdding] = useState("");
+  const described = description?.objects ?? [];
   const objectNames = [
+    "*",
     ...new Set([
-      ...(description?.objects ?? []).map((object) => object.name),
-      ...objects.map((line) => line.object),
+      ...described.map((object) => object.name),
+      ...Object.keys(objects).filter((name) => name !== "*"),
     ]),
   ];
-  const known = (description?.actions ?? [])
-    .map((action) => action.name)
+  const endpointNames = new Set(
+    described.flatMap((object) =>
+      object.endpoints.map((endpoint) => endpoint.name)
+    )
+  );
+  const known = [
+    ...(description?.actions ?? []),
+    ...(description?.queries ?? []),
+  ]
+    .map((definition) => definition.name)
+    .filter((name) => !endpointNames.has(name))
     .toSorted();
-  const next = {
-    ...value,
-    label,
-    permissions: [
-      ...objects.filter((line) => line.can.length > 0),
-      ...actions.map((action) => ({ action, scope: "all" })),
-    ],
-  };
+  const next = roleValue(value, label, objects, workflows);
   const dirty =
     JSON.stringify(next) !==
-    JSON.stringify({
-      ...value,
-      label: value.label,
-      permissions: [...saved.objects, ...saved.actions],
+    JSON.stringify(
+      roleValue(
+        value,
+        String(value.label ?? ""),
+        saved.objects ?? {},
+        workflowsOf(saved)
+      )
+    );
+  const change = (object: string, patch: Partial<ObjectRules>) =>
+    setObjects((previous) => ({
+      ...previous,
+      [object]: {
+        ...(previous[object] ?? { endpoints: [], rows: "all" }),
+        ...patch,
+      },
+    }));
+  const toggle = (object: string, job: string, on: boolean) => {
+    const jobs = jobsOf(objects[object]);
+    change(object, {
+      endpoints: on
+        ? objectJobs.filter((each) => each === job || jobs.includes(each))
+        : jobs.filter((each) => each !== job),
     });
-  const toggle = (object: string, verb: string, on: boolean) =>
-    setObjects((previous) => {
-      const line = previous.find((each) => each.object === object) ?? {
-        object,
-        can: [],
-        scope: "all",
-      };
-      const can = on
-        ? verbs.filter((each) => each === verb || line.can.includes(each))
-        : line.can.filter((each) => each !== verb);
-      return previous.some((each) => each.object === object)
-        ? previous.map((each) =>
-            each.object === object ? { ...each, can } : each
-          )
-        : [...previous, { ...line, can }];
-    });
-  const addAction = () => {
+  };
+  const addWorkflow = () => {
     const name = adding.trim();
-    if (name !== "" && !actions.includes(name)) {
-      setActions((previous) => [...previous, name]);
+    if (name !== "" && !workflows.includes(name)) {
+      setWorkflows((previous) => [...previous, name]);
     }
     setAdding("");
   };
@@ -460,64 +535,102 @@ export const RoleEditor = ({
           <thead className="border-b bg-muted/50">
             <tr>
               <th className={`${cell} font-medium`}>Object</th>
-              {verbs.map((verb) => (
+              {objectJobs.map((job) => (
                 <th
-                  key={verb}
+                  key={job}
                   className={`${cell} text-center font-medium capitalize`}
                 >
-                  {verb}
+                  {job}
                 </th>
               ))}
+              <th className={`${cell} font-medium`}>Rows</th>
+              <th className={`${cell} font-medium`}>Hidden</th>
+              <th className={`${cell} font-medium`}>Read-only</th>
             </tr>
           </thead>
           <tbody>
-            {["*", ...objectNames.filter((name) => name !== "*")].map(
-              (object) => {
-                const can =
-                  objects.find((line) => line.object === object)?.can ?? [];
-                return (
-                  <tr key={object} className="border-b last:border-0">
-                    <td className={cell}>
-                      {object === "*" ? "Every object" : object}
-                    </td>
-                    {verbs.map((verb) => (
-                      <td key={verb} className={`${cell} text-center`}>
-                        <input
-                          type="checkbox"
-                          aria-label={`${verb} ${object}`}
-                          checked={can.includes(verb)}
-                          onChange={(event) =>
-                            toggle(object, verb, event.target.checked)
-                          }
-                        />
-                      </td>
-                    ))}
-                  </tr>
+            {objectNames.map((object) => {
+              const rules = objects[object];
+              const jobs = jobsOf(rules);
+              const owned =
+                object === "*" ||
+                described.some(
+                  (each) => each.name === object && each.owner !== null
                 );
-              }
-            )}
+              return (
+                <tr key={object} className="border-b last:border-0">
+                  <td className={cell}>{objectName(object)}</td>
+                  {objectJobs.map((job) => (
+                    <td key={job} className={`${cell} text-center`}>
+                      <input
+                        type="checkbox"
+                        aria-label={`${job} ${object}`}
+                        checked={jobs.includes(job)}
+                        onChange={(event) =>
+                          toggle(object, job, event.target.checked)
+                        }
+                      />
+                    </td>
+                  ))}
+                  <td className={cell}>
+                    <select
+                      aria-label={`Rows of ${object}`}
+                      className="h-8 rounded-md border bg-transparent px-2"
+                      disabled={jobs.length === 0}
+                      value={rules?.rows ?? "all"}
+                      onChange={(event) =>
+                        change(object, {
+                          rows: event.target.value === "own" ? "own" : "all",
+                        })
+                      }
+                    >
+                      <option value="all">All</option>
+                      {owned || rules?.rows === "own" ? (
+                        <option value="own">Own</option>
+                      ) : null}
+                    </select>
+                  </td>
+                  <td className={cell}>
+                    <FieldRuleInput
+                      label={`Fields of ${object} it can't see`}
+                      list={rules?.read}
+                      onChange={(read) => change(object, { read })}
+                    />
+                  </td>
+                  <td className={cell}>
+                    <FieldRuleInput
+                      label={`Fields of ${object} it can't change`}
+                      list={rules?.write}
+                      onChange={(write) => change(object, { write })}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium">Actions it can run</legend>
-        {actions.length === 0 ? (
+        <legend className="mb-2 text-sm font-medium">
+          Workflows it can call
+        </legend>
+        {workflows.length === 0 ? (
           <p className="text-sm text-muted-foreground">None.</p>
         ) : (
           <ul className="flex flex-wrap gap-1">
-            {actions.map((action) => (
+            {workflows.map((name) => (
               <li
-                key={action}
+                key={name}
                 className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-xs"
               >
-                {action === "*" ? "every action" : action}
+                {name === "*" ? "every workflow" : name}
                 <button
                   type="button"
-                  aria-label={`Remove ${action}`}
+                  aria-label={`Remove ${name}`}
                   className="text-muted-foreground hover:text-foreground"
                   onClick={() =>
-                    setActions((previous) =>
-                      previous.filter((each) => each !== action)
+                    setWorkflows((previous) =>
+                      previous.filter((each) => each !== name)
                     )
                   }
                 >
@@ -529,27 +642,27 @@ export const RoleEditor = ({
         )}
         <div className="flex max-w-md gap-2">
           <Input
-            aria-label="Action to add"
+            aria-label="Workflow to add"
             className="h-8 font-mono"
-            list="role-editor-actions"
+            list="role-editor-workflows"
             placeholder="deal.moveStage"
             value={adding}
             onChange={(event) => setAdding(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                addAction();
+                addWorkflow();
               }
             }}
           />
-          <datalist id="role-editor-actions">
+          <datalist id="role-editor-workflows">
             {known.map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
             ))}
           </datalist>
-          <Button size="sm" variant="outline" onClick={addAction}>
+          <Button size="sm" variant="outline" onClick={addWorkflow}>
             Add
           </Button>
         </div>

@@ -27,6 +27,7 @@ describe("example CRM", () => {
   let database: SystemDatabase;
   let server: Server;
   let seeded: Seeded;
+  let sarahKey = "";
 
   beforeAll(async () => {
     // Built from the committed migrations alone, as a deployed CRM's is.
@@ -37,6 +38,13 @@ describe("example CRM", () => {
       baseURL: "http://localhost:4000",
     });
     seeded = await seed(crm, server.db, server.pipeline);
+    // An agent of Sarah's, in sales: her deals only, and no write on stage.
+    const run = (name: string, input: unknown) =>
+      server.pipeline.run(crm.registry.get(name) as never, input, seeded.sales);
+    const agent = await run("actor.createAgent", { name: "Sarah's Claude" });
+    const { actorId } = (agent.ok ? agent.output : {}) as { actorId: string };
+    const key = await run("apiKey.create", { actorId, label: "test" });
+    ({ key: sarahKey } = (key.ok ? key.output : {}) as { key: string });
   });
 
   afterAll(async () => {
@@ -83,11 +91,11 @@ describe("example CRM", () => {
     expect(listed.status).toBe(403);
   });
 
-  /** Runs an action over HTTP as the seeded agent. */
-  const call = async (name: string, input: unknown) => {
+  /** Runs an action over HTTP as the seeded agent (the admin's), or `key`. */
+  const call = async (name: string, input: unknown, key = seeded.agentKey) => {
     const response = await server.app.request(`/actions/${name}`, {
       method: "POST",
-      headers: bearer(seeded.agentKey),
+      headers: bearer(key),
       body: JSON.stringify(input),
     });
     return (await response.json()) as {
@@ -132,7 +140,7 @@ describe("example CRM", () => {
       stage: "lead",
     });
     const id = made.output?.record.id;
-    const viaUpdate = await call("deal_update", { id, stage: "won" });
+    const viaUpdate = await call("deal_update", { id, stage: "won" }, sarahKey);
     const unknown = await call("deal.moveStage", { id, stage: "nope" });
     const lostBare = await call("deal.moveStage", { id, stage: "lost" });
     const moved = await call("deal.moveStage", { id, stage: "qualified" });
@@ -190,6 +198,96 @@ describe("example CRM", () => {
     });
   });
 
+  it("keeps Sarah's agent to her own deals, and off their stage, on every surface", async () => {
+    const request = (url: string, init: RequestInit = {}) =>
+      server.app.request(url, {
+        ...init,
+        headers: { ...(init.headers as object), ...bearer(sarahKey) },
+      });
+    const buyer = await call("organisation_create", { name: "Own buyer" });
+    const mine = await call(
+      "deal_create",
+      {
+        name: "Sarah's deal",
+        organisation: buyer.output?.record.id,
+        stage: "lead",
+      },
+      sarahKey
+    );
+    const forOthers = await call(
+      "deal_create",
+      {
+        name: "Someone else's",
+        organisation: buyer.output?.record.id,
+        stage: "lead",
+        owner: seeded.admin.actorId,
+      },
+      sarahKey
+    );
+    const theirs = await call("deal_create", {
+      name: "Admin's deal",
+      organisation: buyer.output?.record.id,
+      stage: "lead",
+    });
+    const myId = mine.output?.record.id;
+    const theirId = theirs.output?.record.id;
+    const list = await request("/deals");
+    const listed = (await list.json()) as {
+      output: { records: { id: string; owner: string }[] };
+    };
+    const read = await request(`/deals/${theirId}`);
+    const patch = (id: string | undefined, body: unknown) =>
+      request(`/deals/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+    const restStage = await patch(myId, { stage: "won" });
+    const restRenamed = await patch(myId, { name: "Mine" });
+    const restTheirs = await patch(theirId, { name: "Taken" });
+    const mcpStage = await mcpSurface(request)(
+      { name: "deal_update" } as never,
+      { id: myId, stage: "won" }
+    );
+    const movedTheirs = await call(
+      "deal.moveStage",
+      { id: theirId, stage: "qualified" },
+      sarahKey
+    );
+    const owners = new Set(listed.output.records.map((deal) => deal.owner));
+    expect(owners).toStrictEqual(new Set([seeded.sales.actorId]));
+    expect({
+      forOthers: forOthers.error?.code,
+      read: read.status,
+      rest: [restStage.status, restRenamed.status, restTheirs.status],
+      mcp: mcpStage.body,
+      movedTheirs: movedTheirs.error?.code,
+    }).toMatchObject({
+      forOthers: "permission",
+      read: 404,
+      // Stage isn't hers to write; renaming her own deal is; theirs isn't hers.
+      rest: [400, 200, 403],
+      mcp: { code: "validation" },
+      movedTheirs: "not_found",
+    });
+  });
+
+  it("lets a manager hire into sales, but not give anyone admin", async () => {
+    const mo = await server.db.query.actors.findFirst({
+      where: (t, { eq }) => eq(t.name, "Mo Manager"),
+    });
+    const manager = { actorId: mo?.id ?? "", originUserId: mo?.userId ?? null };
+    const invite = (email: string, roles: string[]) =>
+      server.pipeline.run(
+        crm.registry.get("user.invite") as never,
+        { name: email, email, roles },
+        manager
+      );
+    const hired = await invite("rep@example.com", ["sales"]);
+    const promoted = await invite("boss@example.com", ["admin"]);
+    expect(hired.ok).toBeTruthy();
+    expect(promoted).toMatchObject({
+      ok: false,
+      error: { code: "permission" },
+    });
+  });
+
   it("moves a contact only through contact.moveToOrganisation", async () => {
     const [from, to] = await Promise.all([
       call("organisation_create", { name: "From" }),
@@ -201,10 +299,11 @@ describe("example CRM", () => {
       active: true,
     });
     const id = made.output?.record.id;
-    const viaUpdate = await call("contact_update", {
-      id,
-      organisation: to.output?.record.id,
-    });
+    const viaUpdate = await call(
+      "contact_update",
+      { id, organisation: to.output?.record.id },
+      sarahKey
+    );
     const moved = await call("contact.moveToOrganisation", {
       id,
       organisation: to.output?.record.id,

@@ -32,7 +32,8 @@ const deal = defineObject({
     won: f.boolean(),
   },
   list: ["title", "value"],
-  actions: { update: { readOnly: ["stage"] }, archive: "deal.close" },
+  owner: "owner",
+  actions: { archive: "deal.close" },
 });
 
 const columnsOf = (table: Parameters<typeof getTableConfig>[0]) =>
@@ -154,16 +155,9 @@ describe(defineObject, () => {
       });
     });
 
-    it("refuses read-only fields and bad values", () => {
-      expect(update.safeParse({ stage: "won" }).success).toBeFalsy();
+    it("refuses bad values", () => {
       expect(update.safeParse({ title: "" }).success).toBeFalsy();
       expect(update.safeParse({ title: null }).success).toBeFalsy();
-    });
-
-    it("types out the read-only fields", () => {
-      type Input = z.output<typeof update>;
-      expectTypeOf<Input>().not.toHaveProperty("stage");
-      expectTypeOf<Input>().toHaveProperty("title");
     });
   });
 
@@ -250,7 +244,7 @@ describe(defineObject, () => {
     it("say which generated actions exist and who owns the rest", () => {
       expect(deal.actions).toStrictEqual({
         create: { generated: true, ownedBy: undefined },
-        update: { generated: true, ownedBy: undefined, readOnly: ["stage"] },
+        update: { generated: true, ownedBy: undefined },
         archive: { generated: false, ownedBy: "deal.close" },
       });
       const fixed = defineObject({
@@ -318,7 +312,7 @@ describe(defineObject, () => {
       ).toThrow(/both need the column "owner_id"/u);
     });
 
-    it("refuses list, readOnly and action names that don't fit", () => {
+    it("refuses list, owner and action names that don't fit", () => {
       expect(() =>
         defineObject({ name: "b1", fields: { a: text }, list: ["b" as "a"] })
       ).toThrow(/list names "b"/u);
@@ -326,9 +320,9 @@ describe(defineObject, () => {
         defineObject({
           name: "b2",
           fields: { a: text },
-          actions: { update: { readOnly: ["b" as "a"] } },
+          owner: "a",
         })
-      ).toThrow(/readOnly names "b"/u);
+      ).toThrow(/owner names "a", which isn't a ref to an actor/u);
       expect(() =>
         defineObject({
           name: "b3",

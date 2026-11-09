@@ -187,17 +187,28 @@ export interface GitService {
   }) => Promise<PublishResult>;
 }
 
-/** What a permission on an object lets an actor do. */
-export const objectVerbs = ["view", "create", "update", "archive"] as const;
-export type ObjectVerb = (typeof objectVerbs)[number];
+/**
+ * What an object endpoint does (decision 0045): the job of its generated
+ * action or query, and what a role grants on the object.
+ */
+export const objectJobs = [
+  "list",
+  "get",
+  "create",
+  "update",
+  "archive",
+  "restore",
+  "history",
+] as const;
+export type ObjectJob = (typeof objectJobs)[number];
 
 /**
- * The object permission a generated definition needs. Hand-written ones
- * have none, and need a permission on their own name instead.
+ * The object endpoint a generated definition is. Hand-written ones have
+ * none, and a role grants them by name, as it will workflows.
  */
 export interface ObjectPermission {
   object: string;
-  can: ObjectVerb;
+  job: ObjectJob;
 }
 
 /** Who is performing the action or query. */
@@ -266,6 +277,12 @@ export interface ActionContext<
    */
   readonly dryRun: boolean;
   readonly emit: Emit<TEmits>;
+  /**
+   * What holding `roles` would give beyond what the caller holds, or null
+   * when it gives nothing more: the privilege ceiling (P2.14). Nobody
+   * grants, mints or revokes authority they don't hold.
+   */
+  readonly grantsBeyond: (roles: readonly string[]) => string | null;
 }
 
 /** Inputs and outputs are objects, so every surface can carry them as JSON. */

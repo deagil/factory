@@ -12,7 +12,8 @@ import { z } from "zod";
 import { defineQuery } from "./define-action.ts";
 import type { AnyDefinition } from "./define-action.ts";
 import { objectEndpoints } from "./generated.ts";
-import type { Granted } from "./permissions.ts";
+import { everythingRole, grantedBy } from "./permissions.ts";
+import type { Granted, ObjectGrant } from "./permissions.ts";
 
 const jsonSchema = z.record(z.string(), z.unknown());
 
@@ -22,8 +23,9 @@ const fieldSchema = z.object({
   description: z.string().nullable(),
   type: z.string(),
   required: z.boolean(),
-  /** Only hand-written actions can change it. */
-  readOnly: z.boolean(),
+  /** Whether the caller's roles let it read the field, and write it (P2.14). */
+  read: z.boolean(),
+  write: z.boolean(),
   /** The object a `ref` field points at. */
   target: z.string().nullable(),
   filters: z.array(z.string()),
@@ -69,6 +71,10 @@ export const describeOutput = z.object({
       fields: z.array(fieldSchema),
       list: z.array(z.string()),
       customFields: z.boolean(),
+      /** The owner field, which `rows: own` matches on; null if none. */
+      owner: z.string().nullable(),
+      /** The caller's rows: `own` or `all` (P2.14). */
+      rows: z.enum(["own", "all"]),
       /** The object's REST endpoints the caller may use (decision 0045). */
       endpoints: z.array(
         z.object({
@@ -128,14 +134,16 @@ const describeField = (
   object: AnyObjectDefinition,
   key: string,
   field: AnyField,
-  choices: ChoiceOptions | undefined
+  choices: ChoiceOptions | undefined,
+  grant: ObjectGrant | null
 ) => ({
   key,
   label: object.fieldLabels[key] ?? key,
   description: field.description ?? null,
   type: field.kind,
   required: field.required,
-  readOnly: object.actions.update.readOnly.includes(key),
+  read: grant?.read.has(key) ?? false,
+  write: grant?.write.has(key) ?? false,
   target: "target" in field ? String(field.target) : null,
   filters: Object.keys(field.filters),
   options: choiceOptions(field, choices),
@@ -162,8 +170,7 @@ export interface DescribeOptions {
 
 /** Grants everything: for describing a whole system, as `fx describe` does. */
 export const allGranted: Granted = {
-  authorise: () => null,
-  canRead: () => "all",
+  ...grantedBy([everythingRole]),
   holds: () => false,
 };
 
@@ -185,14 +192,22 @@ export const describeFor = (
   }
   return {
     objects: objects
-      .filter((object) => granted.canRead(object) === "all")
+      .filter((object) => granted.on(object) !== null)
       .map((object) => ({
         name: object.name,
         label: object.label,
         description: object.description ?? null,
         fields: Object.entries(object.fields).map(([key, field]) =>
-          describeField(object, key, field as AnyField, choices)
+          describeField(
+            object,
+            key,
+            field as AnyField,
+            choices,
+            granted.on(object)
+          )
         ),
+        owner: object.owner ?? null,
+        rows: granted.on(object)?.rows ?? "all",
         list: [...object.list],
         customFields: object.customFields,
         endpoints: objectEndpoints(object)

@@ -39,10 +39,17 @@ const tier = (key: string, approver: string, from: number, to?: number) =>
     "",
   ].join("\n");
 
-const role = (key: string, lines: string[]) =>
-  [`key: ${key}`, `label: ${key}`, "permissions:", ...lines, ""].join("\n");
-const can = (object: string, verbs: string) =>
-  `  - { object: ${object}, can: [${verbs}], scope: all }`;
+const role = (key: string, lines: string[], workflows: string[] = []) =>
+  [
+    `key: ${key}`,
+    `label: ${key}`,
+    "objects:",
+    ...lines,
+    ...(workflows.length > 0 ? [`workflows: [${workflows.join(", ")}]`] : []),
+    "",
+  ].join("\n");
+const can = (object: string, jobs: string) =>
+  `  ${object}: { endpoints: [${jobs}], rows: all }`;
 
 const idOf = (result: { ok: boolean; output?: unknown }) =>
   (result.output as { record: { id: string } }).record.id;
@@ -60,17 +67,20 @@ describe("approval limits", () => {
   rmSync(path.join(config, "approvals", "archive_organisations.yaml"));
   const files: Record<string, string> = {
     "roles/junior.yaml": role("junior", [
-      can("deal", "view, archive"),
-      can("organisation", "view, archive"),
+      can("deal", "list, get, archive"),
+      can("organisation", "list, get, archive"),
     ]),
-    "roles/manager.yaml": role("manager", [
-      can("deal", "view, update, archive"),
-      can("organisation", "view, archive"),
-      "  - { action: actor.createAgent, scope: all }",
-    ]),
+    "roles/manager.yaml": role(
+      "manager",
+      [
+        can("deal", "list, get, update, archive"),
+        can("organisation", "list, get, archive"),
+      ],
+      ["actor.createAgent"]
+    ),
     "roles/senior.yaml": role("senior", [
-      can("deal", "view, archive"),
-      can("organisation", "view, archive"),
+      can("deal", "list, get, archive"),
+      can("organisation", "list, get, archive"),
     ]),
     "approvals/deal_medium.yaml": tier("deal_medium", "manager", 1000, 10_000),
     "approvals/deal_large_manager.yaml": tier(

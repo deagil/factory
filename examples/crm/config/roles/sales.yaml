@@ -1,24 +1,21 @@
+# Sales: their own deals only, the organisations and contacts around them,
+# and agents of their own.
 key: sales
 label: Sales
-permissions:
-  - object: organisation
-    can: [view, create, update, archive]
-    scope: all
-  - object: contact
-    can: [view, create, update]
-    scope: all
-  - action: contact.moveToOrganisation
-    scope: all
-  - object: deal
-    can: [view, update]
-    scope: all
-  - action: deal_create
-    scope: all
-  - action: deal.moveStage
-    scope: all
-  - action: actor.createAgent
-    scope: all
-  - action: apiKey.create
-    scope: all
-  - action: apiKey.revoke
-    scope: all
+objects:
+  organisation: { endpoints: "*", rows: all }
+  contact:
+    endpoints: [list, get, create, update, history]
+    rows: all
+    write: { except: [organisation] } # contact.moveToOrganisation moves it
+  deal:
+    endpoints: [list, get, update, history]
+    rows: own # the deal's owner is them
+    write: { except: [stage] } # deal.moveStage moves it
+workflows:
+  - contact.moveToOrganisation
+  - deal_create
+  - deal.moveStage
+  - actor.createAgent
+  - apiKey.create
+  - apiKey.revoke

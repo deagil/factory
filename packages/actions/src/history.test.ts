@@ -21,9 +21,12 @@ const roles: Role[] = [
   {
     key: "admin",
     label: "Admin",
-    permissions: [
-      { object: "*", can: ["view", "create", "update"], scope: "all" },
-    ],
+    objects: {
+      "*": {
+        endpoints: ["list", "get", "create", "update", "history"],
+        rows: "all",
+      },
+    },
   },
 ];
 

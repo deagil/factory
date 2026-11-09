@@ -58,26 +58,32 @@ describe(describeChange, () => {
       beforeValue: {
         key: "sales",
         label: "Sales",
-        permissions: [
-          { object: "deal", can: ["view", "update"], scope: "all" },
-          { action: "deal_create", scope: "all" },
-        ],
+        objects: {
+          deal: { endpoints: ["list", "get", "update"], rows: "all" },
+        },
+        workflows: ["deal_create"],
       },
       afterValue: {
         key: "sales",
         label: "Sales team",
-        permissions: [
-          { object: "deal", can: ["view", "archive"], scope: "all" },
-          { action: "deal.moveStage", scope: "all" },
-        ],
+        objects: {
+          deal: {
+            endpoints: ["list", "get", "archive"],
+            rows: "own",
+            write: { except: ["stage"] },
+          },
+        },
+        workflows: ["deal.moveStage"],
       },
     });
     expect(change.lines).toStrictEqual([
       "Changes label from Sales to Sales team.",
       "Can now archive deal.",
       "Can no longer update deal.",
-      "Can now run deal.moveStage.",
-      "Can no longer run deal_create.",
+      "Now reaches only its own deal records.",
+      "Writes all but stage of deal, not every field.",
+      "Can now call deal.moveStage.",
+      "Can no longer call deal_create.",
     ]);
   });
 

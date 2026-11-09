@@ -24,30 +24,31 @@ export const roles: Role[] = [
   {
     key: "admin",
     label: "Admin",
-    permissions: [
-      {
-        object: "*",
-        can: ["view", "create", "update", "archive"],
-        scope: "all",
-      },
-      { action: "*", scope: "all" },
-    ],
+    objects: {
+      "*": { endpoints: "*", rows: "all" },
+    },
+    workflows: "*",
   },
   {
     key: "website",
     label: "Website",
-    permissions: [
-      { object: "organisation", can: ["view", "create"], scope: "all" },
-    ],
+    objects: {
+      organisation: {
+        endpoints: ["list", "get", "create", "history"],
+        rows: "all",
+      },
+    },
   },
   {
     key: "sales",
     label: "Sales",
-    permissions: [
-      { object: "*", can: ["view", "create", "update"], scope: "all" },
-      { action: "actor.createAgent", scope: "all" },
-      { action: "apiKey.create", scope: "all" },
-    ],
+    objects: {
+      "*": {
+        endpoints: ["list", "get", "create", "update", "history"],
+        rows: "all",
+      },
+    },
+    workflows: ["actor.createAgent", "apiKey.create"],
   },
 ];
 

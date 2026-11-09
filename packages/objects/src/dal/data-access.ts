@@ -45,11 +45,45 @@ import type { ArchivedMode, ListInput } from "./list-input.ts";
 import { createLogReader } from "./logs.ts";
 
 /**
- * Which of an object's records the reader may see. Phase 1 has only the
- * `all` scope; `none` means the reader can't read the object at all. Later
- * scopes add a condition here.
+ * A reader's rules on one object (P2.14, decision 0045): only the records
+ * whose `owner.field` is `owner.id` (a role's `rows: own`), and only
+ * `fields`. Either absent means no limit.
  */
-export type ReadAccess = "all" | "none";
+export interface ReadRules {
+  readonly owner?: { readonly field: string; readonly id: string };
+  readonly fields?: ReadonlySet<string>;
+}
+
+/**
+ * Which of an object's records and fields the reader may see: all of them,
+ * none (the reader can't read the object at all), or those its rules allow.
+ */
+export type ReadAccess = "all" | "none" | ReadRules;
+
+/** `access` as rules, or null for none. */
+export const readRulesOf = (access: ReadAccess): ReadRules | null => {
+  if (access === "none") {
+    return null;
+  }
+  return access === "all" ? {} : access;
+};
+
+/** `record` without the fields `rules` doesn't let its reader see. */
+export const redact = <TRecord extends Record<string, unknown>>(
+  object: AnyObjectDefinition,
+  rules: ReadRules,
+  record: TRecord
+): TRecord => {
+  const { fields } = rules;
+  if (!fields) {
+    return record;
+  }
+  return Object.fromEntries(
+    Object.entries(record).filter(
+      ([key]) => !Object.hasOwn(object.fields, key) || fields.has(key)
+    )
+  ) as TRecord;
+};
 
 export interface DataAccessOptions {
   /** The database, or the transaction an action runs in. */
@@ -123,6 +157,12 @@ const columnOf = (table: PgTable, key: string): PgColumn => {
   }
   return column;
 };
+
+/** The condition `rules.owner` puts on `object`'s rows, if it has one. */
+const ownerCondition = (object: AnyObjectDefinition, rules: ReadRules) =>
+  rules.owner
+    ? eq(columnOf(object.table, rules.owner.field), rules.owner.id)
+    : undefined;
 
 const archivedCondition = (
   table: PgTable,
@@ -211,15 +251,22 @@ export const createDataAccess = ({
       );
     }
     const object = getObject(target);
-    if (!object || canRead(object) === "none") {
+    const rules = object && readRulesOf(canRead(object));
+    if (!(object && rules)) {
       return {};
     }
     // A ref to an archived record still shows it.
     const rows = await selectFrom(object.table).where(
-      inArray(columnOf(object.table, "id"), ids)
+      and(
+        inArray(columnOf(object.table, "id"), ids),
+        ownerCondition(object, rules)
+      )
     );
     return Object.fromEntries(
-      rows.map((row) => [row.id as string, object.fromRow(row)])
+      rows.map((row) => [
+        row.id as string,
+        redact(object, rules, object.fromRow(row)),
+      ])
     );
   };
 
@@ -257,7 +304,8 @@ export const createDataAccess = ({
     input: ListInput = {}
   ): Promise<ListResult<RecordOf<TObject>>> => {
     const parsed = listInputSchema(object).parse(input);
-    if (canRead(object) === "none") {
+    const rules = readRulesOf(canRead(object));
+    if (!rules) {
       return { records: [], nextCursor: null, related: {} };
     }
     const { table } = object;
@@ -269,6 +317,7 @@ export const createDataAccess = ({
 
     const conditions = [
       archivedCondition(table, parsed.archived ?? "exclude"),
+      ownerCondition(object, rules),
       ...filterConditions(object, parsed.filter, { choices }),
     ];
     const cursor = parsed.cursor ? decodeCursor(parsed.cursor) : undefined;
@@ -302,7 +351,9 @@ export const createDataAccess = ({
         : null;
     const records = page.map((row) => object.fromRow(row));
     return {
-      records: records as RecordOf<TObject>[],
+      records: records.map((record) =>
+        redact(object, rules, record)
+      ) as RecordOf<TObject>[],
       nextCursor,
       related: await follow(object, records, parsed.expand),
     };
@@ -314,14 +365,16 @@ export const createDataAccess = ({
     recordId: string,
     options: GetOptions = {}
   ): Promise<GetResult<RecordOf<TObject>> | null> => {
-    if (canRead(object) === "none") {
+    const rules = readRulesOf(canRead(object));
+    if (!rules) {
       return null;
     }
     const { table } = object;
     const [row] = await selectFrom(table).where(
       and(
         eq(columnOf(table, "id"), recordId),
-        archivedCondition(table, options.archived ?? "exclude")
+        archivedCondition(table, options.archived ?? "exclude"),
+        ownerCondition(object, rules)
       )
     );
     if (!row) {
@@ -329,7 +382,7 @@ export const createDataAccess = ({
     }
     const record = object.fromRow(row);
     return {
-      record: record as RecordOf<TObject>,
+      record: redact(object, rules, record) as RecordOf<TObject>,
       related: await follow(object, [record], options.expand),
     };
   };
@@ -342,9 +395,23 @@ export const createDataAccess = ({
     object: AnyObjectDefinition,
     recordId: string
   ): Promise<HistoryEntry[]> => {
-    if (canRead(object) === "none") {
+    const rules = readRulesOf(canRead(object));
+    if (!rules) {
       return [];
     }
+    if (rules.owner) {
+      const [own] = await selectFrom(object.table).where(
+        and(
+          eq(columnOf(object.table, "id"), recordId),
+          ownerCondition(object, rules)
+        )
+      );
+      if (!own) {
+        return [];
+      }
+    }
+    const visible = (values: Record<string, unknown>) =>
+      redact(object, rules, values);
     const rows = await executor
       .select({
         id: auditLog.id,
@@ -370,6 +437,8 @@ export const createDataAccess = ({
       .orderBy(desc(auditLog.at), desc(auditLog.id));
     return rows.map(({ originUserId, originUserName, at, ...row }) => ({
       ...row,
+      before: visible(row.before),
+      after: visible(row.after),
       at: at.toISOString(),
       onBehalfOf:
         originUserId && row.actor.kind !== "staff"
@@ -380,10 +449,21 @@ export const createDataAccess = ({
 
   // The logs and identities aren't records of an object, so the read hook
   // doesn't apply; the queries that read them check their own permissions.
+  /** `record` as the reader may see it: without fields it can't read. */
+  const visible = (
+    object: AnyObjectDefinition,
+    record: unknown
+  ): Record<string, unknown> => {
+    const rules = readRulesOf(canRead(object));
+    const values = record as Record<string, unknown>;
+    return rules ? redact(object, rules, values) : values;
+  };
+
   return {
     get,
     history,
     list,
+    visible,
     ...createLogReader(executor),
     ...createIdentityReader(executor),
     ...createDraftReader(executor),

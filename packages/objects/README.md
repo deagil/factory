@@ -26,10 +26,11 @@ export const contact = defineObject({
   fields: {
     firstName: f.text({ required: true }),
     organisation: f.ref("organisation", { required: true }),
+    owner: f.ref("actor"),
   },
+  owner: "owner", // the field a role's `rows: own` matches (P2.14)
   customFields: true,
   list: ["firstName", "organisation"],
-  actions: { update: { readOnly: ["organisation"] } },
   drizzle: (t) => [index("contacts_first_name_idx").on(t.firstName)],
 });
 
@@ -41,6 +42,8 @@ contact.fromRow(row); // a JSON-safe record
 Reads go through the data access layer:
 
 ```ts
+// canRead gives "all", "none" or rules: an owner condition and the readable
+// fields. The repository takes write rules the same way (P2.14).
 const dal = createDataAccess({ executor: db, canRead: () => "all" });
 const page = await dal.list(contact, {
   filter: { lastName: { startsWith: "Lo" }, active: { eq: true } },

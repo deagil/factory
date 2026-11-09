@@ -18,6 +18,7 @@ export const organisation = defineObject({
   },
   customFields: true,
   list: ["name", "website", "owner"],
+  owner: "owner",
 });
 
 export const contact = defineObject({
@@ -32,8 +33,6 @@ export const contact = defineObject({
   },
   customFields: true,
   list: ["firstName", "lastName", "email", "organisation"],
-  // contact.moveToOrganisation owns the organisation field.
-  actions: { update: { readOnly: ["organisation"] } },
 });
 
 export const deal = defineObject({
@@ -47,8 +46,10 @@ export const deal = defineObject({
     stage: f.choice(dealStages, { required: true }),
   },
   list: ["name", "organisation", "value", "stage", "owner"],
-  // deal_create starts a deal in an open stage; deal.moveStage owns it after.
-  actions: { create: "deal_create", update: { readOnly: ["stage"] } },
+  owner: "owner",
+  // deal_create starts a deal in an open stage. Roles get no write on
+  // stage, so deal.moveStage moves it after (config/roles/).
+  actions: { create: "deal_create" },
 });
 
 export const organisations = organisation.table;

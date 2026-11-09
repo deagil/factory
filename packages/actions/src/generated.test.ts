@@ -152,22 +152,6 @@ describe("generated actions and queries", () => {
     expect(stale).toMatchObject({ ok: false, error: { code: "conflict" } });
   });
 
-  it("leaves read-only fields out of the update input", async () => {
-    const { record: org } = await output("organisation_create", {
-      name: "Hooli",
-    });
-    const { record: ada } = await output("contact_create", {
-      firstName: "Ada",
-      organisation: org.id,
-      active: true,
-    });
-    const moved = await call("contact_update", {
-      id: ada.id,
-      organisation: org.id,
-    });
-    expect(moved).toMatchObject({ ok: false, error: { code: "validation" } });
-  });
-
   it("archives once, emitting <object>.archived, then hides the record", async () => {
     const { record } = await output("organisation_create", {
       name: "Umbrella",

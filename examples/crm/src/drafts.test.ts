@@ -41,7 +41,7 @@ const git = (cwd: string, ...args: string[]) =>
 
 /** A role file that can view deals. */
 const role = (key: string) =>
-  `key: ${key}\nlabel: ${key}\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n`;
+  `key: ${key}\nlabel: ${key}\nobjects:\n  deal:\n    endpoints: [list, get]\n    rows: all\n`;
 
 // Each test runs dozens of git commands, slow when every suite runs at once.
 describe("drafts over git", { timeout: 30_000 }, () => {
@@ -139,7 +139,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     const saved = await save(
       id,
       "config/roles/viewer.yaml",
-      "key: viewer\nlabel: Viewer\npermissions:\n  - object: deal\n    can: [view]\n    scope: all\n"
+      "key: viewer\nlabel: Viewer\nobjects:\n  deal:\n    endpoints: [list, get]\n    rows: all\n"
     );
     expect(saved).toMatchObject({
       ok: true,
@@ -258,7 +258,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
     const saved = await save(
       id,
       "config/roles/sales.yaml",
-      "key: sales\nlabel: Sales\npermissions:\n  - object: invoice\n    can: [view]\n    scope: all\n"
+      "key: sales\nlabel: Sales\nobjects:\n  invoice:\n    endpoints: [list]\n    rows: all\n"
     );
     expect(saved).toMatchObject({
       ok: true,

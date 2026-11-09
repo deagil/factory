@@ -69,7 +69,7 @@ export type { RefField, RefTarget } from "./fields/ref.ts";
 export type { TextField, TextOptions } from "./fields/text.ts";
 export { labelFor, snakeCase, tableNameFor } from "./naming.ts";
 export { getObject, listObjects } from "./registry.ts";
-export { createDataAccess } from "./dal/data-access.ts";
+export { createDataAccess, readRulesOf, redact } from "./dal/data-access.ts";
 export type {
   ActorSummary,
   DataAccess,
@@ -79,6 +79,7 @@ export type {
   HistoryEntry,
   ListResult,
   ReadAccess,
+  ReadRules,
   RecordOf,
   Related,
 } from "./dal/data-access.ts";
@@ -89,6 +90,7 @@ export {
   encodeCursor,
   listInputSchema,
   maxPageSize,
+  parseSort,
   refKeysOf,
   sortKeysOf,
 } from "./dal/list-input.ts";
@@ -116,14 +118,17 @@ export type {
   RunStepEntry,
   UserSummary,
 } from "./dal/logs.ts";
-export { createRepository } from "./repository.ts";
+export { createdRecord, createRepository } from "./repository.ts";
 export type {
   ArchiveResult,
+  CreateResult,
+  Refused,
   RestoreResult,
   Changes,
   Repository,
   RepositoryOptions,
   UpdateOptions,
   UpdateResult,
+  WriteRules,
   WriteValues,
 } from "./repository.ts";

@@ -31,11 +31,11 @@ describe("fx describe", () => {
         "contact.moved"
       );
       expect(formatDescribe(result)).toMatch(
-        /organisation\s+ref → organisation\s+required, read-only/u
+        /organisation\s+ref → organisation\s+required$/mu
       );
       const deals = await describeSystem(repoRoot, "deal");
       expect(formatDescribe(deals)).toMatch(
-        /stage\s+choice\s+required, read-only\s+Lead, Qualified, Proposal sent, Won, Lost/u
+        /stage\s+choice\s+required\s+Lead, Qualified, Proposal sent, Won, Lost/u
       );
     }
   );

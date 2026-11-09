@@ -2,12 +2,37 @@
 // integration actors, setting roles, disabling and enabling actors, and
 // creating and revoking API keys. Like every change, they run through the
 // pipeline, so they're permission-checked and logged (decisions 0025, 0034).
+// Each keeps the privilege ceiling (P2.14): nobody grants, mints or revokes
+// authority they don't hold.
 
 import { defineAction } from "@workspace/actions";
 import type { ActionContext } from "@workspace/actions";
 import { z } from "zod";
 
 const actorOutput = z.object({ actorId: z.uuid() });
+
+/**
+ * The privilege ceiling (P2.14): a permission failure when any of `roles`
+ * gives more than the caller holds, or null. `doing` says what was refused:
+ * "give", "take away", "make a key for".
+ */
+const overCeiling = (
+  ctx: ActionContext,
+  permission: string,
+  roles: readonly string[],
+  doing: string
+) => {
+  for (const role of roles) {
+    const over = ctx.grantsBeyond([role]);
+    if (over) {
+      return ctx.forbidden(
+        permission,
+        `You can't ${doing} the role ${role}: it gives ${over}.`
+      );
+    }
+  }
+  return null;
+};
 
 /** An agent that acts for the caller, never with more than they have. */
 export const createAgent = defineAction({
@@ -26,6 +51,10 @@ export const createAgent = defineAction({
         "actor.createAgent",
         "Only a signed-in person can create an agent to act for them"
       );
+    }
+    const refused = overCeiling(ctx, "actor.createAgent", roles ?? [], "give");
+    if (refused) {
+      return refused;
     }
     const agent = await ctx.identity.createActor({
       kind: "agent",
@@ -48,6 +77,10 @@ export const createIntegration = defineAction({
   }),
   output: actorOutput,
   handler: async (ctx, { name, roles }) => {
+    const refused = overCeiling(ctx, "actor.createIntegration", roles, "give");
+    if (refused) {
+      return refused;
+    }
     const integration = await ctx.identity.createActor({
       kind: "integration",
       name,
@@ -83,6 +116,15 @@ export const createApiKey = defineAction({
         "Only the person an agent acts for can create its keys"
       );
     }
+    const refused = overCeiling(
+      ctx,
+      "apiKey.create",
+      await ctx.identity.rolesOf(actorId),
+      "make a key with"
+    );
+    if (refused) {
+      return refused;
+    }
     return ctx.identity.createApiKey({ actorId, label });
   },
 });
@@ -96,6 +138,15 @@ export const revokeApiKey = defineAction({
     const key = await ctx.identity.getApiKey(id);
     if (!key) {
       return ctx.notFound("apiKey", id);
+    }
+    const refused = overCeiling(
+      ctx,
+      "apiKey.revoke",
+      await ctx.identity.rolesOf(key.actorId),
+      "revoke a key with"
+    );
+    if (refused) {
+      return refused;
     }
     await ctx.identity.revokeApiKey(id, ctx.clock.now());
     return { id };
@@ -127,7 +178,9 @@ export const inviteUser = defineAction({
   }),
   output: z.object({ userId: z.uuid(), actorId: z.uuid() }),
   handler: async (ctx, { name, email, roles }) => {
-    const refused = unknownRoles(ctx, roles);
+    const refused =
+      unknownRoles(ctx, roles) ??
+      overCeiling(ctx, "user.invite", roles, "give");
     if (refused) {
       return refused;
     }
@@ -148,7 +201,7 @@ export const inviteUser = defineAction({
 export const setRoles = defineAction({
   name: "actor.setRoles",
   description:
-    "Replace an actor's roles. An agent's roles must be among its person's, since it can only do less than they can. You can't change your own.",
+    "Replace an actor's roles. An agent's roles must be among its person's, since it can only do less than they can. You can't change your own, give a role that does more than yours, or change the roles of someone who has one.",
   input: z.strictObject({ id: z.uuid(), roles: roleKeys }),
   output: z.object({ actorId: z.uuid(), roles: z.array(z.string()) }),
   handler: async (ctx, { id, roles }) => {
@@ -159,7 +212,15 @@ export const setRoles = defineAction({
     if (actor.id === ctx.actor.id) {
       return ctx.forbidden("actor.setRoles", "You can't change your own roles");
     }
-    const refused = unknownRoles(ctx, roles);
+    const refused =
+      unknownRoles(ctx, roles) ??
+      overCeiling(ctx, "actor.setRoles", roles, "give") ??
+      overCeiling(
+        ctx,
+        "actor.setRoles",
+        await ctx.identity.rolesOf(id),
+        "change the roles of someone with"
+      );
     if (refused) {
       return refused;
     }

@@ -136,7 +136,8 @@ const ReferenceScreen = () => {
                       <td className="px-3 py-1.5 text-muted-foreground">
                         {[
                           field.required && "required",
-                          field.readOnly && "read-only",
+                          !field.read && "hidden from you",
+                          field.read && !field.write && "read-only for you",
                         ]
                           .filter(Boolean)
                           .join(", ")}

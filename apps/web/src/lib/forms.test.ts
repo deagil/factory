@@ -19,6 +19,7 @@ const contact = {
       label: "Organisation",
       type: "ref",
       target: "organisation",
+      write: false,
     },
     { key: "active", label: "Active", type: "boolean", target: null },
   ],
@@ -29,6 +30,7 @@ const update = {
   input: {
     properties: {
       firstName: {},
+      organisation: {},
       active: {},
       id: {},
       version: {},
@@ -47,7 +49,7 @@ const move = {
 } as unknown as ActionDescription;
 
 describe("forms from action inputs", () => {
-  it("has a control only for what the action takes", () => {
+  it("has a control only for what the action takes and the caller can write", () => {
     expect(formFields(update, contact).map((field) => field.key)).toStrictEqual(
       ["firstName", "active"]
     );

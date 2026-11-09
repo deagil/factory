@@ -39,6 +39,7 @@ export interface ActionServices extends QueryServices {
   drafts: DraftStore;
   approvals: ApprovalService;
   dryRun: boolean;
+  grantsBeyond: (roles: readonly string[]) => string | null;
 }
 
 /** An event an action emitted, its payload checked against its schema. */
@@ -94,6 +95,7 @@ export const createActionContext = <TEmits extends EventSchemas>(
     drafts: services.drafts,
     approvals: services.approvals,
     dryRun: services.dryRun,
+    grantsBeyond: services.grantsBeyond,
     emit,
   }) as ActionContext<TEmits>;
   return { ctx, events: () => [...emitted] };

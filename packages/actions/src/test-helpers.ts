@@ -31,6 +31,7 @@ export const services = (
   drafts: unused("drafts") as DraftStore,
   approvals: unused("approvals") as ApprovalService,
   dryRun: false,
+  grantsBeyond: () => null,
   config: { sha: null, roles: [] },
   git: undefined,
   clock: { now: () => new Date("2026-11-07T09:00:00Z") },

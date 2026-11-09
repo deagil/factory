@@ -159,12 +159,9 @@ export type CreateInput<TFields extends ObjectFields> = Simplify<
   }
 >;
 
-/** What an update takes: any fields except the read-only ones. */
-export type UpdateInput<
-  TFields extends ObjectFields,
-  TReadOnly extends string,
-> = Simplify<{
-  [K in Exclude<FieldKey<TFields>, TReadOnly>]?: ValueOf<TFields[K]>;
+/** What an update takes: any of the fields; role rules say which (P2.14). */
+export type UpdateInput<TFields extends ObjectFields> = Simplify<{
+  [K in FieldKey<TFields>]?: ValueOf<TFields[K]>;
 }>;
 
 /** A record as reads return it. Timestamps are ISO 8601 strings. */
@@ -195,10 +192,9 @@ export type ObjectRecord<
 type JobOption = false | string;
 
 /** Options for the generated create, update and archive actions. */
-export interface ObjectActionsOptions<TReadOnly extends string> {
+export interface ObjectActionsOptions {
   create?: JobOption;
-  /** `{ readOnly }` lists fields only hand-written actions can change. */
-  update?: JobOption | { readOnly?: readonly TReadOnly[] };
+  update?: JobOption;
   archive?: JobOption;
 }
 
@@ -206,9 +202,8 @@ export interface ObjectOptions<
   TName extends string,
   TFields extends ObjectFields,
   TCustomFields extends boolean,
-  TReadOnly extends FieldKey<TFields>,
 > {
-  /** camelCase and unique, such as `deal`. Action names start with it. */
+  /** snake_case and unique, such as `deal`. Endpoint names start with it. */
   name: TName;
   /** What people see. Defaults to the name, as words. */
   label?: string;
@@ -220,7 +215,13 @@ export interface ObjectOptions<
   customFields?: TCustomFields;
   /** The fields list screens show, in order. Defaults to the first five. */
   list?: readonly FieldKey<TFields>[];
-  actions?: ObjectActionsOptions<TReadOnly>;
+  /**
+   * The field naming the record's owner, a ref to an actor, such as
+   * `owner`. A role with `rows: own` on the object sees and changes only
+   * the records it owns (P2.14).
+   */
+  owner?: FieldKey<TFields>;
+  actions?: ObjectActionsOptions;
   /** Plain Drizzle for anything else on the table, such as indexes. */
   drizzle?: (
     table: BuildExtraConfigColumns<
@@ -239,9 +240,9 @@ export interface ObjectJob {
   readonly ownedBy: string | undefined;
 }
 
-export interface ObjectActions<TReadOnly extends string> {
+export interface ObjectActions {
   readonly create: ObjectJob;
-  readonly update: ObjectJob & { readonly readOnly: readonly TReadOnly[] };
+  readonly update: ObjectJob;
   readonly archive: ObjectJob;
 }
 
@@ -249,7 +250,6 @@ export interface ObjectDefinition<
   TName extends string = string,
   TFields extends ObjectFields = ObjectFields,
   TCustomFields extends boolean = boolean,
-  TReadOnly extends FieldKey<TFields> = FieldKey<TFields>,
 > {
   readonly name: TName;
   readonly label: string;
@@ -261,10 +261,12 @@ export interface ObjectDefinition<
   readonly fieldLabels: Readonly<Record<FieldKey<TFields>, string>>;
   readonly customFields: TCustomFields;
   readonly list: readonly FieldKey<TFields>[];
-  readonly actions: ObjectActions<TReadOnly>;
+  /** The owner field, if the object has one. */
+  readonly owner: FieldKey<TFields> | undefined;
+  readonly actions: ObjectActions;
   readonly schemas: {
     readonly create: z.ZodType<CreateInput<TFields>>;
-    readonly update: z.ZodType<UpdateInput<TFields, TReadOnly>>;
+    readonly update: z.ZodType<UpdateInput<TFields>>;
     readonly record: z.ZodType<ObjectRecord<TFields, TCustomFields>>;
   };
   /** A field's columns on the table, keyed by suffix, for filters and sorts. */
@@ -294,7 +296,8 @@ export interface AnyObjectDefinition {
   readonly fieldLabels: Readonly<Record<string, string>>;
   readonly customFields: boolean;
   readonly list: readonly string[];
-  readonly actions: ObjectActions<string>;
+  readonly owner: string | undefined;
+  readonly actions: ObjectActions;
   readonly schemas: {
     readonly create: z.ZodType;
     readonly update: z.ZodType;
@@ -314,7 +317,7 @@ const fail = (objectName: string, message: string): never => {
   throw new Error(`defineObject("${objectName}"): ${message}`);
 };
 
-const jobFrom = (option: JobOption | undefined | object): ObjectJob => {
+const jobFrom = (option: JobOption | undefined): ObjectJob => {
   if (option === false) {
     return { generated: false, ownedBy: undefined };
   }
@@ -373,7 +376,7 @@ const checkFields = (name: string, fields: ObjectFields): string[] => {
 };
 
 const checkOptions = (
-  options: ObjectOptions<string, ObjectFields, boolean, string>
+  options: ObjectOptions<string, ObjectFields, boolean>
 ) => {
   const { name } = options;
   if (!identifierPattern.test(name)) {
@@ -385,11 +388,15 @@ const checkOptions = (
       fail(name, `list names "${key}", which isn't a field`);
     }
   }
-  const { update } = options.actions ?? {};
-  const readOnly = typeof update === "object" ? (update.readOnly ?? []) : [];
-  for (const key of readOnly) {
-    if (!keys.includes(key)) {
-      fail(name, `actions.update.readOnly names "${key}", which isn't a field`);
+  if (options.owner !== undefined) {
+    const owner = options.fields[options.owner] as
+      | (AnyField & { target?: string })
+      | undefined;
+    if (owner?.kind !== "ref" || owner.target !== "actor") {
+      fail(
+        name,
+        `owner names "${options.owner}", which isn't a ref to an actor, such as owner: f.ref("actor")`
+      );
     }
   }
   for (const job of ["create", "update", "archive"] as const) {
@@ -408,7 +415,7 @@ const checkOptions = (
       `the table "${tableName}" is a core table. Pass a different \`table\`.`
     );
   }
-  return { keys, readOnly, tableName };
+  return { keys, tableName };
 };
 
 /** A timestamp from the driver as ISO 8601; null stays null. */
@@ -442,13 +449,12 @@ export const defineObject = <
   const TName extends string,
   TFields extends ObjectFields,
   TCustomFields extends boolean = false,
-  TReadOnly extends FieldKey<TFields> = never,
 >(
-  options: ObjectOptions<TName, TFields, TCustomFields, TReadOnly>
-): ObjectDefinition<TName, TFields, TCustomFields, TReadOnly> => {
+  options: ObjectOptions<TName, TFields, TCustomFields>
+): ObjectDefinition<TName, TFields, TCustomFields> => {
   const { name, fields } = options;
-  const { keys, readOnly, tableName } = checkOptions(
-    options as unknown as ObjectOptions<string, ObjectFields, boolean, string>
+  const { keys, tableName } = checkOptions(
+    options as unknown as ObjectOptions<string, ObjectFields, boolean>
   );
   const customFields = (options.customFields ?? false) as TCustomFields;
 
@@ -505,10 +511,9 @@ export const defineObject = <
     keys.map((key) => [key, (fields[key] as AnyField).label ?? labelFor(key)])
   ) as Record<FieldKey<TFields>, string>;
   const list = (options.list ?? keys.slice(0, 5)) as FieldKey<TFields>[];
-  const updateOption = options.actions?.update;
-  const actions: ObjectActions<TReadOnly> = {
+  const actions: ObjectActions = {
     create: jobFrom(options.actions?.create),
-    update: { ...jobFrom(updateOption), readOnly: readOnly as TReadOnly[] },
+    update: jobFrom(options.actions?.update),
     archive: jobFrom(options.actions?.archive),
   };
 
@@ -527,9 +532,7 @@ export const defineObject = <
   for (const key of keys) {
     const field = fields[key] as AnyField;
     createShape[key] = field.required ? field.input : field.input.optional();
-    if (!readOnly.includes(key)) {
-      updateShape[key] = field.input.optional();
-    }
+    updateShape[key] = field.input.optional();
     recordShape[key] = field.output;
   }
   if (customFields) {
@@ -539,12 +542,7 @@ export const defineObject = <
     create: z.strictObject(createShape),
     update: z.strictObject(updateShape),
     record: z.strictObject(recordShape),
-  } as unknown as ObjectDefinition<
-    TName,
-    TFields,
-    TCustomFields,
-    TReadOnly
-  >["schemas"];
+  } as unknown as ObjectDefinition<TName, TFields, TCustomFields>["schemas"];
 
   // Mapping between field values and columns.
   const tableColumns = table as unknown as Record<string, PgColumn>;
@@ -604,23 +602,23 @@ export const defineObject = <
     return record as ObjectRecord<TFields, TCustomFields>;
   };
 
-  const definition: ObjectDefinition<TName, TFields, TCustomFields, TReadOnly> =
-    {
-      name,
-      label: options.label ?? labelFor(name),
-      description: options.description,
-      tableName,
-      table,
-      fields,
-      fieldLabels,
-      customFields,
-      list,
-      actions,
-      schemas,
-      columnsOf,
-      toRow,
-      fromRow,
-    };
+  const definition: ObjectDefinition<TName, TFields, TCustomFields> = {
+    name,
+    label: options.label ?? labelFor(name),
+    description: options.description,
+    tableName,
+    table,
+    fields,
+    fieldLabels,
+    customFields,
+    list,
+    owner: options.owner,
+    actions,
+    schemas,
+    columnsOf,
+    toRow,
+    fromRow,
+  };
   registerObject(definition as unknown as AnyObjectDefinition);
   return definition;
 };

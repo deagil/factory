@@ -16,6 +16,10 @@ export const referenceKinds = [
   "event",
   "template",
   "role",
+  // An object endpoint, `<object>_<job>`, as a role grants it (P2.14).
+  "endpoint",
+  // An object with an owner field, as a role's `rows: own` needs.
+  "owner",
 ] as const;
 export type ReferenceKind = (typeof referenceKinds)[number];
 

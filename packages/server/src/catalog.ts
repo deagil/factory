@@ -61,6 +61,9 @@ export const catalogOf = (
         : []
     )
   ),
+  owners: new Set(
+    objects.flatMap((object) => (object.owner ? [object.name] : []))
+  ),
   events: new Set(
     definitions.flatMap((definition) =>
       definition.kind === "action" ? Object.keys(definition.emits) : []

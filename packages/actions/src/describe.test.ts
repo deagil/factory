@@ -20,19 +20,21 @@ const roles: Role[] = [
   {
     key: "admin",
     label: "Admin",
-    permissions: [
-      {
-        object: "*",
-        can: ["view", "create", "update", "archive"],
-        scope: "all",
-      },
-      { action: "*", scope: "all" },
-    ],
+    objects: {
+      "*": { endpoints: "*", rows: "all" },
+    },
+    workflows: "*",
   },
   {
     key: "website",
     label: "Website",
-    permissions: [{ object: "organisation", can: ["create"], scope: "all" }],
+    objects: {
+      organisation: {
+        endpoints: ["create"],
+        rows: "own",
+        read: { except: ["website"] },
+      },
+    },
   },
 ];
 
@@ -90,7 +92,27 @@ describe("system.describe", () => {
 
   it("leaves out what a restricted actor can't use", async () => {
     const described = await describeAs("website");
-    expect(described.objects).toStrictEqual([]);
+    expect(
+      described.objects.map(({ name, endpoints, rows, fields }) => ({
+        name,
+        endpoints,
+        rows,
+        hidden: fields.filter((field) => !field.read).map((field) => field.key),
+      }))
+    ).toStrictEqual([
+      {
+        name: "organisation",
+        rows: "own",
+        hidden: ["website"],
+        endpoints: [
+          {
+            method: "POST",
+            path: "/organisations",
+            name: "organisation_create",
+          },
+        ],
+      },
+    ]);
     expect(described.actions.map((action) => action.name)).toStrictEqual([
       "organisation_create",
     ]);
@@ -112,7 +134,7 @@ describe("system.describe", () => {
     });
   });
 
-  it("marks read-only fields and ref targets", async () => {
+  it("marks what the caller may read and write, and ref targets", async () => {
     const described = await describeAs("admin");
     const fields = described.objects.find(
       (object) => object.name === "contact"
@@ -121,7 +143,8 @@ describe("system.describe", () => {
       {
         type: "ref",
         target: "organisation",
-        readOnly: true,
+        read: true,
+        write: true,
       }
     );
   });
