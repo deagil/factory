@@ -1,7 +1,9 @@
 # 0028. MCP tools
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md) and [0047](0047-snake-case-names.md)
 - **Date:** 2026-11-07
+
+> **Superseded.** There is one tool per endpoint, named exactly as the endpoint (`deal_list`, `deal_move_stage`), with no mapping from dotted names. Results carry the run id rather than the action id. Still true: stateless servers per request, success as `structuredContent` and JSON text, typed errors as `isError` with `<code>: <message>`, and callers checked by the HTTP API.
 
 ## Context
 

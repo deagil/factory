@@ -1,7 +1,9 @@
 # 0022. The shape of generated actions and queries
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-07
+
+> **Superseded.** Generated actions become REST object endpoints (`GET /deals`, `PATCH /deals/{id}`, …) and internal record actions (`deal_get`, `deal_update`, …) that workflow steps run. Owned fields and switching jobs off go; role rules decide who writes a field. Still true: flat inputs, outputs wrapping the record, events only when something changed, and repository outcomes mapped to typed errors.
 
 ## Context
 

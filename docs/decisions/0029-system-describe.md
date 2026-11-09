@@ -1,7 +1,9 @@
 # 0029. `system.describe`
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-07
+
+> **Amended by 0045.** `system_describe` lists object endpoints and the workflows the caller may call, with each field's read and write for the caller; actions are not listed on it. It becomes a read-only code workflow.
 
 ## Context
 

@@ -9,7 +9,7 @@ Instructions for coding agents (Claude Code, Cursor and others) working in this 
 
 ## Current state
 
-Phases 0, 1 and 1b are done. `defineObject` gives an object its table, generated actions and queries, history and logs; the action pipeline runs every change; the HTTP API, MCP server and generated web screens all come from the same registry; `defineSystem` and `createServer` run a system. `examples/crm` is the working example: `pnpm fx dev` runs it, and `pnpm fx describe` shows what it has. The web app reaches all of it by section (Data, Activity, Access, Settings), and under `pnpm dev` a dev bar adds session switching, API and inspection tools (SYSTEM_DESIGN §4.9). Phase 2 is in progress: config is YAML under `config/`, validated and loaded live, and staff change it in drafts that publish to a git remote; approval rules make actions and drafts wait for sign-off; choice fields and the CRM's deals are built. Workflows are next; `packages/events`, `workflows` and `sdk` are still placeholders with a README describing their job.
+Phases 0, 1 and 1b are done. `defineObject` gives an object its table, generated actions and queries, history and logs; the action pipeline runs every change; the HTTP API, MCP server and generated web screens all come from the same registry; `defineSystem` and `createServer` run a system. `examples/crm` is the working example: `pnpm fx dev` runs it, and `pnpm fx describe` shows what it has. The web app reaches all of it by section (Data, Activity, Access, Settings), and under `pnpm dev` a dev bar adds session switching, API and inspection tools (SYSTEM_DESIGN §4.9). Phase 2 is in progress: config is YAML under `config/`, validated and loaded live, and staff change it in drafts that publish to a git remote; approval rules make actions and drafts wait for sign-off; choice fields and the CRM's deals are built. On 9 Nov 2026 the model changed (decisions 0045 to 0047): the only endpoints become object endpoints and published workflows, actions become internal or external code that workflow steps run, runs replace `action_log`, and roles gain rules on endpoints, fields and rows. The code is moving to it task by task from P2.12, so `/actions`, `/queries` and dotted names still exist until P2.26; follow the model for new work. `packages/events`, `workflows` and `sdk` are still placeholders with a README describing their job.
 
 **Work from the plans.** Before starting, open [docs/plans/](docs/plans/README.md), find the current phase, read its **Resume here** section and pick the next unticked task whose dependencies are done. Tick it off, log it and update **Resume here** in the same PR as the work. A change that isn't a plan task leaves the plan alone.
 
@@ -43,24 +43,24 @@ Tests run on databases built from the migrations, not from the schema. After a s
 
 These are enforced by review and, as the core grows, by CI. Breaking one is a bug.
 
-1. **Every change to data is an action.** Write `defineAction`; never write to the database from routes, web code, workflows or scripts.
+1. **Every change to data runs in an action, reached through an endpoint.** The only endpoints are object endpoints (from `defineObject`) and published workflows; actions are internal code that workflow steps run, never on a surface. Never write to the database from routes, web code or scripts (decision 0045).
 2. **Every read goes through the data access layer.** No raw SQL outside `packages/db`.
 3. **Every table comes from `defineObject`.** No hand-written tables for client data.
 4. **Config is data, not code.** Files under `config/` are YAML validated by Zod schemas. Never put logic, expressions or secrets in them.
-5. **No database triggers** for business logic or history. Field history (`audit_log`) is written by the repository inside the action pipeline.
+5. **No database triggers** for business logic or history. Field history (`audit_log`) is written by the repository inside the segment's transaction.
 6. **The web surface is just another client.** `apps/web` calls the HTTP API. Do not use TanStack Start server functions or loaders to reach the database.
 7. **Services come through the context.** Actions get the repository, config, clock and git service from `ctx`; never import them directly.
-8. **Return typed errors.** Actions return typed error results (validation, permission, approval required, conflict, not found) instead of throwing for expected failures.
+8. **Return typed errors.** Actions and steps return typed error results (validation, permission, conflict, not found, or a declared code) instead of throwing for expected failures.
 9. **Dependencies point one way:** `server`, `apps/web` → `workflows`, `config` → `actions` → `objects` → `db`. Modules depend on packages, never the reverse.
 10. **Migrations expand, then contract.** Every migration must work with the code already running. No destructive change except as the marked contract step.
-11. **Every side effect is an action.** Sending email, calling a URL or charging a card is an action (`comms.send`, `http.send`, `payments.refund`), so it is permission-checked and logged. Workflow steps only run actions or control flow; there is no `defineStep`.
-12. **Workflows are the only listeners.** Nothing else subscribes to events. Work that must happen atomically with a change goes in the action; work that follows it goes in a workflow.
-13. **Workflows act as themselves.** Their permissions are derived from the actions they run, and the publisher must hold all of them. Record `actor_id` and `origin_user_id` on every action; never add an `acting_for` or `triggered_by` field.
-14. **`http.send` destinations are fixed.** URLs and hosts come from the workflow file, never from record data or event payloads.
+11. **Every side effect is an external action.** Sending email, calling a URL or charging a card is an external action (`comms_send`, `http_send`, `payment_refund`) run by a workflow step, outside the transaction with a retry key, and traced. Workflow steps only run actions or built-in control flow; there is no `defineStep`. Actions never write logs; the engine writes the run and its steps.
+12. **Workflows are the only listeners.** Nothing else subscribes to events. Work that must happen atomically with a change goes in the same segment (steps between pauses commit together); work that follows it goes in a workflow its event starts.
+13. **Workflows run under the service key.** The caller's role is checked once, at the endpoint; the workflow's actions then run with full internal access, and the publish gate (validation, example cases, two people) is the control. Record the workflow as `actor_id` and the caller as `origin_user_id` on every run; never add an `acting_for` or `triggered_by` field.
+14. **`http_send` destinations are fixed.** URLs and hosts come from the workflow file, never from record data or event payloads.
 
 ## Naming
 
-Use the glossary terms exactly: object, record, action, query, actor, user, permission, scope, draft, change, `event_log`, `audit_log`, `action_log`, `main`, `production`. Packages are `@workspace/<name>`.
+Use the glossary terms exactly: object, record, endpoint, action (internal or external), workflow, step, run, run step, segment, trace, retry key, service key, actor, user, role, scope, draft, change, `event_log`, `audit_log`, `main`, `production`. "Query" is retired. Names of objects, fields, actions, workflows, events, roles and config keys are snake_case and the same on every surface (`deal_move_stage` is the file, the URL and the MCP tool; decision 0047); code still has dotted names until the tasks that rename them. Packages are `@workspace/<name>`.
 
 ## Stack
 

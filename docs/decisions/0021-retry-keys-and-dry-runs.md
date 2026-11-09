@@ -1,7 +1,9 @@
 # 0021. Retry keys and dry runs
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0046](0046-runs-segments-and-errors.md)
 - **Date:** 2026-11-07
+
+> **Amended by 0046.** A step's retry key is the run id plus the step id; the caller's key lives on `runs (actor_id, retry_key)`. Prose says "retry key"; the wire uses `Idempotency-Key`. Dry runs are the base for a workflow's example cases.
 
 ## Context
 

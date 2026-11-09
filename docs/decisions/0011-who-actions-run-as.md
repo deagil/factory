@@ -1,7 +1,9 @@
 # 0011. Who actions run as
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-06
+
+> **Superseded.** Workflows no longer get permissions derived from their steps. They run under the service key, and the control is the publish gate (validation, example cases) and a second person's approval. Still true: people act as themselves, agents act for a person, fixed `http_send` destinations, and `actor_id` and `origin_user_id` on every row with no `acting_for` or `triggered_by`.
 
 ## Context
 

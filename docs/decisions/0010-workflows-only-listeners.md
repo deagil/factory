@@ -1,7 +1,9 @@
 # 0010. Workflows are the only listeners; every side effect is an action
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-06
+
+> **Superseded.** Workflows are endpoints as well as the only listeners, and a step runs an action or is control flow (`if`, `wait`, `wait_for_approval`, `run`, `emit`, `fail`, `output`). Still true: no `defineStep`, every side effect is an action (`comms_send`, `http_send`), fixed `http_send` destinations, no webhook tables, and one dispatcher with a depth limit. Per-step `onFailure: continue` is replaced by segments and `on_failure` steps (decision [0046](0046-runs-segments-and-errors.md)).
 
 ## Context
 

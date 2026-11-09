@@ -1,7 +1,9 @@
 # 0024. How roles grant permissions
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-07
+
+> **Superseded.** Role rules now cover endpoints (object endpoints and workflows by name), fields (read and write) and rows (`own` or `all`), applied in the data access layer on every surface. Still true: roles are config, actors hold them through `actor_roles`, an undefined role grants nothing, and permissions are loaded once per run.
 
 ## Context
 

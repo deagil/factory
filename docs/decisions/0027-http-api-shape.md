@@ -1,7 +1,9 @@
 # 0027. The HTTP API's shape
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-07
+
+> **Superseded.** Routes are the object endpoints and `POST /workflows/<name>` (`GET` for read-only workflows) and `GET /runs/{id}`, named as the endpoint (decision [0047](0047-snake-case-names.md)). `approval_required` is no longer an error: a run still going or waiting returns `202` with `Location: /runs/{id}` (decision [0046](0046-runs-segments-and-errors.md)). Still true: the error shape, status codes for the other codes, request ids, Better Auth and API key callers, `Idempotency-Key` and `/openapi.json`.
 
 ## Context
 

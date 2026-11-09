@@ -1,7 +1,9 @@
 # 0001. One action registry, many surfaces
 
-- **Status:** Accepted
+- **Status:** Superseded by [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-06
+
+> **Superseded.** Endpoints now come from objects and published workflows; actions are internal code that workflow steps run, never on a surface. Still true: every capability is defined once, every surface comes from one registry, and the in-app agent has no powers an external agent lacks.
 
 ## Context
 
