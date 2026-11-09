@@ -50,13 +50,13 @@ describe(navFrom, () => {
   });
 
   it("puts the logs the caller can read in Activity", () => {
-    const nav = navFrom(described([], ["actionLog.list", "eventLog.list"]));
+    const nav = navFrom(described([], ["run.list", "eventLog.list"]));
     expect(nav.map((section) => section.key)).toStrictEqual([
       "activity",
       "settings",
     ]);
     expect(nav[0]?.pages.map((page) => page.link)).toStrictEqual([
-      { to: "/activity/actions" },
+      { to: "/activity/runs" },
       { to: "/activity/events" },
     ]);
   });

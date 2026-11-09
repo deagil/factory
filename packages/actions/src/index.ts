@@ -117,10 +117,11 @@ export {
 } from "./describe.ts";
 export { historyEntrySchema, historyQuery } from "./history.ts";
 export {
-  actionLogDetailSchema,
-  actionLogEntrySchema,
   changeEntrySchema,
   eventEntrySchema,
+  runDetailSchema,
+  runEntrySchema,
+  runStepEntrySchema,
 } from "./log-schemas.ts";
 export {
   actorGet,
@@ -135,18 +136,19 @@ export {
   apiKeyEntrySchema,
 } from "./identity-schemas.ts";
 export {
-  actionLogGet,
-  actionLogList,
   auditLogList,
   eventLogList,
   logQueries,
+  runGet,
+  runList,
 } from "./logs.ts";
 export type { HistoryEntry } from "./history.ts";
 export type { ApprovalEntry } from "./approvals.ts";
 export type {
-  ActionLogDetail,
-  ActionLogEntry,
   ChangeEntry,
   EventEntry,
+  RunDetail,
+  RunEntry,
+  RunStepEntry,
 } from "./log-schemas.ts";
 export type { DescribeOptions, SystemDescription } from "./describe.ts";

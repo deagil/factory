@@ -9,12 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { AnyActionDefinition, AnyDefinition } from "./define-action.ts";
 import { generateDefinitions } from "./generated.ts";
-import {
-  actionLogGet,
-  actionLogList,
-  auditLogList,
-  eventLogList,
-} from "./logs.ts";
+import { auditLogList, eventLogList, runGet, runList } from "./logs.ts";
 import { rolePermissions } from "./permissions.ts";
 import type { Role } from "./permissions.ts";
 import { createPipeline } from "./pipeline.ts";
@@ -45,7 +40,7 @@ const [create, update] = generateDefinitions(organisation).filter(
 
 interface Entry {
   id: string;
-  name: string;
+  endpoint: string;
   actor: { name: string };
   origin: { name: string } | null;
 }
@@ -109,7 +104,7 @@ describe("log queries", () => {
       { id: acmeId, name: "Acme Ltd" },
       admin
     );
-    renameId = renamed.ok ? (renamed.actionId ?? "") : "";
+    renameId = renamed.ok ? (renamed.runId ?? "") : "";
     await createOrganisation("Globex", sam);
     await createOrganisation("Initech", samsAgent);
   });
@@ -118,27 +113,27 @@ describe("log queries", () => {
     await crm?.close();
   });
 
-  it("lists actions newest first, filtered and paged", async () => {
+  it("lists runs newest first, filtered and paged", async () => {
     const { output } = await query<{ entries: Entry[] }>(
-      actionLogList,
-      { namePrefix: "organisation." },
+      runList,
+      { endpointPrefix: "organisation." },
       admin
     );
-    expect(output?.entries.map((entry) => entry.name)).toStrictEqual([
+    expect(output?.entries.map((entry) => entry.endpoint)).toStrictEqual([
       "organisation.create",
       "organisation.create",
       "organisation.update",
       "organisation.create",
     ]);
     const first = await query<{ entries: Entry[]; nextCursor: string }>(
-      actionLogList,
-      { name: "organisation.create", limit: 2 },
+      runList,
+      { endpoint: "organisation.create", limit: 2 },
       admin
     );
     const second = await query<{ entries: Entry[]; nextCursor: null }>(
-      actionLogList,
+      runList,
       {
-        name: "organisation.create",
+        endpoint: "organisation.create",
         limit: 2,
         cursor: first.output?.nextCursor,
       },
@@ -148,12 +143,8 @@ describe("log queries", () => {
     expect(second.output?.nextCursor).toBeNull();
   });
 
-  it("shows anyone without the permission only their own actions", async () => {
-    const { output } = await query<{ entries: Entry[] }>(
-      actionLogList,
-      {},
-      sam
-    );
+  it("shows anyone without the permission only their own runs", async () => {
+    const { output } = await query<{ entries: Entry[] }>(runList, {}, sam);
     expect(
       output?.entries.map((entry) => [entry.actor.name, entry.origin?.name])
     ).toStrictEqual([
@@ -162,17 +153,31 @@ describe("log queries", () => {
     ]);
   });
 
-  it("gets one action with its changes and events, and refuses others'", async () => {
+  it("gets one run with its step, changes and events, and refuses others'", async () => {
     const { output } = await query<{
-      action: { changes: { after: object }[]; events: { type: string }[] };
-    }>(actionLogGet, { id: renameId }, admin);
-    expect(output?.action.changes.map((change) => change.after)).toStrictEqual([
+      run: {
+        steps: { stepId: string; output: unknown }[];
+        changes: { after: object; stepId: string }[];
+        events: { type: string; stepId: string }[];
+      };
+    }>(runGet, { id: renameId }, admin);
+    const [step] = output?.run.steps ?? [];
+    expect({
+      steps: output?.run.steps.length,
+      stepId: step?.stepId,
+      changedIn: output?.run.changes[0]?.stepId,
+    }).toStrictEqual({
+      steps: 1,
+      stepId: "organisation.update",
+      changedIn: (step as { id?: string } | undefined)?.id,
+    });
+    expect(output?.run.changes.map((change) => change.after)).toStrictEqual([
       { name: "Acme Ltd" },
     ]);
-    expect(output?.action.events.map((event) => event.type)).toStrictEqual([
+    expect(output?.run.events.map((event) => event.type)).toStrictEqual([
       "organisation.updated",
     ]);
-    const refused = await query(actionLogGet, { id: renameId }, sam);
+    const refused = await query(runGet, { id: renameId }, sam);
     expect(refused.code).toBe("permission");
   });
 

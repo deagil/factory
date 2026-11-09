@@ -49,8 +49,8 @@ const roles: Role[] = [
 ];
 
 /** The action_log row a call wrote, if it was an action. */
-const actionIdOf = (result: object) =>
-  ("actionId" in result ? (result.actionId as string | null) : null) ?? "";
+const runIdOf = (result: object) =>
+  ("runId" in result ? (result.runId as string | null) : null) ?? "";
 
 const registry = createRegistry([
   ...identityActions,
@@ -140,8 +140,8 @@ describe("API keys, agents and integrations", () => {
       },
       agent
     );
-    const log = await crm.db.query.actionLog.findFirst({
-      where: (t, { eq }) => eq(t.id, actionIdOf(created)),
+    const log = await crm.db.query.runs.findFirst({
+      where: (t, { eq }) => eq(t.id, runIdOf(created)),
     });
     expect(agent).toStrictEqual({ actorId, originUserId: sarah.userId });
     expect(log).toMatchObject({
@@ -163,13 +163,13 @@ describe("API keys, agents and integrations", () => {
       sarah
     );
     const result = await call("apiKey.create", { actorId, label: "x" }, sarah);
-    const log = await crm.db.query.actionLog.findFirst({
-      where: (t, { eq }) => eq(t.id, actionIdOf(result)),
+    const log = await crm.db.query.runs.findFirst({
+      where: (t, { eq }) => eq(t.id, runIdOf(result)),
     });
     const stored = JSON.stringify(await crm.db.query.apiKeys.findMany({}));
     const key = result.ok ? (result.output as { key: string }).key : "";
     expect(key).toMatch(/^fx_/u);
-    expect(log?.result).toMatchObject({ key: "[redacted]" });
+    expect(log?.output).toMatchObject({ key: "[redacted]" });
     expect(stored).not.toContain(key);
   });
 

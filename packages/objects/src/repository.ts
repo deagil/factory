@@ -22,8 +22,9 @@ import type { AnyField } from "./fields/field.ts";
 export interface RepositoryOptions {
   /** The action's transaction. Anything else is refused. */
   executor: Executor;
-  /** The action_log row this action wrote first; audit rows point at it. */
-  actionId: string;
+  /** The run, and its step, this write belongs to; audit rows point at them. */
+  runId: string;
+  stepId: string;
   /** Who is acting: written to created_by, updated_by and audit_log. */
   actorId: string;
   /** The clock, from the action's context. */
@@ -135,7 +136,8 @@ const checkChoices = (
 
 export const createRepository = ({
   executor,
-  actionId,
+  runId,
+  stepId,
   actorId,
   now,
   choices,
@@ -175,7 +177,8 @@ export const createRepository = ({
       recordId,
       before: changes.before,
       after: changes.after,
-      actionId,
+      runId,
+      stepId,
       actorId,
       at: now(),
     });

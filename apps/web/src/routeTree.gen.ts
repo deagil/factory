@@ -23,8 +23,8 @@ import { Route as AppInboxApprovalsRouteImport } from './routes/_app/inbox.appro
 import { Route as AppSettingsApiRouteImport } from './routes/_app/settings.api'
 import { Route as AppSettingsReferenceRouteImport } from './routes/_app/settings.reference'
 import { Route as AppAccessActorsIdRouteImport } from './routes/_app/access.actors.$id'
-import { Route as AppActivityActionsIndexRouteImport } from './routes/_app/activity.actions.index'
-import { Route as AppActivityActionsIdRouteImport } from './routes/_app/activity.actions.$id'
+import { Route as AppActivityRunsIndexRouteImport } from './routes/_app/activity.runs.index'
+import { Route as AppActivityRunsIdRouteImport } from './routes/_app/activity.runs.$id'
 import { Route as AppConfigDraftsIndexRouteImport } from './routes/_app/config.drafts.index'
 import { Route as AppConfigDraftsIdRouteImport } from './routes/_app/config.drafts.$id'
 import { Route as AppOObjectIndexRouteImport } from './routes/_app/o.$object.index'
@@ -102,14 +102,14 @@ const AppAccessActorsIdRoute = AppAccessActorsIdRouteImport.update({
   path: '/access/actors/$id',
   getParentRoute: () => AppRoute,
 } as any)
-const AppActivityActionsIndexRoute = AppActivityActionsIndexRouteImport.update({
-  id: '/activity/actions/',
-  path: '/activity/actions/',
+const AppActivityRunsIndexRoute = AppActivityRunsIndexRouteImport.update({
+  id: '/activity/runs/',
+  path: '/activity/runs/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppActivityActionsIdRoute = AppActivityActionsIdRouteImport.update({
-  id: '/activity/actions/$id',
-  path: '/activity/actions/$id',
+const AppActivityRunsIdRoute = AppActivityRunsIdRouteImport.update({
+  id: '/activity/runs/$id',
+  path: '/activity/runs/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const AppConfigDraftsIndexRoute = AppConfigDraftsIndexRouteImport.update({
@@ -162,12 +162,12 @@ export interface FileRoutesByFullPath {
   '/settings/api': typeof AppSettingsApiRoute
   '/settings/reference': typeof AppSettingsReferenceRoute
   '/access/actors/$id': typeof AppAccessActorsIdRoute
-  '/activity/actions/$id': typeof AppActivityActionsIdRoute
+  '/activity/runs/$id': typeof AppActivityRunsIdRoute
   '/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
   '/settings/choices/$list': typeof AppSettingsChoicesListRoute
-  '/activity/actions/': typeof AppActivityActionsIndexRoute
+  '/activity/runs/': typeof AppActivityRunsIndexRoute
   '/config/drafts/': typeof AppConfigDraftsIndexRoute
   '/o/$object/': typeof AppOObjectIndexRoute
   '/settings/choices/': typeof AppSettingsChoicesIndexRoute
@@ -186,12 +186,12 @@ export interface FileRoutesByTo {
   '/settings/api': typeof AppSettingsApiRoute
   '/settings/reference': typeof AppSettingsReferenceRoute
   '/access/actors/$id': typeof AppAccessActorsIdRoute
-  '/activity/actions/$id': typeof AppActivityActionsIdRoute
+  '/activity/runs/$id': typeof AppActivityRunsIdRoute
   '/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
   '/o/$object/new': typeof AppOObjectNewRoute
   '/settings/choices/$list': typeof AppSettingsChoicesListRoute
-  '/activity/actions': typeof AppActivityActionsIndexRoute
+  '/activity/runs': typeof AppActivityRunsIndexRoute
   '/config/drafts': typeof AppConfigDraftsIndexRoute
   '/o/$object': typeof AppOObjectIndexRoute
   '/settings/choices': typeof AppSettingsChoicesIndexRoute
@@ -212,12 +212,12 @@ export interface FileRoutesById {
   '/_app/settings/api': typeof AppSettingsApiRoute
   '/_app/settings/reference': typeof AppSettingsReferenceRoute
   '/_app/access/actors/$id': typeof AppAccessActorsIdRoute
-  '/_app/activity/actions/$id': typeof AppActivityActionsIdRoute
+  '/_app/activity/runs/$id': typeof AppActivityRunsIdRoute
   '/_app/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/_app/o/$object/$id': typeof AppOObjectIdRoute
   '/_app/o/$object/new': typeof AppOObjectNewRoute
   '/_app/settings/choices/$list': typeof AppSettingsChoicesListRoute
-  '/_app/activity/actions/': typeof AppActivityActionsIndexRoute
+  '/_app/activity/runs/': typeof AppActivityRunsIndexRoute
   '/_app/config/drafts/': typeof AppConfigDraftsIndexRoute
   '/_app/o/$object/': typeof AppOObjectIndexRoute
   '/_app/settings/choices/': typeof AppSettingsChoicesIndexRoute
@@ -238,12 +238,12 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/reference'
     | '/access/actors/$id'
-    | '/activity/actions/$id'
+    | '/activity/runs/$id'
     | '/config/drafts/$id'
     | '/o/$object/$id'
     | '/o/$object/new'
     | '/settings/choices/$list'
-    | '/activity/actions/'
+    | '/activity/runs/'
     | '/config/drafts/'
     | '/o/$object/'
     | '/settings/choices/'
@@ -262,12 +262,12 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/reference'
     | '/access/actors/$id'
-    | '/activity/actions/$id'
+    | '/activity/runs/$id'
     | '/config/drafts/$id'
     | '/o/$object/$id'
     | '/o/$object/new'
     | '/settings/choices/$list'
-    | '/activity/actions'
+    | '/activity/runs'
     | '/config/drafts'
     | '/o/$object'
     | '/settings/choices'
@@ -287,12 +287,12 @@ export interface FileRouteTypes {
     | '/_app/settings/api'
     | '/_app/settings/reference'
     | '/_app/access/actors/$id'
-    | '/_app/activity/actions/$id'
+    | '/_app/activity/runs/$id'
     | '/_app/config/drafts/$id'
     | '/_app/o/$object/$id'
     | '/_app/o/$object/new'
     | '/_app/settings/choices/$list'
-    | '/_app/activity/actions/'
+    | '/_app/activity/runs/'
     | '/_app/config/drafts/'
     | '/_app/o/$object/'
     | '/_app/settings/choices/'
@@ -403,18 +403,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccessActorsIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/activity/actions/': {
-      id: '/_app/activity/actions/'
-      path: '/activity/actions'
-      fullPath: '/activity/actions/'
-      preLoaderRoute: typeof AppActivityActionsIndexRouteImport
+    '/_app/activity/runs/': {
+      id: '/_app/activity/runs/'
+      path: '/activity/runs'
+      fullPath: '/activity/runs/'
+      preLoaderRoute: typeof AppActivityRunsIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/activity/actions/$id': {
-      id: '/_app/activity/actions/$id'
-      path: '/activity/actions/$id'
-      fullPath: '/activity/actions/$id'
-      preLoaderRoute: typeof AppActivityActionsIdRouteImport
+    '/_app/activity/runs/$id': {
+      id: '/_app/activity/runs/$id'
+      path: '/activity/runs/$id'
+      fullPath: '/activity/runs/$id'
+      preLoaderRoute: typeof AppActivityRunsIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/config/drafts/': {
@@ -482,12 +482,12 @@ interface AppRouteChildren {
   AppSettingsApiRoute: typeof AppSettingsApiRoute
   AppSettingsReferenceRoute: typeof AppSettingsReferenceRoute
   AppAccessActorsIdRoute: typeof AppAccessActorsIdRoute
-  AppActivityActionsIdRoute: typeof AppActivityActionsIdRoute
+  AppActivityRunsIdRoute: typeof AppActivityRunsIdRoute
   AppConfigDraftsIdRoute: typeof AppConfigDraftsIdRoute
   AppOObjectIdRoute: typeof AppOObjectIdRoute
   AppOObjectNewRoute: typeof AppOObjectNewRoute
   AppSettingsChoicesListRoute: typeof AppSettingsChoicesListRoute
-  AppActivityActionsIndexRoute: typeof AppActivityActionsIndexRoute
+  AppActivityRunsIndexRoute: typeof AppActivityRunsIndexRoute
   AppConfigDraftsIndexRoute: typeof AppConfigDraftsIndexRoute
   AppOObjectIndexRoute: typeof AppOObjectIndexRoute
   AppSettingsChoicesIndexRoute: typeof AppSettingsChoicesIndexRoute
@@ -506,12 +506,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsApiRoute: AppSettingsApiRoute,
   AppSettingsReferenceRoute: AppSettingsReferenceRoute,
   AppAccessActorsIdRoute: AppAccessActorsIdRoute,
-  AppActivityActionsIdRoute: AppActivityActionsIdRoute,
+  AppActivityRunsIdRoute: AppActivityRunsIdRoute,
   AppConfigDraftsIdRoute: AppConfigDraftsIdRoute,
   AppOObjectIdRoute: AppOObjectIdRoute,
   AppOObjectNewRoute: AppOObjectNewRoute,
   AppSettingsChoicesListRoute: AppSettingsChoicesListRoute,
-  AppActivityActionsIndexRoute: AppActivityActionsIndexRoute,
+  AppActivityRunsIndexRoute: AppActivityRunsIndexRoute,
   AppConfigDraftsIndexRoute: AppConfigDraftsIndexRoute,
   AppOObjectIndexRoute: AppOObjectIndexRoute,
   AppSettingsChoicesIndexRoute: AppSettingsChoicesIndexRoute,

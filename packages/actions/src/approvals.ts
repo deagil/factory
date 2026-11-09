@@ -22,7 +22,7 @@ const who = z.object({ id: z.uuid(), name: z.string() });
 
 export const approvalEntrySchema = z.object({
   id: z.uuid(),
-  subject: z.enum(["action", "draft"]),
+  subject: z.enum(["run", "draft", "action"]),
   subjectId: z.uuid(),
   rule: z.string(),
   approverRole: z.string(),
@@ -58,8 +58,8 @@ const settleDraft = async (
   draftId: string
 ) => {
   const draft = await ctx.dal.draftDetail(draftId);
-  await ctx.drafts.update(draftId, { status: "valid", publishActionId: null });
-  return draft?.publishActionId ?? null;
+  await ctx.drafts.update(draftId, { status: "valid", publishRunId: null });
+  return draft?.publishRunId ?? null;
 };
 
 /** The approval, locked, if `ctx.actor` may decide it now; or why not. */
@@ -118,7 +118,7 @@ export const approvalApprove = defineAction({
     approval: decided,
     ran: z
       .object({
-        actionId: z.uuid(),
+        runId: z.uuid(),
         ok: z.boolean(),
         output: z.unknown(),
         error: z.object({ code: z.string(), message: z.string() }).nullable(),
@@ -152,9 +152,9 @@ export const approvalApprove = defineAction({
     return {
       approval,
       ran: result.ok
-        ? { actionId: parked, ok: true, output: result.output, error: null }
+        ? { runId: parked, ok: true, output: result.output, error: null }
         : {
-            actionId: parked,
+            runId: parked,
             ok: false,
             output: null,
             error: { code: result.error.code, message: result.error.message },
@@ -185,7 +185,7 @@ export const approvalReject = defineAction({
     // The other sign-offs on it no longer matter.
     await ctx.approvals.cancelPending(subject, subjectId, ctx.clock.now());
     const parked =
-      subject === "action" ? subjectId : await settleDraft(ctx, subjectId);
+      subject === "run" ? subjectId : await settleDraft(ctx, subjectId);
     if (parked) {
       await ctx.approvals.close(parked, "rejected");
     }
@@ -232,7 +232,7 @@ export const approvalWithdraw = defineAction({
       ctx.clock.now()
     );
     const parked =
-      approval.subject === "action"
+      approval.subject === "run"
         ? subjectId
         : await settleDraft(ctx, subjectId);
     if (parked) {

@@ -1,10 +1,10 @@
 // Output schemas for the log queries (P1b.02). They live apart from the
-// queries because they need the core's action statuses, and files that
+// queries because they need the core's run statuses, and files that
 // define handlers may not import @workspace/db (decision 0019).
-import { actionStatuses } from "@workspace/db/schema";
+import { runStatuses, runStepKinds } from "@workspace/db/schema";
 import { z } from "zod";
 
-export { actionStatuses } from "@workspace/db/schema";
+export { runStatuses } from "@workspace/db/schema";
 
 export const timestamp = z.iso.datetime({ offset: true });
 
@@ -18,13 +18,14 @@ const userSummary = z.object({ id: z.string(), name: z.string() }).nullable();
 
 const changes = z.record(z.string(), z.unknown());
 
-export const actionLogEntrySchema = z.object({
+export const runEntrySchema = z.object({
   id: z.uuid(),
-  name: z.string(),
-  status: z.enum(actionStatuses),
+  /** The endpoint called; for now an action or query by name. */
+  endpoint: z.string(),
+  status: z.enum(runStatuses),
   dryRun: z.boolean(),
   at: timestamp,
-  completedAt: timestamp.nullable(),
+  finishedAt: timestamp.nullable(),
   actor: actorSummary,
   /** The person at the start of the chain; null for integrations. */
   origin: userSummary,
@@ -37,7 +38,8 @@ export const changeEntrySchema = z.object({
   object: z.string(),
   recordId: z.uuid(),
   action: z.string(),
-  actionId: z.uuid(),
+  runId: z.uuid(),
+  stepId: z.uuid(),
   actor: actorSummary,
   origin: userSummary,
   before: changes,
@@ -48,19 +50,38 @@ export const eventEntrySchema = z.object({
   id: z.uuid(),
   type: z.string(),
   at: timestamp,
-  actionId: z.uuid(),
+  runId: z.uuid().nullable(),
+  stepId: z.uuid().nullable(),
   depth: z.number().int(),
   dispatchedAt: timestamp.nullable(),
   origin: userSummary,
   payload: z.unknown(),
 });
 
-export const actionLogDetailSchema = actionLogEntrySchema.extend({
+export const runStepEntrySchema = z.object({
+  id: z.uuid(),
+  /** The step's id in its workflow; a one-step run uses the action's name. */
+  stepId: z.string(),
+  kind: z.enum(runStepKinds),
+  /** The action the step ran, or the control step. */
+  name: z.string(),
+  segment: z.number().int(),
+  attempt: z.number().int(),
+  branch: z.string().nullable(),
   input: z.unknown(),
-  result: z.unknown(),
+  output: z.unknown(),
+  error: z.unknown(),
+  at: timestamp,
+  finishedAt: timestamp.nullable(),
+});
+
+export const runDetailSchema = runEntrySchema.extend({
+  input: z.unknown(),
+  output: z.unknown(),
   retryKey: z.string().nullable(),
   configSha: z.string().nullable(),
-  runId: z.uuid().nullable(),
+  parentRunId: z.uuid().nullable(),
+  steps: z.array(runStepEntrySchema),
   changes: z.array(changeEntrySchema),
   events: z.array(eventEntrySchema),
 });
@@ -79,7 +100,8 @@ export const range = {
 export const pageOf = <TEntry extends z.ZodType>(entry: TEntry) =>
   z.object({ entries: z.array(entry), nextCursor: z.string().nullable() });
 
-export type ActionLogEntry = z.infer<typeof actionLogEntrySchema>;
-export type ActionLogDetail = z.infer<typeof actionLogDetailSchema>;
+export type RunEntry = z.infer<typeof runEntrySchema>;
+export type RunDetail = z.infer<typeof runDetailSchema>;
+export type RunStepEntry = z.infer<typeof runStepEntrySchema>;
 export type ChangeEntry = z.infer<typeof changeEntrySchema>;
 export type EventEntry = z.infer<typeof eventEntrySchema>;

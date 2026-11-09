@@ -21,6 +21,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 const id = () =>
   uuid("id")
@@ -123,7 +124,10 @@ export const actionStatuses = [
   "withdrawn",
 ] as const;
 
-/** Every action run: who, for whom, input, result, config version. */
+/**
+ * Phase 1's log of action calls. Runs replaced it (P2.12, decision 0046):
+ * nothing writes it any more, and dropping it is the contract step in P2.26.
+ */
 export const actionLog = pgTable(
   "action_log",
   {
@@ -133,7 +137,6 @@ export const actionLog = pgTable(
       .notNull()
       .references(() => actors.id),
     originUserId: uuid("origin_user_id").references(() => users.id),
-    // References workflow_runs once that table exists (phase 2).
     runId: uuid("run_id"),
     input: jsonb("input").notNull(),
     result: jsonb("result"),
@@ -148,8 +151,6 @@ export const actionLog = pgTable(
   (t) => [
     index("action_log_actor_id_created_at_idx").on(t.actorId, t.createdAt),
     index("action_log_run_id_idx").on(t.runId),
-    // One success per retry key and actor: a second run with the key waits
-    // on this index, then replays the first's result (decision 0021).
     uniqueIndex("action_log_retry_key_unique")
       .on(t.actorId, t.retryKey)
       .where(
@@ -159,8 +160,100 @@ export const actionLog = pgTable(
 );
 
 /**
+ * What a run can be. `waiting` is a run paused at a step, today only for
+ * approval; `running` and `needs_attention` come with durable runs (P2.20).
+ */
+export const runStatuses = [
+  "running",
+  "waiting",
+  "succeeded",
+  "failed",
+  "needs_attention",
+  "rejected",
+  "withdrawn",
+  "cancelled",
+] as const;
+
+/**
+ * Every call of an endpoint (decision 0046): who called it, for whom, its
+ * input, its output or error, and the config it ran under. A successful run
+ * is written in its transaction with what it changed; a failed one is
+ * written after the rollback, so its trace survives. Only the engine (the
+ * pipeline) writes it.
+ */
+export const runs = pgTable(
+  "runs",
+  {
+    id: id(),
+    /** The endpoint called, or for now the action or query by name. */
+    endpoint: text("endpoint").notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => actors.id),
+    originUserId: uuid("origin_user_id").references(() => users.id),
+    input: jsonb("input").notNull(),
+    output: jsonb("output"),
+    error: jsonb("error"),
+    status: text("status", { enum: runStatuses }).notNull(),
+    retryKey: text("retry_key"),
+    dryRun: boolean("dry_run").notNull().default(false),
+    configSha: text("config_sha"),
+    parentRunId: uuid("parent_run_id").references((): AnyPgColumn => runs.id),
+    /** The event that started it, for runs a workflow's trigger started. */
+    eventId: uuid("event_id"),
+    depth: integer("depth").notNull().default(0),
+    startedAt: timestamptz("started_at").notNull().defaultNow(),
+    finishedAt: timestamptz("finished_at"),
+  },
+  (t) => [
+    index("runs_actor_id_started_at_idx").on(t.actorId, t.startedAt),
+    index("runs_started_at_idx").on(t.startedAt),
+    index("runs_parent_run_id_idx").on(t.parentRunId),
+    // One success per retry key and actor: a second run with the key waits
+    // on this index, then replays the first's result (decision 0021).
+    uniqueIndex("runs_retry_key_unique")
+      .on(t.actorId, t.retryKey)
+      .where(
+        sql`${t.retryKey} is not null and ${t.status} = 'succeeded' and not ${t.dryRun}`
+      ),
+  ]
+);
+
+export const runStepKinds = ["action", "control"] as const;
+
+/**
+ * One row per step of a run (decision 0046). `step_id` is the step's id in
+ * its workflow; a one-step run of an action uses the action's name. `name`
+ * is the action a step ran, or the control step (`if`, `emit`, …).
+ * `segment` numbers the transactions a run commits in. A retried step
+ * gets a new row with the next `attempt`. Only the engine writes it.
+ */
+export const runSteps = pgTable(
+  "run_steps",
+  {
+    id: id(),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => runs.id),
+    stepId: text("step_id").notNull(),
+    kind: text("kind", { enum: runStepKinds }).notNull(),
+    name: text("name").notNull(),
+    segment: integer("segment").notNull().default(0),
+    input: jsonb("input"),
+    output: jsonb("output"),
+    error: jsonb("error"),
+    /** For an `if` step: `then` or `else`. */
+    branch: text("branch"),
+    attempt: integer("attempt").notNull().default(1),
+    startedAt: timestamptz("started_at").notNull().defaultNow(),
+    finishedAt: timestamptz("finished_at"),
+  },
+  (t) => [index("run_steps_run_id_idx").on(t.runId, t.startedAt)]
+);
+
+/**
  * Every change to every record, written by repositories: one row per record
- * per action. `before` and `after` hold only the fields that changed, by
+ * per step. `before` and `after` hold only the fields that changed, by
  * key, with custom fields as `customFields.<key>`. A create has an empty
  * `before`. See decision 0018.
  */
@@ -178,9 +271,11 @@ export const auditLog = pgTable(
       .$type<Record<string, unknown>>()
       .notNull()
       .default({}),
-    actionId: uuid("action_id")
-      .notNull()
-      .references(() => actionLog.id),
+    /** Phase 1's action_log row; null from P2.12 on. */
+    actionId: uuid("action_id").references(() => actionLog.id),
+    /** The run and step that made the change; null only before P2.12. */
+    runId: uuid("run_id").references(() => runs.id),
+    stepId: uuid("step_id").references(() => runSteps.id),
     actorId: uuid("actor_id")
       .notNull()
       .references(() => actors.id),
@@ -189,21 +284,24 @@ export const auditLog = pgTable(
   (t) => [
     index("audit_log_record_idx").on(t.object, t.recordId, t.at),
     index("audit_log_action_id_idx").on(t.actionId),
+    index("audit_log_run_id_idx").on(t.runId),
     // Finds every change to one field across records: `after ? 'stage'`.
     index("audit_log_after_idx").using("gin", t.after),
   ]
 );
 
-/** Every event, written by actions in the same transaction as the change. */
+/** Every event, written in the same transaction as the change. */
 export const eventLog = pgTable(
   "event_log",
   {
     id: id(),
     type: text("type").notNull(),
     payload: jsonb("payload").notNull(),
-    actionId: uuid("action_id")
-      .notNull()
-      .references(() => actionLog.id),
+    /** Phase 1's action_log row; null from P2.12 on. */
+    actionId: uuid("action_id").references(() => actionLog.id),
+    /** The run and step that emitted it; null only before P2.12. */
+    runId: uuid("run_id").references(() => runs.id),
+    stepId: uuid("step_id").references(() => runSteps.id),
     originUserId: uuid("origin_user_id").references(() => users.id),
     depth: integer("depth").notNull().default(0),
     createdAt: createdAt(),
@@ -211,6 +309,7 @@ export const eventLog = pgTable(
   },
   (t) => [
     index("event_log_action_id_idx").on(t.actionId),
+    index("event_log_run_id_idx").on(t.runId),
     index("event_log_undispatched_idx")
       .on(t.createdAt)
       .where(sql`${t.dispatchedAt} is null`),
@@ -254,8 +353,8 @@ export const draftStatuses = [
  * Publishing writes one commit to production (`published_sha`) and copies it
  * to main (`synced_sha`). A draft opened by a save has `auto_title`, written
  * from its files on each save. One waiting for approval has its parked
- * `draft.publish` in `publish_action_id`, which the last approval runs
- * (decision 0044). Only the draft and approval actions write it.
+ * `draft.publish` run in `publish_run_id`, which the last approval resumes
+ * (decision 0044); `publish_action_id` is phase 1's, unused since P2.12. Only the draft and approval actions write it.
  */
 export const drafts = pgTable(
   "drafts",
@@ -273,6 +372,7 @@ export const drafts = pgTable(
     publishedSha: text("published_sha"),
     syncedSha: text("synced_sha"),
     publishActionId: uuid("publish_action_id").references(() => actionLog.id),
+    publishRunId: uuid("publish_run_id").references(() => runs.id),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => actors.id),
@@ -286,7 +386,8 @@ export const drafts = pgTable(
   ]
 );
 
-export const approvalSubjects = ["action", "draft"] as const;
+/** `run` is a run waiting for approval; `action` was phase 1's. */
+export const approvalSubjects = ["run", "draft", "action"] as const;
 export const approvalStatuses = [
   "pending",
   "approved",
@@ -296,7 +397,7 @@ export const approvalStatuses = [
 
 /**
  * Sign-offs an approval rule asked for (P2.09, decision 0042): one row per
- * rule that matched an action (its pending `action_log` row) or covers a
+ * rule that matched an action (its waiting run) or covers a
  * draft. `approver_role` is copied from the rule, so a later edit to the
  * rule doesn't change who may decide. A save to a draft cancels its rows.
  * Only the pipeline and the approval and draft actions write it.

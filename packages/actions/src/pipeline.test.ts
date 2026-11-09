@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { actionLog, approvals, auditLog, eventLog } from "@workspace/db";
+import { approvals, auditLog, eventLog, runs, runSteps } from "@workspace/db";
 import {
   createCrmDatabase,
   createStaffActor,
@@ -68,7 +68,12 @@ describe("the action pipeline", () => {
   let userId: string | null;
 
   const logRows = (name: string) =>
-    crm.db.select().from(actionLog).where(eq(actionLog.name, name));
+    crm.db.select().from(runs).where(eq(runs.endpoint, name));
+  const stepsOf = (runId: string | undefined) =>
+    crm.db
+      .select()
+      .from(runSteps)
+      .where(eq(runSteps.runId, runId ?? ""));
   const orgsNamed = async (name: string) => {
     const rows = await crm.db.select().from(organisation.table);
     return rows.filter((row) => row.name === name);
@@ -90,7 +95,7 @@ describe("the action pipeline", () => {
     await crm?.close();
   });
 
-  it("commits the change, its audit_log, action_log and event_log rows together", async () => {
+  it("commits the change, its run and step, audit_log and event_log rows together", async () => {
     const result = await pipeline.run(
       createOrg("org.create"),
       { name: "Acme" },
@@ -101,27 +106,38 @@ describe("the action pipeline", () => {
     const audits = await crm.db
       .select()
       .from(auditLog)
-      .where(eq(auditLog.actionId, log?.id ?? ""));
+      .where(eq(auditLog.runId, log?.id ?? ""));
     const events = await crm.db
       .select()
       .from(eventLog)
-      .where(eq(eventLog.actionId, log?.id ?? ""));
+      .where(eq(eventLog.runId, log?.id ?? ""));
+    const steps = await stepsOf(log?.id);
     expect(result).toMatchObject({ ok: true, output: { id: org?.id } });
     expect(log).toMatchObject({
       actorId: caller.actorId,
       originUserId: userId,
       input: { name: "Acme" },
-      result: { id: org?.id },
+      output: { id: org?.id },
       status: "succeeded",
       configSha: null,
-      completedAt: clock,
+      finishedAt: clock,
     });
-    expect(audits).toHaveLength(1);
+    expect(steps).toMatchObject([
+      {
+        stepId: "org.create",
+        kind: "action",
+        name: "org.create",
+        input: { name: "Acme" },
+        output: { id: org?.id },
+      },
+    ]);
+    expect(audits).toMatchObject([{ stepId: steps[0]?.id }]);
     expect(events).toMatchObject([
       {
         type: "organisation.created",
         payload: { id: org?.id, name: "Acme" },
         originUserId: userId,
+        stepId: steps[0]?.id,
         depth: 0,
       },
     ]);
@@ -135,7 +151,7 @@ describe("the action pipeline", () => {
     );
     expect(result).toMatchObject({
       ok: false,
-      actionId: null,
+      runId: null,
       error: { code: "permission" },
     });
     await expect(logRows("org.unknown")).resolves.toHaveLength(0);
@@ -179,7 +195,7 @@ describe("the action pipeline", () => {
     await expect(logRows("org.forbidden")).resolves.toHaveLength(1);
   });
 
-  it("approves: a matching rule parks the action as pending_approval", async () => {
+  it("approves: a matching rule parks the action as a waiting run", async () => {
     const guarded = createPipeline({
       db: crm.db,
       config: {
@@ -205,7 +221,7 @@ describe("the action pipeline", () => {
     const waiting = await crm.db
       .select()
       .from(approvals)
-      .where(eq(approvals.subjectId, result.actionId ?? ""));
+      .where(eq(approvals.subjectId, result.runId ?? ""));
     expect({ result, waiting }).toMatchObject({
       result: {
         ok: false,
@@ -216,7 +232,7 @@ describe("the action pipeline", () => {
       ],
     });
     await expect(logRows("org.guarded")).resolves.toMatchObject([
-      { status: "pending_approval" },
+      { status: "waiting" },
     ]);
     await expect(orgsNamed("Guarded")).resolves.toHaveLength(0);
   });
@@ -238,7 +254,7 @@ describe("the action pipeline", () => {
       const events = await crm.db
         .select()
         .from(eventLog)
-        .where(eq(eventLog.actionId, rows[0]?.id ?? ""));
+        .where(eq(eventLog.runId, rows[0]?.id ?? ""));
       expect(result).toMatchObject({ ok: false, error: { code } });
       expect(rows).toHaveLength(1);
       expect(rows[0]?.status).toBe("failed");
@@ -337,7 +353,7 @@ describe("the action pipeline", () => {
     const events = await crm.db
       .select()
       .from(eventLog)
-      .where(eq(eventLog.actionId, result.actionId ?? ""));
+      .where(eq(eventLog.runId, result.runId ?? ""));
     expect(events).toStrictEqual([]);
   });
 });

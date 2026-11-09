@@ -12,7 +12,7 @@ import type {
   AnyActionDefinition,
   AnyQueryDefinition,
 } from "@workspace/actions";
-import { actionLog, bootstrapStaff, drafts } from "@workspace/db";
+import { runs, bootstrapStaff, drafts } from "@workspace/db";
 import { createServer, defineSystem } from "@workspace/server";
 import type { Server } from "@workspace/server";
 import { createSystemDatabase } from "@workspace/server/testing";
@@ -311,11 +311,11 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       listed as { output: { approvals: { id: string; status: string }[] } }
     ).output.approvals;
   };
-  const statusOf = async (actionId: string) => {
+  const statusOf = async (runId: string) => {
     const [row] = await server.db
-      .select({ status: actionLog.status, actorId: actionLog.actorId })
-      .from(actionLog)
-      .where(eq(actionLog.id, actionId));
+      .select({ status: runs.status, actorId: runs.actorId })
+      .from(runs)
+      .where(eq(runs.id, runId));
     return row;
   };
 
@@ -443,15 +443,14 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       { id: approval?.id },
       bea
     );
-    const { ran } = (approved as { output: { ran: { actionId: string } } })
-      .output;
+    const { ran } = (approved as { output: { ran: { runId: string } } }).output;
     expect({
       check,
       asked,
       again,
       byAda,
       approved,
-      run: await statusOf(ran.actionId),
+      run: await statusOf(ran.runId),
       draft: await query("draft.get", { id }),
       commits: git(bare, "rev-list", "--count", `${before}..production`),
       author: git(bare, "log", "-1", "--format=%an %s", "production"),
@@ -494,7 +493,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       server.pipeline.run(action("draft.publish"), { id }, agent);
     const parkedOf = async (id: string) => {
       const found = await server.db
-        .select({ id: drafts.publishActionId })
+        .select({ id: drafts.publishRunId })
         .from(drafts)
         .where(eq(drafts.id, id));
       return found[0]?.id ?? "";

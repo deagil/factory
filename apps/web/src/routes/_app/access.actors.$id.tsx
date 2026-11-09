@@ -147,11 +147,11 @@ const ActorScreen = () => {
         actions={
           <>
             <Link
-              to="/activity/actions"
+              to="/activity/runs"
               search={{ actor: actor.id }}
               className={buttonVariants({ variant: "outline" })}
             >
-              Actions
+              Runs
             </Link>
             {can(toggleName) && !isYou && (
               <Button

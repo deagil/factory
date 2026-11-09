@@ -1,4 +1,4 @@
-import { actionLog, auditLog, withTransaction } from "@workspace/db";
+import { auditLog, runs, runSteps, withTransaction } from "@workspace/db";
 import type { Tx } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -20,22 +20,32 @@ describe("repositories", () => {
 
   /**
    * Runs `work` the way an action will: in a transaction, after writing its
-   * action_log row, with a repository bound to both.
+   * run and step rows, with a repository bound to them.
    */
   const inAction = <T>(work: (repo: Repository, tx: Tx) => Promise<T>) =>
     withTransaction(crm.db, async (tx) => {
-      const [action] = await tx
-        .insert(actionLog)
+      const [run] = await tx
+        .insert(runs)
         .values({
-          name: "test.write",
+          endpoint: "test.write",
           actorId,
           input: {},
           status: "succeeded",
         })
         .returning();
+      const [step] = await tx
+        .insert(runSteps)
+        .values({
+          runId: run?.id ?? "",
+          stepId: "test.write",
+          kind: "action",
+          name: "test.write",
+        })
+        .returning();
       const repo = createRepository({
         executor: tx,
-        actionId: action?.id ?? "",
+        runId: run?.id ?? "",
+        stepId: step?.id ?? "",
         actorId,
         now: () => clock,
       });
@@ -66,7 +76,8 @@ describe("repositories", () => {
     expect(() =>
       createRepository({
         executor: crm.db,
-        actionId: "x",
+        runId: "x",
+        stepId: "x",
         actorId,
         now: () => clock,
       })
@@ -106,20 +117,20 @@ describe("repositories", () => {
       });
     });
 
-    it("points the audit row at the action", async () => {
-      const { org, actionId } = await inAction(async (repo, tx) => {
+    it("points the audit row at the run", async () => {
+      const { org, runId } = await inAction(async (repo, tx) => {
         const created = await repo.create(organisation, { name: "Acme" });
         const [row] = await tx
-          .select({ actionId: auditLog.actionId })
+          .select({ runId: auditLog.runId })
           .from(auditLog)
           .where(eq(auditLog.recordId, created.id));
-        return { org: created, actionId: row?.actionId };
+        return { org: created, runId: row?.runId };
       });
-      const [action] = await crm.db
+      const [run] = await crm.db
         .select()
-        .from(actionLog)
-        .where(eq(actionLog.id, actionId ?? ""));
-      expect(action?.name).toBe("test.write");
+        .from(runs)
+        .where(eq(runs.id, runId ?? ""));
+      expect(run?.endpoint).toBe("test.write");
       expect(org.id).toBeTruthy();
     });
 

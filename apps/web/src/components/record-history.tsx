@@ -134,8 +134,8 @@ export const RecordHistory = ({
                 {" "}
                 ·{" "}
                 <Link
-                  to="/activity/actions/$id"
-                  params={{ id: entry.actionId }}
+                  to="/activity/runs/$id"
+                  params={{ id: entry.runId }}
                   className="hover:underline"
                 >
                   {entry.action}

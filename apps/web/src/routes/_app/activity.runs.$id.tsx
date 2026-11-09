@@ -1,9 +1,9 @@
-// One action that ran (P1b.03): what went in and came out, who ran it and
-// for whom, the config it ran under, and the changes and events it wrote,
-// each linking to its record.
+// One run (P1b.03, P2.12): what went in and came out, who made it and for
+// whom, the config it ran under, each step, and the changes and events it
+// wrote, each linking to its record.
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import type { ActionLogDetail } from "@workspace/actions";
+import type { RunDetail } from "@workspace/actions";
 import type { ReactNode } from "react";
 
 import {
@@ -38,21 +38,18 @@ const Section = ({
   </section>
 );
 
-const ActionScreen = () => {
+const RunScreen = () => {
   const { id } = Route.useParams();
   const described = useQuery({
     queryKey: ["system.describe"],
     queryFn: describeSystem,
   });
   const found = useQuery({
-    queryKey: ["actionLog.get", id],
-    queryFn: () =>
-      runQuery<{ action: ActionLogDetail }>("actionLog.get", { id }),
+    queryKey: ["run.get", id],
+    queryFn: () => runQuery<{ run: RunDetail }>("run.get", { id }),
     retry: false,
   });
-  const trail = [
-    { label: "Actions", link: { to: "/activity/actions" } },
-  ] as const;
+  const trail = [{ label: "Runs", link: { to: "/activity/runs" } }] as const;
 
   if (found.isPending) {
     return (
@@ -65,55 +62,92 @@ const ActionScreen = () => {
   if (found.isError) {
     return (
       <>
-        <PageHeader title="Action" trail={[...trail]} />
+        <PageHeader title="Run" trail={[...trail]} />
         <ErrorText error={found.error} />
       </>
     );
   }
-  const { action } = found.data;
+  const { run } = found.data;
   return (
     <div className="flex max-w-4xl flex-col gap-6">
-      <PageHeader title={action.name} trail={[...trail]} />
+      <PageHeader title={run.endpoint} trail={[...trail]} />
       <dl className="divide-y">
         <Row label="Status">
-          <StatusBadge status={action.status} dryRun={action.dryRun} />
+          <StatusBadge status={run.status} dryRun={run.dryRun} />
         </Row>
         <Row label="By">
-          <WhoDid who={action} />
+          <WhoDid who={run} />
         </Row>
-        <Row label="Started">{when(action.at)}</Row>
+        <Row label="Started">{when(run.at)}</Row>
         <Row label="Finished">
-          {action.completedAt ? when(action.completedAt) : "—"}
+          {run.finishedAt ? when(run.finishedAt) : "—"}
         </Row>
         <Row label="Retry key">
-          <span className="font-mono text-xs">{action.retryKey ?? "—"}</span>
+          <span className="font-mono text-xs">{run.retryKey ?? "—"}</span>
         </Row>
         <Row label="Config">
           <span className="font-mono text-xs">
-            {action.configSha ?? "not from git"}
+            {run.configSha ?? "not from git"}
           </span>
         </Row>
-        <Row label="Action ID">
-          <span className="font-mono text-xs">{action.id}</span>
+        <Row label="Run ID">
+          <span className="font-mono text-xs">{run.id}</span>
         </Row>
       </dl>
-      {action.error ? (
+      {run.error ? (
         <Section title="Error">
-          <Json value={action.error} />
+          <Json value={run.error} />
         </Section>
       ) : null}
       <Section title="Input">
-        <Json value={action.input} />
+        <Json value={run.input} />
       </Section>
-      <Section title="Result">
-        <Json value={action.result} />
+      <Section title="Output">
+        <Json value={run.output} />
       </Section>
-      <Section title={`Changes (${action.changes.length})`}>
-        {action.changes.length === 0 ? (
+      <Section title={`Steps (${run.steps.length})`}>
+        {run.steps.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No steps have run yet.
+          </p>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {run.steps.map((step) => (
+              <li key={step.id} className="rounded-2xl border p-3 text-sm">
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <span className="font-mono text-xs font-medium">
+                    {step.stepId}
+                  </span>
+                  {step.name === step.stepId ? null : (
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {step.name}
+                    </span>
+                  )}
+                  {step.attempt > 1 ? (
+                    <span className="text-muted-foreground">
+                      attempt {step.attempt}
+                    </span>
+                  ) : null}
+                  <span className="text-muted-foreground">
+                    {step.error ? "failed" : step.finishedAt ? "done" : "…"}
+                  </span>
+                </div>
+                {step.error ? (
+                  <div className="mt-2">
+                    <Json value={step.error} />
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Section>
+      <Section title={`Changes (${run.changes.length})`}>
+        {run.changes.length === 0 ? (
           <p className="text-sm text-muted-foreground">No records changed.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {action.changes.map((change) => (
+            {run.changes.map((change) => (
               <li key={change.id} className="rounded-2xl border p-3 text-sm">
                 <RecordLink
                   object={change.object}
@@ -134,16 +168,16 @@ const ActionScreen = () => {
           </ul>
         )}
       </Section>
-      <Section title={`Events (${action.events.length})`}>
-        {action.events.length === 0 ? (
+      <Section title={`Events (${run.events.length})`}>
+        {run.events.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {action.events.map((event) => (
+            {run.events.map((event) => (
               <li key={event.id} className="flex flex-col gap-2 text-sm">
                 <Link
                   to="/activity/events"
-                  search={{ action: action.id }}
+                  search={{ run: run.id }}
                   className="font-mono text-xs hover:underline"
                 >
                   {event.type}
@@ -158,7 +192,7 @@ const ActionScreen = () => {
   );
 };
 
-export const Route = createFileRoute("/_app/activity/actions/$id")({
+export const Route = createFileRoute("/_app/activity/runs/$id")({
   staticData: { section: "activity" },
-  component: ActionScreen,
+  component: RunScreen,
 });

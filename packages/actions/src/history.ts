@@ -12,7 +12,8 @@ export const historyEntrySchema = z.object({
   id: z.uuid(),
   at: z.iso.datetime({ offset: true }),
   action: z.string(),
-  actionId: z.uuid(),
+  runId: z.uuid(),
+  stepId: z.uuid(),
   actor: z.object({ id: z.uuid(), name: z.string(), kind: z.string() }),
   /** The user an agent or workflow acted for; null for staff. */
   onBehalfOf: z.object({ id: z.string(), name: z.string() }).nullable(),

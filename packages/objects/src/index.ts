@@ -103,16 +103,17 @@ export type {
   UserStatus,
 } from "./dal/identity.ts";
 export type {
-  ActionLogDetail,
-  ActionLogEntry,
-  ActionLogFilter,
-  ActionStatus,
   ChangeEntry,
   ChangeFilter,
   EventEntry,
   EventFilter,
   LogPage,
   LogResult,
+  RunDetail,
+  RunEntry,
+  RunFilter,
+  RunStatus,
+  RunStepEntry,
   UserSummary,
 } from "./dal/logs.ts";
 export { createRepository } from "./repository.ts";

@@ -92,7 +92,7 @@ describe("example CRM", () => {
     return (await response.json()) as {
       output?: { record: { id: string; organisation: string } };
       error?: { code: string };
-      actionId: string;
+      runId: string;
     };
   };
 
@@ -141,7 +141,7 @@ describe("example CRM", () => {
       reason: "They chose someone else",
     });
     const event = await database.db.query.eventLog.findFirst({
-      where: (t, { eq }) => eq(t.actionId, moved.actionId),
+      where: (t, { eq }) => eq(t.runId, moved.runId),
     });
     const history = await server.pipeline.query(
       crm.registry.get("record.history") as AnyQueryDefinition,
@@ -209,7 +209,7 @@ describe("example CRM", () => {
       organisation: to.output?.record.id,
     });
     const event = await database.db.query.eventLog.findFirst({
-      where: (t, { eq }) => eq(t.actionId, moved.actionId),
+      where: (t, { eq }) => eq(t.runId, moved.runId),
     });
     expect(viaUpdate.error?.code).toBe("validation");
     expect(moved.output?.record.organisation).toBe(to.output?.record.id);

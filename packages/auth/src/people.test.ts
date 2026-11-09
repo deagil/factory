@@ -89,9 +89,9 @@ describe("inviting people, roles and disabling (P1b.05)", () => {
     return rows.map((row) => row.roleKey).toSorted();
   };
 
-  const logged = (actionId: unknown) =>
-    crm.db.query.actionLog.findFirst({
-      where: (t, { eq }) => eq(t.id, String(actionId)),
+  const logged = (runId: unknown) =>
+    crm.db.query.runs.findFirst({
+      where: (t, { eq }) => eq(t.id, String(runId)),
     });
 
   beforeAll(async () => {
@@ -136,8 +136,8 @@ describe("inviting people, roles and disabling (P1b.05)", () => {
       "sales",
     ]);
     await expect(
-      logged(result.ok ? result.actionId : null)
-    ).resolves.toMatchObject({ name: "user.invite", status: "succeeded" });
+      logged(result.ok ? result.runId : null)
+    ).resolves.toMatchObject({ endpoint: "user.invite", status: "succeeded" });
   });
 
   it("refuses a taken email and unknown roles", async () => {
@@ -208,7 +208,7 @@ describe("inviting people, roles and disabling (P1b.05)", () => {
     let staffId = "";
     let session: Awaited<ReturnType<typeof signIn>> = null;
     let keyHeaders = new Headers();
-    let actionId: string | null = null;
+    let runId: string | null = null;
 
     beforeAll(async () => {
       ({ actorId: staffId = "" } = await must(
@@ -228,12 +228,12 @@ describe("inviting people, roles and disabling (P1b.05)", () => {
         session?.caller ?? null
       );
       keyHeaders = new Headers({ authorization: `Bearer ${key}` });
-      ({ actionId } = await call("actor.disable", { id: staffId }, admin));
+      ({ runId } = await call("actor.disable", { id: staffId }, admin));
     });
 
     it("stops them signing in or acting, and refuses their agents' keys", async () => {
-      await expect(logged(actionId)).resolves.toMatchObject({
-        name: "actor.disable",
+      await expect(logged(runId)).resolves.toMatchObject({
+        endpoint: "actor.disable",
         status: "succeeded",
       });
       await expect(signIn("kim@example.com")).resolves.toBeNull();

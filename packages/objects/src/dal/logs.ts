@@ -1,4 +1,4 @@
-// Reading the logs (P1b.02): `action_log`, `audit_log` and `event_log`,
+// Reading the logs (P1b.02): runs (P2.12), `audit_log` and `event_log`,
 // newest first, with who did each thing and who they did it for. They are
 // read here, like records, so no raw SQL leaves packages/db (AGENTS.md rule
 // 2). Who may read them is the queries' job, not this layer's.
@@ -6,20 +6,21 @@
 import { jsonbHasKey } from "@workspace/db";
 import type { Executor } from "@workspace/db";
 import {
-  actionLog,
   actors,
   auditLog,
   eventLog,
+  runs,
+  runSteps,
   users,
 } from "@workspace/db/schema";
-import type { actionStatuses } from "@workspace/db/schema";
+import type { runStatuses, runStepKinds } from "@workspace/db/schema";
 import { and, desc, eq, gte, like, lt, lte, or } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type { ActorSummary } from "./data-access.ts";
 import { defaultPageSize, maxPageSize } from "./list-input.ts";
 
-export type ActionStatus = (typeof actionStatuses)[number];
+export type RunStatus = (typeof runStatuses)[number];
 
 /** A person, as the logs name them. */
 export interface UserSummary {
@@ -46,29 +47,45 @@ interface TimeRange {
   until?: string;
 }
 
-export interface ActionLogFilter extends TimeRange {
+export interface RunFilter extends TimeRange {
   actorId?: string;
-  /** The action's name, as `contact.update`. */
-  name?: string;
-  /** A name prefix, as `contact.` for every contact action. */
-  namePrefix?: string;
-  status?: ActionStatus;
+  /** The endpoint called, as `contact.update`. */
+  endpoint?: string;
+  /** An endpoint prefix, as `contact.` for every contact endpoint. */
+  endpointPrefix?: string;
+  status?: RunStatus;
   dryRun?: boolean;
-  /** Only actions this actor performed or this user started. */
+  /** Only runs this actor performed or this user started. */
   involving?: { actorId: string; userId: string | null };
 }
 
-export interface ActionLogEntry {
+export interface RunEntry {
   id: string;
-  name: string;
-  status: ActionStatus;
+  endpoint: string;
+  status: RunStatus;
   dryRun: boolean;
   at: string;
-  completedAt: string | null;
+  finishedAt: string | null;
   actor: ActorSummary;
   /** The person at the start of the chain; null for integrations. */
   origin: UserSummary | null;
   error: unknown;
+}
+
+/** One step of a run: a `run_steps` row. */
+export interface RunStepEntry {
+  id: string;
+  stepId: string;
+  kind: (typeof runStepKinds)[number];
+  name: string;
+  segment: number;
+  attempt: number;
+  branch: string | null;
+  input: unknown;
+  output: unknown;
+  error: unknown;
+  at: string;
+  finishedAt: string | null;
 }
 
 export interface ChangeEntry {
@@ -76,8 +93,10 @@ export interface ChangeEntry {
   at: string;
   object: string;
   recordId: string;
+  /** The action that made it, in run `runId`'s step `stepId`. */
   action: string;
-  actionId: string;
+  runId: string;
+  stepId: string;
   actor: ActorSummary;
   origin: UserSummary | null;
   before: Record<string, unknown>;
@@ -88,19 +107,21 @@ export interface EventEntry {
   id: string;
   type: string;
   at: string;
-  actionId: string;
+  runId: string | null;
+  stepId: string | null;
   depth: number;
   dispatchedAt: string | null;
   origin: UserSummary | null;
   payload: unknown;
 }
 
-export interface ActionLogDetail extends ActionLogEntry {
+export interface RunDetail extends RunEntry {
   input: unknown;
-  result: unknown;
+  output: unknown;
   retryKey: string | null;
   configSha: string | null;
-  runId: string | null;
+  parentRunId: string | null;
+  steps: RunStepEntry[];
   changes: ChangeEntry[];
   events: EventEntry[];
 }
@@ -111,14 +132,14 @@ export interface ChangeFilter extends TimeRange {
   /** Only changes to this field. */
   field?: string;
   actorId?: string;
-  actionId?: string;
+  runId?: string;
 }
 
 export interface EventFilter extends TimeRange {
   type?: string;
   /** A type prefix, as `contact.` for every contact event. */
   typePrefix?: string;
-  actionId?: string;
+  runId?: string;
 }
 
 interface Position {
@@ -190,41 +211,41 @@ export const isoOrNull = (date: Date | null) =>
 const originOf = (id: string | null, name: string | null) =>
   id ? { id, name: name ?? "" } : null;
 
-const toActionEntry = ({
-  createdAt,
-  completedAt,
+const toRunEntry = ({
+  startedAt,
+  finishedAt,
   originId,
   originName,
   ...row
 }: {
   id: string;
-  name: string;
-  status: ActionStatus;
+  endpoint: string;
+  status: RunStatus;
   dryRun: boolean;
-  createdAt: Date;
-  completedAt: Date | null;
+  startedAt: Date;
+  finishedAt: Date | null;
   error: unknown;
   actor: ActorSummary;
   originId: string | null;
   originName: string | null;
-}): ActionLogEntry => ({
+}): RunEntry => ({
   ...row,
-  at: iso(createdAt),
-  completedAt: isoOrNull(completedAt),
+  at: iso(startedAt),
+  finishedAt: isoOrNull(finishedAt),
   origin: originOf(originId, originName),
 });
 
 export const createLogReader = (executor: Executor) => {
-  const actionColumns = {
-    id: actionLog.id,
-    name: actionLog.name,
-    status: actionLog.status,
-    dryRun: actionLog.dryRun,
-    createdAt: actionLog.createdAt,
-    completedAt: actionLog.completedAt,
-    error: actionLog.error,
+  const runColumns = {
+    id: runs.id,
+    endpoint: runs.endpoint,
+    status: runs.status,
+    dryRun: runs.dryRun,
+    startedAt: runs.startedAt,
+    finishedAt: runs.finishedAt,
+    error: runs.error,
     actor: { id: actors.id, name: actors.name, kind: actors.kind },
-    originId: actionLog.originUserId,
+    originId: runs.originUserId,
     originName: users.name,
   };
 
@@ -238,18 +259,21 @@ export const createLogReader = (executor: Executor) => {
         at: auditLog.at,
         object: auditLog.object,
         recordId: auditLog.recordId,
-        action: actionLog.name,
-        actionId: auditLog.actionId,
+        action: runSteps.name,
+        runId: runs.id,
+        stepId: runSteps.id,
         actor: { id: actors.id, name: actors.name, kind: actors.kind },
-        originId: actionLog.originUserId,
+        originId: runs.originUserId,
         originName: users.name,
         before: auditLog.before,
         after: auditLog.after,
       })
       .from(auditLog)
-      .innerJoin(actionLog, eq(auditLog.actionId, actionLog.id))
+      // Changes made before runs (P2.12) have no run, and aren't shown.
+      .innerJoin(runSteps, eq(auditLog.stepId, runSteps.id))
+      .innerJoin(runs, eq(auditLog.runId, runs.id))
       .innerJoin(actors, eq(auditLog.actorId, actors.id))
-      .leftJoin(users, eq(actionLog.originUserId, users.id))
+      .leftJoin(users, eq(runs.originUserId, users.id))
       .where(where)
       .orderBy(desc(auditLog.at), desc(auditLog.id))
       .limit(size);
@@ -269,7 +293,8 @@ export const createLogReader = (executor: Executor) => {
         id: eventLog.id,
         type: eventLog.type,
         createdAt: eventLog.createdAt,
-        actionId: eventLog.actionId,
+        runId: eventLog.runId,
+        stepId: eventLog.stepId,
         depth: eventLog.depth,
         dispatchedAt: eventLog.dispatchedAt,
         originId: eventLog.originUserId,
@@ -291,73 +316,92 @@ export const createLogReader = (executor: Executor) => {
     );
   };
 
-  /** `action_log`, newest first. */
-  const actions = async (
-    filter: ActionLogFilter = {},
+  /** Runs, newest first. */
+  const runList = async (
+    filter: RunFilter = {},
     page: LogPage = {}
-  ): Promise<LogResult<ActionLogEntry>> => {
+  ): Promise<LogResult<RunEntry>> => {
     const size = sizeOf(page.limit);
     const rows = await executor
-      .select(actionColumns)
-      .from(actionLog)
-      .innerJoin(actors, eq(actionLog.actorId, actors.id))
-      .leftJoin(users, eq(actionLog.originUserId, users.id))
+      .select(runColumns)
+      .from(runs)
+      .innerJoin(actors, eq(runs.actorId, actors.id))
+      .leftJoin(users, eq(runs.originUserId, users.id))
       .where(
         and(
-          filter.actorId ? eq(actionLog.actorId, filter.actorId) : undefined,
-          filter.name ? eq(actionLog.name, filter.name) : undefined,
-          filter.namePrefix
-            ? like(actionLog.name, prefixPattern(filter.namePrefix))
+          filter.actorId ? eq(runs.actorId, filter.actorId) : undefined,
+          filter.endpoint ? eq(runs.endpoint, filter.endpoint) : undefined,
+          filter.endpointPrefix
+            ? like(runs.endpoint, prefixPattern(filter.endpointPrefix))
             : undefined,
-          filter.status ? eq(actionLog.status, filter.status) : undefined,
+          filter.status ? eq(runs.status, filter.status) : undefined,
           filter.dryRun === undefined
             ? undefined
-            : eq(actionLog.dryRun, filter.dryRun),
+            : eq(runs.dryRun, filter.dryRun),
           filter.involving
             ? or(
-                eq(actionLog.actorId, filter.involving.actorId),
+                eq(runs.actorId, filter.involving.actorId),
                 filter.involving.userId
-                  ? eq(actionLog.originUserId, filter.involving.userId)
+                  ? eq(runs.originUserId, filter.involving.userId)
                   : undefined
               )
             : undefined,
-          ...within(actionLog.createdAt, filter),
-          before(actionLog.createdAt, actionLog.id, decode(page.cursor))
+          ...within(runs.startedAt, filter),
+          before(runs.startedAt, runs.id, decode(page.cursor))
         )
       )
-      .orderBy(desc(actionLog.createdAt), desc(actionLog.id))
+      .orderBy(desc(runs.startedAt), desc(runs.id))
       .limit(size + 1);
-    return paged(rows.map(toActionEntry), size);
+    return paged(rows.map(toRunEntry), size);
   };
 
-  /** One `action_log` row with everything it wrote, or null. */
-  const action = async (id: string): Promise<ActionLogDetail | null> => {
+  /** One run with its steps and everything it wrote, or null. */
+  const runGet = async (id: string): Promise<RunDetail | null> => {
     const [row] = await executor
       .select({
-        ...actionColumns,
-        input: actionLog.input,
-        result: actionLog.result,
-        retryKey: actionLog.retryKey,
-        configSha: actionLog.configSha,
-        runId: actionLog.runId,
+        ...runColumns,
+        input: runs.input,
+        output: runs.output,
+        retryKey: runs.retryKey,
+        configSha: runs.configSha,
+        parentRunId: runs.parentRunId,
       })
-      .from(actionLog)
-      .innerJoin(actors, eq(actionLog.actorId, actors.id))
-      .leftJoin(users, eq(actionLog.originUserId, users.id))
-      .where(eq(actionLog.id, id));
+      .from(runs)
+      .innerJoin(actors, eq(runs.actorId, actors.id))
+      .leftJoin(users, eq(runs.originUserId, users.id))
+      .where(eq(runs.id, id));
     if (!row) {
       return null;
     }
-    const { input, result, retryKey, configSha, runId, ...entry } = row;
+    const { input, output, retryKey, configSha, parentRunId, ...entry } = row;
+    const steps = await executor
+      .select()
+      .from(runSteps)
+      .where(eq(runSteps.runId, id))
+      .orderBy(runSteps.startedAt, runSteps.id);
     return {
-      ...toActionEntry(entry),
+      ...toRunEntry(entry),
       input,
-      result,
+      output,
       retryKey,
       configSha,
-      runId,
-      changes: await changesWhere(eq(auditLog.actionId, id), maxPageSize),
-      events: await eventsWhere(eq(eventLog.actionId, id), maxPageSize),
+      parentRunId,
+      steps: steps.map((step) => ({
+        id: step.id,
+        stepId: step.stepId,
+        kind: step.kind,
+        name: step.name,
+        segment: step.segment,
+        attempt: step.attempt,
+        branch: step.branch,
+        input: step.input,
+        output: step.output,
+        error: step.error,
+        at: iso(step.startedAt),
+        finishedAt: isoOrNull(step.finishedAt),
+      })),
+      changes: await changesWhere(eq(auditLog.runId, id), maxPageSize),
+      events: await eventsWhere(eq(eventLog.runId, id), maxPageSize),
     };
   };
 
@@ -373,7 +417,7 @@ export const createLogReader = (executor: Executor) => {
         filter.recordId ? eq(auditLog.recordId, filter.recordId) : undefined,
         filter.field ? jsonbHasKey(auditLog.after, filter.field) : undefined,
         filter.actorId ? eq(auditLog.actorId, filter.actorId) : undefined,
-        filter.actionId ? eq(auditLog.actionId, filter.actionId) : undefined,
+        filter.runId ? eq(auditLog.runId, filter.runId) : undefined,
         ...within(auditLog.at, filter),
         before(auditLog.at, auditLog.id, decode(page.cursor))
       ),
@@ -394,7 +438,7 @@ export const createLogReader = (executor: Executor) => {
         filter.typePrefix
           ? like(eventLog.type, prefixPattern(filter.typePrefix))
           : undefined,
-        filter.actionId ? eq(eventLog.actionId, filter.actionId) : undefined,
+        filter.runId ? eq(eventLog.runId, filter.runId) : undefined,
         ...within(eventLog.createdAt, filter),
         before(eventLog.createdAt, eventLog.id, decode(page.cursor))
       ),
@@ -403,5 +447,5 @@ export const createLogReader = (executor: Executor) => {
     return paged(rows, size);
   };
 
-  return { actions, action, changes, events };
+  return { runList, runGet, changes, events };
 };

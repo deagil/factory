@@ -20,7 +20,7 @@ export interface DraftEntry {
   publishedSha: string | null;
   syncedSha: string | null;
   /** The parked draft.publish its last approval runs (decision 0044). */
-  publishActionId: string | null;
+  publishRunId: string | null;
   createdBy: { id: string; name: string };
   createdAt: string;
   publishedAt: string | null;
@@ -36,7 +36,7 @@ const columns = {
   baseSha: drafts.baseSha,
   publishedSha: drafts.publishedSha,
   syncedSha: drafts.syncedSha,
-  publishActionId: drafts.publishActionId,
+  publishRunId: drafts.publishRunId,
   createdById: drafts.createdBy,
   createdByName: actors.name,
   createdAt: drafts.createdAt,

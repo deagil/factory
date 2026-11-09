@@ -94,8 +94,8 @@ describe("the CRM's config", () => {
       { firstName: "Pat", active: true, organisation: crypto.randomUUID() },
       sam
     );
-    const row = await server.db.query.actionLog.findFirst({
-      where: (t, { eq }) => eq(t.id, created.actionId ?? ""),
+    const row = await server.db.query.runs.findFirst({
+      where: (t, { eq }) => eq(t.id, created.runId ?? ""),
     });
     expect(row?.configSha).toBe(server.config.current()?.sha);
   });

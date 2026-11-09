@@ -22,7 +22,7 @@ export interface SurfaceCall {
   ok: boolean;
   /** The output on success, the typed error on failure. */
   body: unknown;
-  actionId: string | null;
+  runId: string | null;
 }
 
 /** A way to call an action: the HTTP API, MCP, or a test's broken copy. */
@@ -51,12 +51,12 @@ export const httpSurface =
     const body = (await response.json()) as {
       output?: unknown;
       error?: unknown;
-      actionId: string | null;
+      runId: string | null;
     };
     // approval_required is a 202: accepted, but not run, so it's an error.
     return response.ok && body.error === undefined
-      ? { ok: true, body: body.output, actionId: body.actionId }
-      : { ok: false, body: body.error, actionId: body.actionId };
+      ? { ok: true, body: body.output, runId: body.runId }
+      : { ok: false, body: body.error, runId: body.runId };
   };
 
 export const mcpSurface =
@@ -77,15 +77,17 @@ export const mcpSurface =
         isError?: boolean;
         structuredContent?: unknown;
         content: { text: string }[];
-        _meta?: { actionId?: string };
+        _meta?: { runId?: string };
       };
     };
-    const actionId = result._meta?.actionId ?? null;
+    const runId = result._meta?.runId ?? null;
     if (!result.isError) {
       // MCP adds the action id to an action's output; HTTP has it beside.
-      const { actionId: _, ...body } = (result.structuredContent ??
-        {}) as Record<string, unknown>;
-      return { ok: true, body, actionId };
+      const { runId: _, ...body } = (result.structuredContent ?? {}) as Record<
+        string,
+        unknown
+      >;
+      return { ok: true, body, runId };
     }
     const text = result.content[0]?.text ?? "";
     const json = text.slice(text.indexOf("\n") + 1);
@@ -93,11 +95,11 @@ export const mcpSurface =
       return {
         ok: false,
         body: (JSON.parse(json) as { error: unknown }).error,
-        actionId,
+        runId,
       };
     } catch {
       // Not one of our typed errors: the MCP SDK refused the call itself.
-      return { ok: false, body: { sdk: text }, actionId };
+      return { ok: false, body: { sdk: text }, runId };
     }
   };
 
@@ -278,33 +280,44 @@ export const runContract = async ({
 
   /** What a call did, as the client and every log table see it. */
   const observe = async (call: SurfaceCall) => {
-    const actionId = call.actionId ?? "";
-    const [log, audit, events] = call.actionId
+    const runId = call.runId ?? "";
+    const [log, steps, audit, events] = call.runId
       ? await Promise.all([
-          db.query.actionLog.findFirst({
-            where: (t, { eq }) => eq(t.id, actionId),
+          db.query.runs.findFirst({
+            where: (t, { eq }) => eq(t.id, runId),
+          }),
+          db.query.runSteps.findMany({
+            where: (t, { eq }) => eq(t.runId, runId),
           }),
           db.query.auditLog.findMany({
-            where: (t, { eq }) => eq(t.actionId, actionId),
+            where: (t, { eq }) => eq(t.runId, runId),
           }),
           db.query.eventLog.findMany({
-            where: (t, { eq }) => eq(t.actionId, actionId),
+            where: (t, { eq }) => eq(t.runId, runId),
           }),
         ])
-      : [null, [], []];
+      : [null, [], [], []];
     return normalise({
       ok: call.ok,
       body: call.body,
-      log: log && {
-        name: log.name,
+      run: log && {
+        endpoint: log.endpoint,
         actorId: log.actorId,
         originUserId: log.originUserId,
         input: log.input,
-        result: log.result,
+        output: log.output,
         error: log.error,
         status: log.status,
         dryRun: log.dryRun,
       },
+      steps: steps.map(({ stepId, kind, name, input, output, error }) => ({
+        stepId,
+        kind,
+        name,
+        input,
+        output,
+        error,
+      })),
       audit: audit.map(({ object, before, after }) => ({
         object,
         before,

@@ -38,13 +38,9 @@ interface Env {
 
 const maxRetryKeyLength = 255;
 
-const fail = (
-  c: Context<Env>,
-  error: ApiError,
-  actionId: string | null = null
-) =>
+const fail = (c: Context<Env>, error: ApiError, runId: string | null = null) =>
   c.json(
-    { error, actionId, requestId: c.get("requestId") } satisfies ErrorBody,
+    { error, runId, requestId: c.get("requestId") } satisfies ErrorBody,
     statusFor(error)
   );
 
@@ -90,10 +86,10 @@ const route =
       dryRun: c.req.query("dryRun") === "true",
     });
     if (!result.ok) {
-      return fail(c, result.error, result.actionId);
+      return fail(c, result.error, result.runId);
     }
-    const { output, actionId, replayed, dryRun, changes } = result;
-    return c.json({ output, actionId, replayed, dryRun, changes });
+    const { output, runId, replayed, dryRun, changes } = result;
+    return c.json({ output, runId, replayed, dryRun, changes });
   };
 
 /** A throw outside the pipeline: log it, and tell the caller nothing more. */
