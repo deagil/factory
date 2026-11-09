@@ -56,6 +56,8 @@ export interface WorkflowRunOptions {
   readonly workflows?: ReadonlyMap<string, WorkflowDefinition>;
   /** Payload schemas of events the system already has, for `emit`. */
   readonly events?: ReadonlyMap<string, z.ZodType>;
+  /** The caller's retry key, kept on the top run (P2.18). */
+  readonly retryKey?: string;
 }
 
 /** Nested runs deeper than this stop: a loop of workflows running each other. */
@@ -481,6 +483,7 @@ export const createRunner = ({ db, actions, clock }: RunnerOptions) => {
       input: input ?? {},
       status: "running",
       configSha: options.config.sha,
+      retryKey: place.depth === 0 ? (options.retryKey ?? null) : null,
       parentRunId: place.parentRunId,
       depth: place.depth,
       startedAt: clock.now(),

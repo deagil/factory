@@ -78,7 +78,7 @@ export type {
   LockedApproval,
 } from "./approvals.ts";
 export { createDraftStore } from "./drafts.ts";
-export { saveRunSteps, saveRuns } from "./run-trace.ts";
+export { findRetriedRun, saveRunSteps, saveRuns } from "./run-trace.ts";
 export type { RunRow, RunStepRow } from "./run-trace.ts";
 export type { DraftChanges, DraftStatus, DraftStore } from "./drafts.ts";
 export type {

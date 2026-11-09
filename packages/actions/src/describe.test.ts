@@ -131,6 +131,7 @@ describe("system.describe", () => {
       actions: [],
       queries: [expect.objectContaining({ name: "system.describe" })],
       events: [],
+      workflows: [],
     });
   });
 

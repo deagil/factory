@@ -4331,7 +4331,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       },
     },
     {
-      "description": "Describes the objects, fields, actions, queries and events you may use, with their JSON Schemas.",
+      "description": "Describes the objects, fields, actions, queries, events and workflows you may use, with their JSON Schemas.",
       "input": {
         "properties": {},
         "type": "object",
@@ -4752,16 +4752,196 @@ exports[`system.describe > describes everything to an admin 1`] = `
             },
             "type": "array",
           },
+          "workflows": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string",
+                },
+                "errors": {
+                  "additionalProperties": {
+                    "type": "string",
+                  },
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "fields": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "description": {
+                        "type": [
+                          "string",
+                          "null",
+                        ],
+                      },
+                      "filters": {
+                        "items": {
+                          "type": "string",
+                        },
+                        "type": "array",
+                      },
+                      "key": {
+                        "type": "string",
+                      },
+                      "label": {
+                        "type": "string",
+                      },
+                      "list": {
+                        "type": [
+                          "string",
+                          "null",
+                        ],
+                      },
+                      "optionColumns": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": {},
+                            "propertyNames": {
+                              "type": "string",
+                            },
+                            "type": "object",
+                          },
+                          {
+                            "type": "null",
+                          },
+                        ],
+                      },
+                      "options": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "archived": {
+                                  "type": "boolean",
+                                },
+                                "columns": {
+                                  "additionalProperties": {},
+                                  "propertyNames": {
+                                    "type": "string",
+                                  },
+                                  "type": "object",
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null",
+                                  ],
+                                },
+                                "key": {
+                                  "type": "string",
+                                },
+                                "label": {
+                                  "type": "string",
+                                },
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "description",
+                                "archived",
+                                "columns",
+                              ],
+                              "type": "object",
+                            },
+                            "type": "array",
+                          },
+                          {
+                            "type": "null",
+                          },
+                        ],
+                      },
+                      "read": {
+                        "type": "boolean",
+                      },
+                      "required": {
+                        "type": "boolean",
+                      },
+                      "schema": {
+                        "additionalProperties": {},
+                        "propertyNames": {
+                          "type": "string",
+                        },
+                        "type": "object",
+                      },
+                      "target": {
+                        "type": [
+                          "string",
+                          "null",
+                        ],
+                      },
+                      "type": {
+                        "type": "string",
+                      },
+                      "write": {
+                        "type": "boolean",
+                      },
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "description",
+                      "type",
+                      "required",
+                      "read",
+                      "write",
+                      "target",
+                      "filters",
+                      "options",
+                      "optionColumns",
+                      "list",
+                      "schema",
+                    ],
+                    "type": "object",
+                  },
+                  "type": "array",
+                },
+                "input": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "key": {
+                  "type": "string",
+                },
+                "label": {
+                  "type": "string",
+                },
+                "readOnly": {
+                  "type": "boolean",
+                },
+              },
+              "required": [
+                "key",
+                "label",
+                "description",
+                "readOnly",
+                "input",
+                "fields",
+                "errors",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
         },
         "required": [
           "objects",
           "actions",
           "queries",
           "events",
+          "workflows",
         ],
         "type": "object",
       },
     },
   ],
+  "workflows": [],
 }
 `;

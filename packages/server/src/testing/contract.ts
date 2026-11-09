@@ -130,49 +130,57 @@ export const restSurface = (
   };
 };
 
+/** Calls the MCP tool `name` with `input`, as a surface sees it. */
+const mcpCall = async (
+  request: Fetch,
+  name: string,
+  input: unknown
+): Promise<SurfaceCall> => {
+  const response = await request("/mcp", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name, arguments: input },
+    }),
+  });
+  const { result } = (await response.json()) as {
+    result: {
+      isError?: boolean;
+      structuredContent?: unknown;
+      content: { text: string }[];
+      _meta?: { runId?: string };
+    };
+  };
+  const runId = result._meta?.runId ?? null;
+  if (!result.isError) {
+    // MCP adds the action id to an action's output; HTTP has it beside.
+    const { runId: _, ...body } = (result.structuredContent ?? {}) as Record<
+      string,
+      unknown
+    >;
+    return { ok: true, body, runId };
+  }
+  const text = result.content[0]?.text ?? "";
+  const json = text.slice(text.indexOf("\n") + 1);
+  try {
+    return {
+      ok: false,
+      body: (JSON.parse(json) as { error: unknown }).error,
+      runId,
+    };
+  } catch {
+    // Not one of our typed errors: the MCP SDK refused the call itself.
+    return { ok: false, body: { sdk: text }, runId };
+  }
+};
+
 export const mcpSurface =
   (request: Fetch): Surface =>
-  async (definition, input) => {
-    const response = await request("/mcp", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/call",
-        params: { name: definition.name.replace(".", "_"), arguments: input },
-      }),
-    });
-    const { result } = (await response.json()) as {
-      result: {
-        isError?: boolean;
-        structuredContent?: unknown;
-        content: { text: string }[];
-        _meta?: { runId?: string };
-      };
-    };
-    const runId = result._meta?.runId ?? null;
-    if (!result.isError) {
-      // MCP adds the action id to an action's output; HTTP has it beside.
-      const { runId: _, ...body } = (result.structuredContent ?? {}) as Record<
-        string,
-        unknown
-      >;
-      return { ok: true, body, runId };
-    }
-    const text = result.content[0]?.text ?? "";
-    const json = text.slice(text.indexOf("\n") + 1);
-    try {
-      return {
-        ok: false,
-        body: (JSON.parse(json) as { error: unknown }).error,
-        runId,
-      };
-    } catch {
-      // Not one of our typed errors: the MCP SDK refused the call itself.
-      return { ok: false, body: { sdk: text }, runId };
-    }
-  };
+  (definition, input) =>
+    mcpCall(request, definition.name.replace(".", "_"), input);
 
 // Sample inputs.
 
@@ -269,6 +277,55 @@ const normalise = (value: unknown) => {
   ) as unknown;
 };
 
+/** What a call did, as the client and every log table see it. */
+const observe = async (db: Db, call: SurfaceCall) => {
+  const runId = call.runId ?? "";
+  const [log, steps, audit, events] = call.runId
+    ? await Promise.all([
+        db.query.runs.findFirst({
+          where: (t, { eq }) => eq(t.id, runId),
+        }),
+        db.query.runSteps.findMany({
+          where: (t, { eq }) => eq(t.runId, runId),
+        }),
+        db.query.auditLog.findMany({
+          where: (t, { eq }) => eq(t.runId, runId),
+        }),
+        db.query.eventLog.findMany({
+          where: (t, { eq }) => eq(t.runId, runId),
+        }),
+      ])
+    : [null, [], [], []];
+  return normalise({
+    ok: call.ok,
+    body: call.body,
+    run: log && {
+      endpoint: log.endpoint,
+      actorId: log.actorId,
+      originUserId: log.originUserId,
+      input: log.input,
+      output: log.output,
+      error: log.error,
+      status: log.status,
+      dryRun: log.dryRun,
+    },
+    steps: steps.map(({ stepId, kind, name, input, output, error }) => ({
+      stepId,
+      kind,
+      name,
+      input,
+      output,
+      error,
+    })),
+    audit: audit.map(({ object, before, after }) => ({
+      object,
+      before,
+      after,
+    })),
+    events: events.map(({ type, payload }) => ({ type, payload })),
+  });
+};
+
 /**
  * A refused input that every surface can carry: an id that isn't one where
  * the endpoint's path has an id, a bad page size for a list, else `{}`.
@@ -362,55 +419,6 @@ export const runContract = async ({
     }
   };
 
-  /** What a call did, as the client and every log table see it. */
-  const observe = async (call: SurfaceCall) => {
-    const runId = call.runId ?? "";
-    const [log, steps, audit, events] = call.runId
-      ? await Promise.all([
-          db.query.runs.findFirst({
-            where: (t, { eq }) => eq(t.id, runId),
-          }),
-          db.query.runSteps.findMany({
-            where: (t, { eq }) => eq(t.runId, runId),
-          }),
-          db.query.auditLog.findMany({
-            where: (t, { eq }) => eq(t.runId, runId),
-          }),
-          db.query.eventLog.findMany({
-            where: (t, { eq }) => eq(t.runId, runId),
-          }),
-        ])
-      : [null, [], [], []];
-    return normalise({
-      ok: call.ok,
-      body: call.body,
-      run: log && {
-        endpoint: log.endpoint,
-        actorId: log.actorId,
-        originUserId: log.originUserId,
-        input: log.input,
-        output: log.output,
-        error: log.error,
-        status: log.status,
-        dryRun: log.dryRun,
-      },
-      steps: steps.map(({ stepId, kind, name, input, output, error }) => ({
-        stepId,
-        kind,
-        name,
-        input,
-        output,
-        error,
-      })),
-      audit: audit.map(({ object, before, after }) => ({
-        object,
-        before,
-        after,
-      })),
-      events: events.map(({ type, payload }) => ({ type, payload })),
-    });
-  };
-
   const problems: ContractProblem[] = [];
   const entries = Object.entries(surfaces);
   const definitions = [
@@ -436,7 +444,7 @@ export const runContract = async ({
         const input = await makeInput();
         seen.push([
           surface,
-          JSON.stringify(await observe(await call(action, input))),
+          JSON.stringify(await observe(db, await call(action, input))),
         ]);
       }
       const [reference, ...others] = seen;
@@ -533,3 +541,74 @@ export const configSamples = (): Record<string, () => Promise<unknown>> => {
     "draft.publish": () => Promise.resolve({ id }),
   };
 };
+
+/** A way to call a workflow endpoint (P2.18): HTTP or MCP. */
+export type WorkflowSurface = (
+  key: string,
+  input: unknown
+) => Promise<SurfaceCall>;
+
+/** `POST /workflows/<key>`. */
+export const workflowHttpSurface =
+  (request: Fetch): WorkflowSurface =>
+  async (key, input) =>
+    callOf(
+      await request(`/workflows/${key}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(input),
+      })
+    );
+
+/** The MCP tool named as the workflow. */
+export const workflowMcpSurface =
+  (request: Fetch): WorkflowSurface =>
+  (key, input) =>
+    mcpCall(request, key, input);
+
+/** One call to make on every surface; `input` runs once per surface. */
+export interface WorkflowCase {
+  name: string;
+  key: string;
+  input: () => unknown;
+}
+
+/* oxlint-disable eslint/no-await-in-loop -- one surface after another, so
+   each sees the database as the last left it. */
+/**
+ * Calls each workflow case on every surface and reports any difference in
+ * the result or the rows the run wrote: the run, its steps, history and
+ * events.
+ */
+export const runWorkflowContract = async ({
+  db,
+  surfaces,
+  cases,
+}: {
+  db: Db;
+  surfaces: Record<string, WorkflowSurface>;
+  cases: readonly WorkflowCase[];
+}): Promise<ContractProblem[]> => {
+  const problems: ContractProblem[] = [];
+  for (const { name, key, input } of cases) {
+    const seen: [string, string][] = [];
+    for (const [surface, call] of Object.entries(surfaces)) {
+      seen.push([
+        surface,
+        JSON.stringify(await observe(db, await call(key, await input()))),
+      ]);
+    }
+    const [reference, ...others] = seen;
+    for (const [surface, observed] of others) {
+      if (reference && observed !== reference[1]) {
+        problems.push({
+          action: `${key} (${name})`,
+          case: "sample",
+          problem: `${surface} differs from ${reference[0]}:\n  ${reference[0]}: ${reference[1]}\n  ${surface}: ${observed}`,
+        });
+      }
+    }
+  }
+  return problems;
+};
+/* oxlint-enable eslint/no-await-in-loop */

@@ -10,9 +10,13 @@ import type {
 import { z } from "zod";
 
 import { actionKinds, defineQuery } from "./define-action.ts";
-import type { AnyActionDefinition, AnyDefinition } from "./define-action.ts";
+import type {
+  AnyActionDefinition,
+  AnyDefinition,
+  WorkflowEntry,
+} from "./define-action.ts";
 import { objectEndpoints } from "./generated.ts";
-import { everythingRole, grantedBy } from "./permissions.ts";
+import { everythingRole, grantedBy, mayCall } from "./permissions.ts";
 import type { Granted, ObjectGrant } from "./permissions.ts";
 
 const jsonSchema = z.record(z.string(), z.unknown());
@@ -100,6 +104,21 @@ export const describeOutput = z.object({
   actions: z.array(actionSchema),
   queries: z.array(definitionSchema),
   events: z.array(z.object({ type: z.string(), payload: jsonSchema })),
+  /** The workflows the caller may call, which are endpoints (P2.18). */
+  workflows: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      description: z.string(),
+      /** `GET /workflows/<key>` when true, POST otherwise. */
+      readOnly: z.boolean(),
+      input: jsonSchema,
+      /** Its input as fields, as an object's are, for forms. */
+      fields: z.array(fieldSchema),
+      /** Its declared error codes, with their messages. */
+      errors: z.record(z.string(), z.string()),
+    })
+  ),
   /**
    * The actions workflow steps run (P2.15): never callable, so only a whole
    * system's description, as `fx describe` shows it, lists them.
@@ -148,14 +167,14 @@ const optionColumns = (field: AnyField) => {
 };
 
 const describeField = (
-  object: AnyObjectDefinition,
+  label: string,
   key: string,
   field: AnyField,
   choices: ChoiceOptions | undefined,
   grant: ObjectGrant | null
 ) => ({
   key,
-  label: object.fieldLabels[key] ?? key,
+  label,
   description: field.description ?? null,
   type: field.kind,
   required: field.required,
@@ -196,6 +215,8 @@ export interface DescribeOptions {
   definitions: readonly AnyDefinition[];
   /** Loaded choice lists, so a choice field can name its options (P2.07). */
   choices?: ChoiceOptions | undefined;
+  /** Every workflow in the config the caller's call pinned (P2.18). */
+  workflows?: readonly WorkflowEntry[] | undefined;
 }
 
 /** Grants everything: for describing a whole system, as `fx describe` does. */
@@ -206,7 +227,7 @@ export const allGranted: Granted = {
 
 /** What of `objects` and `definitions` a caller granted `granted` may use. */
 export const describeFor = (
-  { objects, definitions, choices, stepActions }: DescribeOptions,
+  { objects, definitions, choices, stepActions, workflows }: DescribeOptions,
   granted: Granted
 ): SystemDescription => {
   const usable = definitions.filter(
@@ -229,7 +250,7 @@ export const describeFor = (
         description: object.description ?? null,
         fields: Object.entries(object.fields).map(([key, field]) =>
           describeField(
-            object,
+            object.fieldLabels[key] ?? key,
             key,
             field as AnyField,
             choices,
@@ -252,6 +273,21 @@ export const describeFor = (
       type,
       payload: toJson(payload),
     })),
+    workflows: (workflows ?? [])
+      .filter((workflow) => workflow.called && mayCall(granted, workflow.key))
+      .map(({ key, label, description, readOnly, input, fields, errors }) => ({
+        key,
+        label,
+        description,
+        readOnly,
+        input: toJson(input, "input"),
+        fields: fields.map((each) => ({
+          ...describeField(each.label, each.key, each.field, choices, null),
+          read: true,
+          write: true,
+        })),
+        errors: { ...errors },
+      })),
     ...(stepActions ? { stepActions: stepActions.map(describeAction) } : {}),
   };
 };
@@ -262,13 +298,18 @@ export const describeQuery = ({ objects, definitions }: DescribeOptions) => {
   const query = defineQuery({
     name: "system.describe",
     description:
-      "Describes the objects, fields, actions, queries and events you may use, with their JSON Schemas.",
+      "Describes the objects, fields, actions, queries, events and workflows you may use, with their JSON Schemas.",
     input: z.object({}),
     output: describeOutput,
     everyone: true,
     handler: (ctx): SystemDescription =>
       describeFor(
-        { objects, definitions: all, choices: ctx.config.choices },
+        {
+          objects,
+          definitions: all,
+          choices: ctx.config.choices,
+          workflows: ctx.config.workflows,
+        },
         ctx.granted
       ),
   });

@@ -7,6 +7,7 @@ import type { ApprovalStore, DraftStore, IdentityStore } from "@workspace/db";
 import type { actorKinds } from "@workspace/db/schema";
 import type {
   AnyChoiceList,
+  AnyField,
   ChoiceOptions,
   DataAccess,
   OptionOf,
@@ -65,6 +66,36 @@ export interface ConfigService {
   readonly approvals?: readonly ApprovalRule[];
   /** Checks `config/` on disk against its schemas and the running code. */
   readonly validate?: () => ConfigCheck;
+  /**
+   * Every workflow, in code and in this version's `config/workflows`
+   * (P2.18). Those that start when called are endpoints.
+   */
+  readonly workflows?: readonly WorkflowEntry[];
+}
+
+/**
+ * A workflow as the surfaces see it (P2.18): enough to describe it, check
+ * its input and find who may call it. `definition` is what the runner in
+ * `@workspace/workflows` runs; it is opaque here.
+ */
+export interface WorkflowEntry {
+  readonly key: string;
+  readonly label: string;
+  readonly description: string;
+  /** Only workflows that start when called are endpoints. */
+  readonly called: boolean;
+  /** A `read_only` workflow is `GET /workflows/<key>`; the rest are POST. */
+  readonly readOnly: boolean;
+  readonly input: z.ZodType;
+  /** Its input as object fields, in order, for forms. */
+  readonly fields: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly field: AnyField;
+  }[];
+  /** Its declared error codes, with their messages. */
+  readonly errors: Readonly<Record<string, string>>;
+  readonly definition: unknown;
 }
 
 /** What running an approved action came to (P2.09). */

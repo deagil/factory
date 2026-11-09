@@ -1,7 +1,7 @@
 // The HTTP API's error shape: every failure is
 // `{ error: { code, message, ...details }, runId, requestId }`, with a
 // status code chosen by `code`. See decision 0027.
-import type { RunError } from "@workspace/actions";
+import type { DeclaredError, RunError } from "@workspace/actions";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 
@@ -10,9 +10,12 @@ export type HttpError =
   | { code: "unauthenticated"; message: string }
   | { code: "not_found"; message: string };
 
-export type ApiError = RunError | HttpError;
+/** A workflow's own error codes (P2.18) answer 422 and carry `declared`. */
+export type ApiError = RunError | HttpError | DeclaredError;
 
-const statuses: Record<ApiError["code"], ContentfulStatusCode> = {
+type BuiltIn = RunError | HttpError;
+
+const statuses: Record<BuiltIn["code"], ContentfulStatusCode> = {
   validation: 400,
   unauthenticated: 401,
   permission: 403,
@@ -22,14 +25,20 @@ const statuses: Record<ApiError["code"], ContentfulStatusCode> = {
   internal: 500,
 };
 
-export const statusFor = (error: ApiError) => statuses[error.code];
+export const statusFor = (error: ApiError): ContentfulStatusCode =>
+  "declared" in error ? 422 : statuses[(error as BuiltIn).code];
 
-export const errorCodes = Object.keys(statuses) as ApiError["code"][];
+/** The built-in codes; a workflow adds its own. */
+export const errorCodes = Object.keys(statuses) as BuiltIn["code"][];
 
 /** The documented error body, for the OpenAPI document. */
 export const errorBodySchema = z.object({
   error: z.looseObject({
-    code: z.enum(errorCodes),
+    code: z
+      .string()
+      .describe(
+        `One of ${errorCodes.join(", ")}, or a workflow's declared code, which comes with \`declared: true\` and a 422.`
+      ),
     message: z.string(),
   }),
   runId: z.string().nullable(),

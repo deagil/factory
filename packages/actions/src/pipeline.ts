@@ -251,6 +251,7 @@ const pin = (config: ConfigService): ConfigService => {
       : {}),
     ...(config.approvals ? { approvals: config.approvals } : {}),
     ...(config.validate ? { validate: config.validate } : {}),
+    ...(config.workflows ? { workflows: config.workflows } : {}),
   };
 };
 
@@ -865,7 +866,25 @@ export const createPipeline = ({
     }
   };
 
-  return { run, query };
+  /**
+   * Who `caller` is, what their roles grant and the config pinned for what
+   * they call: for workflow endpoints (P2.18), which check the caller here
+   * and then run under the service key.
+   */
+  const whoIs = async (caller: Caller) => {
+    const who = await identify(caller);
+    if (!who) {
+      return { ok: false as const, error: unknownActor };
+    }
+    return {
+      ok: true as const,
+      ...who,
+      granted: await permissions.load(who.actor),
+      config: pin(config),
+    };
+  };
+
+  return { run, query, whoIs };
 };
 
 export type Pipeline = ReturnType<typeof createPipeline>;

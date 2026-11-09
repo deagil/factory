@@ -10,3 +10,5 @@ export { defineSystem } from "./system.ts";
 export type { System, SystemOptions } from "./system.ts";
 export { createServer } from "./server.ts";
 export type { ConfigRemote, Server, ServerOptions } from "./server.ts";
+export { callableWorkflows, createWorkflowCalls } from "./workflow-calls.ts";
+export type { WorkflowCallResult, WorkflowCalls } from "./workflow-calls.ts";

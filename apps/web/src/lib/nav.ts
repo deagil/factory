@@ -1,12 +1,13 @@
 // Navigation from system.describe: the system's functions in sections, each
 // with the pages the caller can use. A section with no pages is left out
 // (decision 0033). Phase 1b adds Activity, Access and Settings; phase 2
-// adds Inbox and Config (P2.10), and Automation with workflows.
+// adds Inbox and Config (P2.10), and Automation with workflows (P2.18).
 import type { SystemDescription } from "./api.ts";
 
 export type SectionKey =
   | "data"
   | "inbox"
+  | "automation"
   | "activity"
   | "access"
   | "config"
@@ -16,6 +17,7 @@ export type SectionKey =
 export type NavLink =
   | { to: "/o/$object"; params: { object: string } }
   | { to: "/inbox/approvals" }
+  | { to: "/automation/workflows" }
   | { to: "/activity/runs" }
   | { to: "/activity/changes" }
   | { to: "/activity/events" }
@@ -81,6 +83,23 @@ const sections: {
               description:
                 "Actions and config drafts waiting for someone to sign them off.",
               link: { to: "/inbox/approvals" },
+            },
+          ]
+        : [],
+  },
+  {
+    key: "automation",
+    label: "Automation",
+    // system.describe lists only the workflows the caller may call.
+    pages: (description) =>
+      description.workflows.length > 0
+        ? [
+            {
+              key: "automation:workflows",
+              label: "Workflows",
+              description:
+                "Processes you can run, step by step, each traced as a run.",
+              link: { to: "/automation/workflows" },
             },
           ]
         : [],

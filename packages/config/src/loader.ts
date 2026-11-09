@@ -10,7 +10,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { watch } from "node:fs/promises";
 import path from "node:path";
 
-import type { ApprovalRule, ConfigService, Role } from "@workspace/actions";
+import type {
+  ApprovalRule,
+  ConfigService,
+  Role,
+  WorkflowEntry,
+} from "@workspace/actions";
 
 import { approvalConfigType } from "./approvals.ts";
 import { choiceConfigType, choiceLookup } from "./choices.ts";
@@ -66,6 +71,13 @@ export interface ConfigLoaderOptions {
   }) => Promise<void>;
   /** Where load results are reported; the console by default. */
   readonly log?: (line: string) => void;
+  /**
+   * Every workflow a version has, from its files and the system's code
+   * (P2.18). Read once per version, as `ctx.config.workflows`.
+   */
+  readonly workflows?: (
+    files: readonly ConfigFile[]
+  ) => readonly WorkflowEntry[];
 }
 
 /** Every file under `dir`, relative and sorted. */
@@ -181,6 +193,21 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
   /** The live version, or null before the first good load. */
   const current = (): ConfigIndex | null => live;
 
+  // Each version's workflows, worked out the first time a run reads them.
+  let workflows: {
+    of: ConfigIndex | null;
+    entries: readonly WorkflowEntry[];
+  } | null = null;
+  const workflowsNow = () => {
+    if (!options.workflows) {
+      return [];
+    }
+    if (workflows?.of !== live) {
+      workflows = { of: live, entries: options.workflows(live?.files ?? []) };
+    }
+    return workflows.entries;
+  };
+
   /**
    * What actions read as `ctx.config`: the live version's sha and roles.
    * The pipeline reads both once per run, so a run sees one version.
@@ -199,6 +226,9 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     // keeps its options when a newer version goes live.
     get choices() {
       return choiceLookup(live?.values(choiceConfigType) ?? []);
+    },
+    get workflows() {
+      return workflowsNow();
     },
     validate: () => {
       const { files, problems } = validateConfig(

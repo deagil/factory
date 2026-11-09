@@ -12,6 +12,7 @@ const described = (
     actions: actions.map((name) => ({ name })),
     queries: queries.map((name) => ({ name })),
     events: [],
+    workflows: [],
   }) as never;
 
 const settingsPages = (actions: string[]) =>

@@ -1,0 +1,196 @@
+// Workflow endpoints (P2.18): the CRM's deal_move_stage over HTTP and MCP,
+// with the same run rows on each, its declared error, retry keys, runs as
+// resources, OpenAPI and system_describe.
+import type { AnyDefinition } from "@workspace/actions";
+import { createServer } from "@workspace/server";
+import type { Server } from "@workspace/server";
+import {
+  createSystemDatabase,
+  runWorkflowContract,
+  workflowHttpSurface,
+  workflowMcpSurface,
+} from "@workspace/server/testing";
+import type { SystemDatabase } from "@workspace/server/testing";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { seed } from "./seed.ts";
+import type { Seeded } from "./seed.ts";
+import { crm } from "./system.ts";
+
+describe("workflow endpoints (P2.18)", () => {
+  let database: SystemDatabase;
+  let server: Server;
+  let seeded: Seeded;
+  let organisationId = "";
+
+  /** A request as the admin's agent, or as `key`. */
+  const request = (path: string, init: RequestInit = {}, key?: string) =>
+    server.app.request(path, {
+      ...init,
+      headers: {
+        ...(init.headers as Record<string, string>),
+        authorization: `Bearer ${key ?? seeded.agentKey}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+    });
+
+  const post = (path: string, body: unknown, headers = {}) =>
+    request(path, { method: "POST", body: JSON.stringify(body), headers });
+
+  /** A new deal in the proposal stage. */
+  const newDeal = async () => {
+    const created = await server.pipeline.run(
+      crm.registry.get("deal_create") as never,
+      { name: "Deal", organisation: organisationId, stage: "proposal" },
+      seeded.admin
+    );
+    return (created.ok ? created.output : {}) as { record: { id: string } };
+  };
+
+  beforeAll(async () => {
+    database = await createSystemDatabase(crm);
+    server = await createServer(crm, {
+      databaseUrl: database.url,
+      authSecret: "a-test-secret-that-is-at-least-32-characters",
+      baseURL: "http://localhost:4000",
+      log: () => null,
+    });
+    seeded = await seed(crm, server.db, server.pipeline);
+    const listed = await server.pipeline.query(
+      crm.registry.get("organisation_list") as AnyDefinition as never,
+      {},
+      seeded.admin
+    );
+    const { records } = (listed.ok ? listed.output : {}) as {
+      records: { id: string }[];
+    };
+    organisationId = records[0]?.id ?? "";
+  });
+
+  afterAll(async () => {
+    await server?.close();
+    await database?.close();
+  });
+
+  it("writes the same run rows over HTTP and MCP, for a move and for its declared error", async () => {
+    const problems = await runWorkflowContract({
+      db: server.db,
+      surfaces: {
+        http: workflowHttpSurface(request),
+        mcp: workflowMcpSurface(request),
+      },
+      cases: [
+        {
+          name: "won",
+          key: "deal_move_stage",
+          input: async () => {
+            const { record } = await newDeal();
+            return { deal: record.id, stage: "won" };
+          },
+        },
+        {
+          name: "lost without a reason",
+          key: "deal_move_stage",
+          input: async () => {
+            const { record } = await newDeal();
+            return { deal: record.id, stage: "lost" };
+          },
+        },
+      ],
+    });
+    expect(problems).toStrictEqual([]);
+  });
+
+  it("answers a declared error with 422 and its message, and keeps the run", async () => {
+    const { record } = await newDeal();
+    const response = await post("/workflows/deal_move_stage", {
+      deal: record.id,
+      stage: "lost",
+    });
+    const body = (await response.json()) as { runId: string };
+    const run = await request(`/runs/${body.runId}`);
+    expect([response.status, body]).toMatchObject([
+      422,
+      {
+        error: {
+          code: "reason_required",
+          message: "A lost deal needs a reason.",
+          declared: true,
+        },
+      },
+    ]);
+    await expect(run.json()).resolves.toMatchObject({
+      output: { run: { status: "failed", endpoint: "deal_move_stage" } },
+    });
+  });
+
+  it("replays a retry key, and refuses one used for a different call", async () => {
+    const { record } = await newDeal();
+    const key = { "idempotency-key": `move-${record.id}` };
+    const input = { deal: record.id, stage: "won" };
+    const firstResponse = await post("/workflows/deal_move_stage", input, key);
+    const first = (await firstResponse.json()) as { runId: string };
+    const again = await post("/workflows/deal_move_stage", input, key);
+    const other = await post(
+      "/workflows/deal_move_stage",
+      { ...input, stage: "negotiation" },
+      key
+    );
+    await expect(again.json()).resolves.toMatchObject({
+      runId: first.runId,
+      replayed: true,
+    });
+    expect(other.status).toBe(409);
+  });
+
+  it("lets only callers whose roles name it call it or see it", async () => {
+    const { record } = await newDeal();
+    const sarah = await server.pipeline.run(
+      crm.registry.get("actor.createAgent") as never,
+      { name: "Sarah's agent" },
+      seeded.sales
+    );
+    const { actorId } = (sarah.ok ? sarah.output : {}) as { actorId: string };
+    const made = await server.pipeline.run(
+      crm.registry.get("apiKey.create") as never,
+      { actorId, label: "test" },
+      seeded.sales
+    );
+    const { key } = (made.ok ? made.output : {}) as { key: string };
+    const refused = await request(
+      "/workflows/deal_move_stage",
+      {
+        method: "POST",
+        body: JSON.stringify({ deal: record.id, stage: "won" }),
+      },
+      key
+    );
+    const describedFor = async (as?: string) => {
+      const response = await request(
+        "/queries/system.describe",
+        { method: "POST", body: "{}" },
+        as
+      );
+      const { output } = (await response.json()) as {
+        output: { workflows: { key: string }[] };
+      };
+      return output.workflows.map((workflow) => workflow.key);
+    };
+    expect(refused.status).toBe(403);
+    await expect(describedFor(key)).resolves.toStrictEqual([]);
+    await expect(describedFor()).resolves.toStrictEqual(["deal_move_stage"]);
+  });
+
+  it("is POST only, and in the OpenAPI document with its errors", async () => {
+    const got = await request("/workflows/deal_move_stage");
+    const served = await request("/openapi.json");
+    const document = (await served.json()) as {
+      paths: Record<string, Record<string, { description: string }>>;
+    };
+    const operation = document.paths["/workflows/deal_move_stage"];
+    expect(got.status).toBe(404);
+    expect(Object.keys(operation ?? {})).toStrictEqual(["post"]);
+    expect(operation?.post?.description).toContain("`reason_required`");
+  });
+});

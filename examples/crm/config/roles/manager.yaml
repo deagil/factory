@@ -18,6 +18,7 @@ workflows:
   - contact.moveToOrganisation
   - deal_create
   - deal.moveStage
+  - deal_move_stage # any deal: manager rows are all
   - actor.createAgent
   - apiKey.create
   - apiKey.revoke

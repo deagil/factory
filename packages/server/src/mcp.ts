@@ -1,5 +1,6 @@
 // The MCP server (P1.15, decision 0026): one tool per action and query,
-// generated from the registry, served statelessly over streamable HTTP at
+// generated from the registry, and one per workflow the caller may call,
+// named as the workflow (P2.18), served statelessly over streamable HTTP at
 // `/mcp`. An agent connects with its API key as the bearer token, so its
 // calls run as the agent, for its user.
 import {
@@ -19,6 +20,8 @@ import type {
 import { z } from "zod";
 
 import { callDefinition } from "./call.ts";
+import { callableWorkflows } from "./workflow-calls.ts";
+import type { WorkflowCallResult, WorkflowCalls } from "./workflow-calls.ts";
 
 /**
  * A definition's tool name. Clients such as Claude only accept letters,
@@ -42,7 +45,7 @@ const instructions = [
  * unlike the same call over HTTP (decision 0028; the contract tests check).
  */
 const advertised = (
-  schema: AnyDefinition["input"]
+  schema: z.ZodType
 ): StandardSchemaWithJSON<Record<string, unknown>> => ({
   "~standard": {
     ...(schema["~standard"] as StandardSchemaWithJSON<
@@ -52,12 +55,21 @@ const advertised = (
   },
 });
 
-type CallResult = Awaited<ReturnType<typeof callDefinition>>;
+type CallResult =
+  | Awaited<ReturnType<typeof callDefinition>>
+  | WorkflowCallResult;
 
 const runIdOf = (result: CallResult): string | undefined =>
   "runId" in result && typeof result.runId === "string"
     ? result.runId
     : undefined;
+
+export interface McpOptions {
+  registry: Registry;
+  pipeline: Pipeline;
+  workflowCalls?: WorkflowCalls | undefined;
+  caller: Caller;
+}
 
 /** The run a call wrote, for clients that keep `_meta`. */
 const metaOf = (result: CallResult) => {
@@ -115,11 +127,12 @@ const outputSchemaOf = (definition: AnyDefinition) =>
     : definition.output;
 
 /** One MCP server for one request, with a tool per definition. */
-const mcpServerFor = (
-  registry: Registry,
-  pipeline: Pipeline,
-  caller: Caller
-) => {
+const mcpServerFor = async ({
+  registry,
+  pipeline,
+  workflowCalls,
+  caller,
+}: McpOptions) => {
   const server = new McpServer(
     { name: "factory", version: "0.0.0" },
     { instructions }
@@ -143,16 +156,37 @@ const mcpServerFor = (
         toolResult(await callDefinition(pipeline, definition, input, caller))
     );
   }
+  const taken = new Set(registry.list().map(toolNameOf));
+  const who = workflowCalls ? await pipeline.whoIs(caller) : null;
+  const workflows = who?.ok ? callableWorkflows(who.config, who.granted) : [];
+  for (const workflow of workflows.filter(({ key }) => !taken.has(key))) {
+    server.registerTool(
+      workflow.key,
+      {
+        title: workflow.label,
+        description: workflow.description,
+        inputSchema: advertised(workflow.input),
+        annotations: {
+          readOnlyHint: workflow.readOnly,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async (input) =>
+        toolResult(
+          await (workflowCalls as WorkflowCalls).call(
+            workflow.key,
+            input,
+            caller
+          )
+        )
+    );
+  }
   return server;
 };
 
-export const handleMcp = async (
-  request: Request,
-  registry: Registry,
-  pipeline: Pipeline,
-  caller: Caller
-) => {
-  const server = mcpServerFor(registry, pipeline, caller);
+export const handleMcp = async (request: Request, options: McpOptions) => {
+  const server = await mcpServerFor(options);
   const transport = new WebStandardStreamableHTTPServerTransport({
     enableJsonResponse: true,
   });

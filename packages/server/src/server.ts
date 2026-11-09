@@ -25,6 +25,7 @@ import type { Db } from "@workspace/db";
 
 import { createApi } from "./api.ts";
 import type { System } from "./system.ts";
+import { createWorkflowCalls } from "./workflow-calls.ts";
 
 export interface ServerOptions {
   databaseUrl: string;
@@ -102,6 +103,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
     catalog: system.catalog,
     record: (version) => recordConfigVersion(db, version),
     log: options.log,
+    workflows: system.workflowEntries,
   });
   const loaded = system.config
     ? await loader.load().catch(async (error: unknown) => {
@@ -124,11 +126,12 @@ export const createServer = async (system: System, options: ServerOptions) => {
   };
   const stopWatching = follow();
   const config = loader.service;
+  const clock = { now: () => new Date() };
   const pipeline = createPipeline({
     db,
     config,
     git,
-    clock: { now: () => new Date() },
+    clock,
     permissions: rolePermissions({ db, config }),
     actions: (name) => {
       const definition = system.registry.get(name);
@@ -144,10 +147,19 @@ export const createServer = async (system: System, options: ServerOptions) => {
     trustedOrigins: options.trustedOrigins,
     sendCode: outbox?.send ?? options.sendCode,
   });
+  const workflowCalls = createWorkflowCalls({
+    db,
+    pipeline,
+    clock,
+    stepActions: system.stepActions,
+    definitions: system.registry.list(),
+  });
   const app = createApi({
     registry: system.registry,
     endpoints: system.endpoints,
     pipeline,
+    workflowCalls,
+    workflows: () => config.workflows ?? [],
     callerFrom: auth.callerFrom,
     authHandler: auth.auth.handler,
     devSession: outbox
@@ -159,6 +171,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
     app,
     db,
     pipeline,
+    workflowCalls,
     /** The config loader: the live version, and `load` to reload by hand. */
     config: loader,
     /** Closes the database pool; for tests that never listen. */

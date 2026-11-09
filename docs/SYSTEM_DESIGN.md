@@ -229,7 +229,7 @@ export const deal = defineObject({
 | `POST /workflows/deal_move_stage` | Run a published workflow (`GET` for a `read_only` one) | `deal_move_stage` |
 | `GET /runs/{id}` | A run, its steps and its status | `run_get` |
 
-Each object endpoint runs the object's generated record action of the same name as a one-step run. Each workflow endpoint runs its workflow (section 4.6).
+Each object endpoint runs the object's generated record action of the same name as a one-step run. Each workflow endpoint runs its workflow (section 4.6): only a workflow that starts when called is one, and only for callers whose roles name it. A `read_only` one takes its input as JSON in `?input=`. Its answer is `{ output, runId, replayed }`; its declared errors answer 422 with `declared: true` beside the code and message, and an `Idempotency-Key` used again by the same person for the same input returns the earlier run. The config loader keeps each version's workflows, so HTTP, the MCP tool named as the workflow, OpenAPI, `system_describe` (its input as fields, for forms) and the web app's buttons on records and Automation → Workflows all read the version a call pinned.
 
 **The pipeline** runs at the endpoint, for every call, whoever makes it:
 
