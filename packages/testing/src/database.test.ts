@@ -1,5 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { cpSync, mkdtempSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -12,7 +13,7 @@ import {
   ensureTemplateDatabase,
   listDatabases,
   migrationsHash,
-  templatePrefix,
+  templateDatabaseName,
   withAdmin,
 } from "./databases.ts";
 
@@ -24,6 +25,56 @@ describe(databaseUrl, () => {
         "factory_x"
       )
     ).toBe("postgres://u:p@localhost:5432/factory_x?sslmode=disable");
+  });
+});
+
+describe(templateDatabaseName, () => {
+  it("shares a name across one checkout's worktrees and not with another clone", () => {
+    const parent = mkdtempSync(path.join(tmpdir(), "template-scope-"));
+    const repo = path.join(parent, "repo");
+    const other = path.join(parent, "other");
+    const worktree = path.join(parent, "worktree");
+    try {
+      for (const root of [repo, other]) {
+        mkdirSync(path.join(root, "migrations"), { recursive: true });
+        writeFileSync(path.join(root, "migrations", "0000.sql"), "select 1;\n");
+        execFileSync("git", ["init", "-q", "-b", "main", root]);
+        execFileSync("git", [
+          "-C",
+          root,
+          "config",
+          "user.email",
+          "t@example.com",
+        ]);
+        execFileSync("git", ["-C", root, "config", "user.name", "T"]);
+        execFileSync("git", ["-C", root, "add", "-A"]);
+        execFileSync("git", ["-C", root, "commit", "-q", "-m", "init"]);
+      }
+      execFileSync("git", [
+        "-C",
+        repo,
+        "worktree",
+        "add",
+        "-q",
+        "-b",
+        "scope-check",
+        worktree,
+        "main",
+      ]);
+      const here = templateDatabaseName(path.join(repo, "migrations"));
+      const sameCheckout = templateDatabaseName(
+        path.join(worktree, "migrations")
+      );
+      const elsewhere = templateDatabaseName(path.join(other, "migrations"));
+      expect(here).toBe(sameCheckout);
+      expect(here).not.toBe(elsewhere);
+      expect(here.startsWith("factory_template_")).toBeTruthy();
+      expect(
+        here.endsWith(migrationsHash(path.join(repo, "migrations")))
+      ).toBeTruthy();
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
   });
 });
 
@@ -51,7 +102,7 @@ describe(ensureTemplateDatabase, () => {
         path.join(folder, "unique.json"),
         JSON.stringify(randomBytes(8).toString("hex"))
       );
-      const expected = `${templatePrefix}${migrationsHash(folder)}`;
+      const expected = templateDatabaseName(folder);
 
       const names = await Promise.all([
         ensureTemplateDatabase(folder),

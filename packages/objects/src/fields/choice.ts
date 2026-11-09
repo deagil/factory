@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { baseOptions, mainValue, orNull, requiredColumn } from "./base.ts";
 import type {
+  AnyField,
   Field,
   FieldOptions,
   FilterOperator,
@@ -237,6 +238,12 @@ export const choice = <
   return field as never;
 };
 
+/** True when `field` stores a key from a choice list. */
+export const isChoiceField = (
+  field: AnyField
+): field is AnyField & { readonly list: AnyChoiceList } =>
+  field.kind === "choice" && "list" in field;
+
 /** A value the loaded options don't allow; the pipeline makes it a validation error. */
 export class ChoiceValueError extends Error {
   readonly field: string;
@@ -254,7 +261,7 @@ export class ChoiceValueError extends Error {
  */
 export const checkChoice = (
   key: string,
-  field: ChoiceField,
+  field: { readonly list: { readonly key: string } },
   value: unknown,
   options: { choices?: ChoiceOptions | undefined; current?: unknown }
 ): void => {

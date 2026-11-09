@@ -40,6 +40,16 @@ export const roles: Role[] = [
     },
   },
   {
+    key: "reader",
+    label: "Reader",
+    objects: {
+      organisation: {
+        endpoints: ["list", "get", "history"],
+        rows: "all",
+      },
+    },
+  },
+  {
     key: "sales",
     label: "Sales",
     objects: {

@@ -27,7 +27,7 @@ describe("something that writes", () => {
 ```
 
 - Each test file gets its own database, `factory_test_<run>_<random>`, created from a migrated template.
-- The template, `factory_template_<hash of the migrations>`, is built the first time a test needs it and reused until the migrations change. It is safe to build from parallel processes.
+- The template, `factory_template_<checkout>_<hash of the migrations>`, is built the first time a test needs it and reused until the migrations change. The checkout part is a hash of the git directory, so one repo's worktrees share a template and `fx done` in another checkout cannot drop it. It is safe to build from parallel processes.
 - The shared Vitest config's global teardown drops any database from the run that a crashed file left behind.
 - Tests never touch the dev database. The shared config removes `DATABASE_URL`, and test databases are created through `DATABASE_ADMIN_URL`.
 

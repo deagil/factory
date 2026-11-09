@@ -7,7 +7,13 @@
 // importing @workspace/db.
 
 import { createHash, randomBytes } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import path from "node:path";
 
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -21,8 +27,61 @@ export const coreMigrationsFolder = path.resolve(
 );
 
 const prefix = "factory";
-export const templatePrefix = `${prefix}_template_`;
 export const testDatabasePrefix = `${prefix}_test_`;
+
+/**
+ * The git directory shared by `start` and its worktrees, or null when
+ * `start` is not in a repository. A worktree's git dir is
+ * `<common>/worktrees/<name>`; the common directory is what the checkouts share.
+ */
+const commonGitDir = (start: string): string | null => {
+  let current = path.resolve(start);
+  let gitDir: string | null = null;
+  for (;;) {
+    const gitPath = path.join(current, ".git");
+    if (existsSync(gitPath)) {
+      if (statSync(gitPath).isDirectory()) {
+        gitDir = gitPath;
+      } else {
+        const text = readFileSync(gitPath, "utf-8");
+        const match = /^gitdir:[ \t]*(?<dir>\S.*?)\s*$/mu.exec(text);
+        gitDir = match?.groups?.dir
+          ? path.resolve(current, match.groups.dir)
+          : null;
+      }
+      break;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+  if (!gitDir) {
+    return null;
+  }
+  const marker = `${path.sep}worktrees${path.sep}`;
+  const at = gitDir.lastIndexOf(marker);
+  return at === -1 ? gitDir : gitDir.slice(0, at);
+};
+
+const shortHash = (text: string): string =>
+  createHash("sha256").update(text).digest("hex").slice(0, 12);
+
+/**
+ * Identifies the checkout that owns `folder`. Worktrees of one checkout
+ * share it; a second clone does not, so `fx done` can prune one without
+ * touching the other.
+ */
+export const templateScope = (folder: string): string => {
+  const resolved = path.resolve(folder);
+  const gitDir = commonGitDir(resolved);
+  return shortHash(realpathSync(gitDir ?? resolved));
+};
+
+/** Prefix of this checkout's template databases, including the trailing `_`. */
+export const templatePrefixFor = (folder: string): string =>
+  `${prefix}_template_${templateScope(folder)}_`;
 
 export const adminUrl = (): string => {
   const url = process.env.DATABASE_ADMIN_URL;
@@ -103,6 +162,10 @@ export const migrationsHash = (folder: string): string => {
   return hash.digest("hex").slice(0, 12);
 };
 
+/** The migrated template for `folder`: scoped to the checkout, then the migrations. */
+export const templateDatabaseName = (folder: string): string =>
+  `${templatePrefixFor(folder)}${migrationsHash(folder)}`;
+
 const applyMigrations = async (url: string, folder: string): Promise<void> => {
   const client = new Client({ connectionString: url });
   await client.connect();
@@ -119,14 +182,15 @@ const applyMigrations = async (url: string, folder: string): Promise<void> => {
  * rebuilt when they change. Safe to call from parallel processes: each
  * builder works under its own name and renames it into place.
  *
- * Templates for older migrations are kept, because another worktree or run
- * may still be cloning from them. They are small; `fx done` prunes them.
+ * Templates for older migrations are kept, because another worktree of this
+ * checkout may still be cloning from them. They are small; `fx done` prunes
+ * the ones this checkout no longer uses, and leaves every other checkout's.
  */
 export const ensureTemplateDatabase = async (
   folder: string = coreMigrationsFolder,
   url: string = adminUrl()
 ): Promise<string> => {
-  const name = `${templatePrefix}${migrationsHash(folder)}`;
+  const name = templateDatabaseName(folder);
   return await withAdmin(async (client) => {
     if (await databaseExists(client, name)) {
       return name;
