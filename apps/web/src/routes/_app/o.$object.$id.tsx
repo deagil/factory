@@ -1,7 +1,8 @@
 // The generated record screen: one for every object, built from
 // system.describe. Details are a form for `<object>.update` (read-only
-// fields are shown, not edited); hand-written actions are buttons; the
-// History tab reads `record.history` (P1.21).
+// fields are shown, not edited); hand-written actions are buttons, and so
+// is each workflow whose input takes this record (P2.18); the History tab
+// reads `record.history` (P1.21).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
@@ -11,10 +12,12 @@ import { useState } from "react";
 import { PageHeader, PageSupplement } from "../../components/page-header.tsx";
 import { ErrorMessage, RecordForm } from "../../components/record-form.tsx";
 import { RecordHistory } from "../../components/record-history.tsx";
+import { WorkflowForm } from "../../components/workflow-form.tsx";
 import { describeSystem, objectApi, runAction } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
 import {
   customActions,
+  recordWorkflows,
   verbOf,
   findAction,
   formFields,
@@ -22,7 +25,11 @@ import {
   humanise,
   toFormValues,
 } from "../../lib/forms.ts";
-import type { ActionDescription, FormValues } from "../../lib/forms.ts";
+import type {
+  ActionDescription,
+  FormValues,
+  WorkflowDescription,
+} from "../../lib/forms.ts";
 import { plural } from "../../lib/nav.ts";
 import {
   readableFields,
@@ -108,6 +115,55 @@ const ActionButton = ({
               pending={run.isPending}
               error={run.error}
               onSubmit={(values) => run.mutate(values)}
+              onCancel={() => setOpen(false)}
+            />
+          </div>
+        </PageSupplement>
+      )}
+    </>
+  );
+};
+
+/** A workflow that takes this record: a button that opens its form. */
+const WorkflowButton = ({
+  workflow,
+  recordKey,
+  object,
+  id,
+  description,
+}: {
+  workflow: WorkflowDescription;
+  recordKey: string;
+  object: ObjectDescription;
+  id: string;
+  description: SystemDescription | undefined;
+}) => {
+  const [open, setOpen] = useState(false);
+  const refresh = useRefresh(object.name, id);
+  return (
+    <>
+      <Button
+        variant="outline"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {workflow.label}
+      </Button>
+      {open && (
+        <PageSupplement>
+          <div className="w-full rounded-2xl border p-4">
+            <h2 className="mb-1 font-medium">{workflow.label}</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {workflow.description}
+            </p>
+            <WorkflowForm
+              workflow={workflow}
+              description={description}
+              fixed={{ [recordKey]: id }}
+              onDone={async () => {
+                setOpen(false);
+                await refresh();
+              }}
               onCancel={() => setOpen(false)}
             />
           </div>
@@ -258,6 +314,7 @@ const RecordScreen = () => {
   const canArchive =
     !archivedAt && findAction(described.data, `${name}_archive`);
   const canRestore = findAction(described.data, `${name}_restore`);
+  const workflows = archivedAt ? [] : recordWorkflows(described.data, name);
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -270,8 +327,17 @@ const RecordScreen = () => {
         ]}
         actions={
           <>
-            {(archivedAt ? [] : customActions(described.data, name)).map(
-              (action) => (
+            {(archivedAt ? [] : customActions(described.data, name))
+              // A workflow that does the same job replaces its button.
+              .filter(
+                (action) =>
+                  !workflows.some(
+                    ({ workflow }) =>
+                      workflow.label ===
+                      humanise(verbOf(action.name, name) ?? action.name)
+                  )
+              )
+              .map((action) => (
                 <ActionButton
                   key={action.name}
                   action={action}
@@ -279,8 +345,17 @@ const RecordScreen = () => {
                   loaded={record}
                   description={described.data}
                 />
-              )
-            )}
+              ))}
+            {workflows.map(({ workflow, recordKey }) => (
+              <WorkflowButton
+                key={workflow.key}
+                workflow={workflow}
+                recordKey={recordKey}
+                object={object}
+                id={String(record.record.id)}
+                description={described.data}
+              />
+            ))}
             {canArchive && (
               <Button
                 variant="destructive"

@@ -1,12 +1,15 @@
 // The HTTP API (P1.14, decisions 0027 and 0045): each object's REST
-// endpoints, a route per action and query from the registry (until P2.26),
-// the OpenAPI document, sign-in under /auth and MCP at /mcp.
+// endpoints, each workflow that starts when called at /workflows/<key>
+// (P2.18), runs at /runs/{id}, a route per action and query from the
+// registry (until P2.26), the OpenAPI document, sign-in under /auth and MCP
+// at /mcp.
 import type {
   AnyDefinition,
   Caller,
   ObjectEndpoint,
   Pipeline,
   Registry,
+  WorkflowEntry,
 } from "@workspace/actions";
 import { Hono } from "hono";
 import type { Context } from "hono";
@@ -16,12 +19,17 @@ import { statusFor } from "./errors.ts";
 import type { ApiError, ErrorBody } from "./errors.ts";
 import { handleMcp } from "./mcp.ts";
 import { openApiDocument, pathOf } from "./openapi.ts";
+import type { WorkflowCalls } from "./workflow-calls.ts";
 
 export interface ApiOptions {
   registry: Registry;
   /** The objects' REST endpoints; `System.endpoints`. */
   endpoints?: readonly ObjectEndpoint[];
   pipeline: Pipeline;
+  /** Calls workflow endpoints (P2.18); without it there are none. */
+  workflowCalls?: WorkflowCalls;
+  /** The live config's workflows, for the OpenAPI document. */
+  workflows?: () => readonly WorkflowEntry[];
   /** Finds the caller from an API key or a session; `createAuth().callerFrom`. */
   callerFrom: (headers: Headers) => Promise<Caller | null>;
   /** Better Auth's handler, served under `/auth`; `createAuth().auth.handler`. */
@@ -207,6 +215,30 @@ const objectRoute =
       endpoint.job === "create"
     );
 
+/** `POST /workflows/<key>`, or `GET` for a `read_only` one (P2.18). */
+const workflowRoute =
+  (workflowCalls: WorkflowCalls) => async (c: Context<Env>) => {
+    const read = await inputOf(c);
+    if ("error" in read) {
+      return fail(c, invalid(read.error));
+    }
+    const retryKey = c.req.header("idempotency-key");
+    if (retryKey !== undefined && retryKey.length > maxRetryKeyLength) {
+      return fail(c, invalid("Idempotency-Key is longer than 255 characters."));
+    }
+    const result = await workflowCalls.call(
+      c.req.param("key") ?? "",
+      read.input,
+      c.get("caller"),
+      { retryKey, method: c.req.method === "GET" ? "GET" : "POST" }
+    );
+    if (!result.ok) {
+      return fail(c, result.error, result.runId);
+    }
+    const { output, runId, replayed } = result;
+    return c.json({ output, runId, replayed });
+  };
+
 /** `/deals/{id}/archive` in Hono's form: `/deals/:id/archive`. */
 const honoPath = (path: string) => path.replace("{id}", ":id");
 
@@ -220,6 +252,8 @@ export const createApi = ({
   registry,
   endpoints = [],
   pipeline,
+  workflowCalls,
+  workflows = () => [],
   callerFrom,
   authHandler,
   devSession,
@@ -227,7 +261,9 @@ export const createApi = ({
   const app = new Hono<Env>();
   app.use(requestId());
 
-  app.get("/openapi.json", (c) => c.json(openApiDocument(registry, endpoints)));
+  app.get("/openapi.json", (c) =>
+    c.json(openApiDocument(registry, endpoints, workflows()))
+  );
   if (authHandler) {
     app.on(["GET", "POST"], "/auth/*", (c) => authHandler(c.req.raw));
   }
@@ -249,6 +285,20 @@ export const createApi = ({
   app.use("/actions/*", authenticate);
   app.use("/queries/*", authenticate);
   app.use("/mcp", authenticate);
+  app.use("/workflows/*", authenticate);
+  app.use("/runs/*", authenticate);
+
+  if (workflowCalls) {
+    const handler = workflowRoute(workflowCalls);
+    app.post("/workflows/:key", handler);
+    app.get("/workflows/:key", handler);
+  }
+  const runGet = registry.get("run.get");
+  if (runGet) {
+    app.get("/runs/:id", (c) =>
+      respond(c, pipeline, runGet, { input: { id: c.req.param("id") } })
+    );
+  }
 
   for (const path of new Set(endpoints.map((e) => honoPath(e.path)))) {
     app.use(path, authenticate);
@@ -276,7 +326,12 @@ export const createApi = ({
   }
 
   app.all("/mcp", (c) =>
-    handleMcp(c.req.raw, registry, pipeline, c.get("caller"))
+    handleMcp(c.req.raw, {
+      registry,
+      pipeline,
+      workflowCalls,
+      caller: c.get("caller"),
+    })
   );
 
   app.notFound((c) =>

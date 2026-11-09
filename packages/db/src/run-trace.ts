@@ -1,7 +1,7 @@
 // Writing a workflow run's trace (P2.17, decision 0046): runs and their
 // steps, inserted or brought up to date in one statement each, so the
 // runner writes a run's steps once at its end rather than step by step.
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
 import { runSteps, runs } from "./schema/core.ts";
@@ -48,4 +48,27 @@ export const saveRunSteps = async (
         finishedAt: sql`excluded.finished_at`,
       },
     });
+};
+
+/**
+ * The successful run `actorId` made with `retryKey`, if there is one: what
+ * a second call with the key replays (P2.18).
+ */
+export const findRetriedRun = async (
+  executor: Executor,
+  actorId: string,
+  retryKey: string
+) => {
+  const [row] = await executor
+    .select()
+    .from(runs)
+    .where(
+      and(
+        eq(runs.actorId, actorId),
+        eq(runs.retryKey, retryKey),
+        eq(runs.status, "succeeded"),
+        eq(runs.dryRun, false)
+      )
+    );
+  return row ?? null;
 };

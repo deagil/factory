@@ -171,3 +171,39 @@ export const fromFormValues = (
   }
   return input;
 };
+
+export type WorkflowDescription = SystemDescription["workflows"][number];
+
+/**
+ * The workflows that act on one `object` record (P2.18): those whose input
+ * takes a record of it, with the input field the record fills.
+ */
+export const recordWorkflows = (
+  description: SystemDescription | undefined,
+  object: string
+) =>
+  (description?.workflows ?? []).flatMap((workflow) => {
+    const field = workflow.fields.find(
+      (each) => each.type === "ref" && each.target === object
+    );
+    return field && !workflow.readOnly
+      ? [{ workflow, recordKey: field.key }]
+      : [];
+  });
+
+/** The controls a workflow's form shows: its input but `recordKey`. */
+export const workflowFormFields = (
+  workflow: WorkflowDescription,
+  recordKey?: string
+): FormField[] =>
+  workflow.fields
+    .filter((field) => field.key !== recordKey)
+    .map(({ key, label, type, target, required, options, list }) => ({
+      key,
+      label,
+      type,
+      target,
+      required,
+      options,
+      list,
+    }));

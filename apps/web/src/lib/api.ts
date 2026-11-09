@@ -114,6 +114,18 @@ export const runAction = <TOutput = Record<string, unknown>>(
     options.retryKey ? { "idempotency-key": options.retryKey } : {}
   );
 
+export interface WorkflowResult<TOutput> {
+  output: TOutput;
+  runId: string;
+  replayed: boolean;
+}
+
+/** Calls a workflow endpoint (P2.18); throws `ApiCallError` for its errors. */
+export const runWorkflow = <TOutput = Record<string, unknown>>(
+  key: string,
+  input: unknown
+) => send<WorkflowResult<TOutput>>("POST", `/workflows/${key}`, input);
+
 /** Runs a query and returns its output. */
 export const runQuery = async <TOutput = Record<string, unknown>>(
   name: string,

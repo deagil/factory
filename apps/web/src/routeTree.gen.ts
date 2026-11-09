@@ -19,6 +19,7 @@ import { Route as AppAccessUsersRouteImport } from './routes/_app/access.users'
 import { Route as AppAccountAgentsRouteImport } from './routes/_app/account.agents'
 import { Route as AppActivityChangesRouteImport } from './routes/_app/activity.changes'
 import { Route as AppActivityEventsRouteImport } from './routes/_app/activity.events'
+import { Route as AppAutomationWorkflowsRouteImport } from './routes/_app/automation.workflows'
 import { Route as AppInboxApprovalsRouteImport } from './routes/_app/inbox.approvals'
 import { Route as AppSettingsApiRouteImport } from './routes/_app/settings.api'
 import { Route as AppSettingsReferenceRouteImport } from './routes/_app/settings.reference'
@@ -80,6 +81,11 @@ const AppActivityChangesRoute = AppActivityChangesRouteImport.update({
 const AppActivityEventsRoute = AppActivityEventsRouteImport.update({
   id: '/activity/events',
   path: '/activity/events',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAutomationWorkflowsRoute = AppAutomationWorkflowsRouteImport.update({
+  id: '/automation/workflows',
+  path: '/automation/workflows',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInboxApprovalsRoute = AppInboxApprovalsRouteImport.update({
@@ -158,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/account/agents': typeof AppAccountAgentsRoute
   '/activity/changes': typeof AppActivityChangesRoute
   '/activity/events': typeof AppActivityEventsRoute
+  '/automation/workflows': typeof AppAutomationWorkflowsRoute
   '/inbox/approvals': typeof AppInboxApprovalsRoute
   '/settings/api': typeof AppSettingsApiRoute
   '/settings/reference': typeof AppSettingsReferenceRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/account/agents': typeof AppAccountAgentsRoute
   '/activity/changes': typeof AppActivityChangesRoute
   '/activity/events': typeof AppActivityEventsRoute
+  '/automation/workflows': typeof AppAutomationWorkflowsRoute
   '/inbox/approvals': typeof AppInboxApprovalsRoute
   '/settings/api': typeof AppSettingsApiRoute
   '/settings/reference': typeof AppSettingsReferenceRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   '/_app/account/agents': typeof AppAccountAgentsRoute
   '/_app/activity/changes': typeof AppActivityChangesRoute
   '/_app/activity/events': typeof AppActivityEventsRoute
+  '/_app/automation/workflows': typeof AppAutomationWorkflowsRoute
   '/_app/inbox/approvals': typeof AppInboxApprovalsRoute
   '/_app/settings/api': typeof AppSettingsApiRoute
   '/_app/settings/reference': typeof AppSettingsReferenceRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/account/agents'
     | '/activity/changes'
     | '/activity/events'
+    | '/automation/workflows'
     | '/inbox/approvals'
     | '/settings/api'
     | '/settings/reference'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
     | '/account/agents'
     | '/activity/changes'
     | '/activity/events'
+    | '/automation/workflows'
     | '/inbox/approvals'
     | '/settings/api'
     | '/settings/reference'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/_app/account/agents'
     | '/_app/activity/changes'
     | '/_app/activity/events'
+    | '/_app/automation/workflows'
     | '/_app/inbox/approvals'
     | '/_app/settings/api'
     | '/_app/settings/reference'
@@ -373,6 +385,13 @@ declare module '@tanstack/react-router' {
       path: '/activity/events'
       fullPath: '/activity/events'
       preLoaderRoute: typeof AppActivityEventsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/automation/workflows': {
+      id: '/_app/automation/workflows'
+      path: '/automation/workflows'
+      fullPath: '/automation/workflows'
+      preLoaderRoute: typeof AppAutomationWorkflowsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inbox/approvals': {
@@ -478,6 +497,7 @@ interface AppRouteChildren {
   AppAccountAgentsRoute: typeof AppAccountAgentsRoute
   AppActivityChangesRoute: typeof AppActivityChangesRoute
   AppActivityEventsRoute: typeof AppActivityEventsRoute
+  AppAutomationWorkflowsRoute: typeof AppAutomationWorkflowsRoute
   AppInboxApprovalsRoute: typeof AppInboxApprovalsRoute
   AppSettingsApiRoute: typeof AppSettingsApiRoute
   AppSettingsReferenceRoute: typeof AppSettingsReferenceRoute
@@ -502,6 +522,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountAgentsRoute: AppAccountAgentsRoute,
   AppActivityChangesRoute: AppActivityChangesRoute,
   AppActivityEventsRoute: AppActivityEventsRoute,
+  AppAutomationWorkflowsRoute: AppAutomationWorkflowsRoute,
   AppInboxApprovalsRoute: AppInboxApprovalsRoute,
   AppSettingsApiRoute: AppSettingsApiRoute,
   AppSettingsReferenceRoute: AppSettingsReferenceRoute,

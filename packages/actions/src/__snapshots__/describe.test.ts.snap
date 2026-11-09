@@ -4331,7 +4331,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
       },
     },
     {
-      "description": "Describes the objects, fields, actions, queries and events you may use, with their JSON Schemas.",
+      "description": "Describes the objects, fields, actions, queries, events and workflows you may use, with their JSON Schemas.",
       "input": {
         "properties": {},
         "type": "object",
@@ -4752,16 +4752,63 @@ exports[`system.describe > describes everything to an admin 1`] = `
             },
             "type": "array",
           },
+          "workflows": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string",
+                },
+                "errors": {
+                  "additionalProperties": {
+                    "type": "string",
+                  },
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "input": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "key": {
+                  "type": "string",
+                },
+                "label": {
+                  "type": "string",
+                },
+                "readOnly": {
+                  "type": "boolean",
+                },
+              },
+              "required": [
+                "key",
+                "label",
+                "description",
+                "readOnly",
+                "input",
+                "errors",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
         },
         "required": [
           "objects",
           "actions",
           "queries",
           "events",
+          "workflows",
         ],
         "type": "object",
       },
     },
   ],
+  "workflows": [],
 }
 `;

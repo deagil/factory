@@ -258,7 +258,8 @@ describe("HTTP API", () => {
     expect(refs.filter((ref) => resolve(ref) === undefined)).toStrictEqual([]);
     expect(new Set(operationIds).size).toBe(operationIds.length);
     expect(Object.keys(document.paths)).toHaveLength(
-      registry.list().length + new Set(endpoints.map((e) => e.path)).size
+      // and `/runs/{id}`; this API has no workflows.
+      registry.list().length + new Set(endpoints.map((e) => e.path)).size + 1
     );
   });
 });

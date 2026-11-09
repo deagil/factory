@@ -44,6 +44,7 @@ export type {
   QueryDefinition,
   QueryOptions,
   ResumeResult,
+  WorkflowEntry,
 } from "./define-action.ts";
 export {
   approvalRuleSchema,
@@ -117,6 +118,7 @@ export {
   fieldListSchema,
   grantedBy,
   intersect,
+  mayCall,
   objectRulesSchema,
   permissionNameOf,
   rolePermissions,

@@ -24,6 +24,7 @@ import type {
   ObjectEndpoint,
   Registry,
   SystemDescription,
+  WorkflowEntry,
 } from "@workspace/actions";
 import { identityActions } from "@workspace/auth";
 import {
@@ -38,6 +39,7 @@ import {
 import type {
   AnyConfigType,
   ConfigCatalog,
+  ConfigFile,
   ConfigRead,
 } from "@workspace/config";
 import type { AnyObjectDefinition, ChoiceOptions } from "@workspace/objects";
@@ -45,6 +47,7 @@ import {
   contextOf,
   validateWorkflow,
   workflowConfigType,
+  workflowEntries,
   workflowsIn,
 } from "@workspace/workflows";
 import type {
@@ -126,9 +129,14 @@ export interface System {
    * Everything in the system, as `system.describe` shows it to an admin,
    * and every workflow with its segments.
    */
-  readonly describe: () => SystemDescription & {
+  readonly describe: () => Omit<SystemDescription, "workflows"> & {
     workflows: WorkflowSummary[];
   };
+  /**
+   * Every workflow a config version has, in code and in its files, as the
+   * surfaces see them (P2.18); the config loader keeps them per version.
+   */
+  readonly workflowEntries: (files: readonly ConfigFile[]) => WorkflowEntry[];
 }
 
 /**
@@ -255,6 +263,8 @@ export const defineSystem = (options: SystemOptions): System => {
         ? validateConfig(options.config, configTypes, catalogNow())
         : { files: [], problems: [] },
     tables: options.objects.map((object) => object.table),
+    workflowEntries: (files: readonly ConfigFile[]) =>
+      workflowEntries([...workflows.values(), ...workflowsIn(files).values()]),
     describe: () => ({
       ...describeFor(
         {

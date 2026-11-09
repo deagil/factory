@@ -1,9 +1,10 @@
-// The OpenAPI 3.1 document, generated from the registry and the objects'
-// endpoints (decisions 0026 and 0045).
+// The OpenAPI 3.1 document, generated from the registry, the objects'
+// endpoints and the live config's workflows (decisions 0026 and 0045).
 import type {
   AnyDefinition,
   ObjectEndpoint,
   Registry,
+  WorkflowEntry,
 } from "@workspace/actions";
 import { z } from "zod";
 
@@ -228,9 +229,109 @@ const endpointOperation = (
   };
 };
 
+/**
+ * A workflow endpoint (P2.18): `POST /workflows/<key>`, or GET with the
+ * input as JSON in `?input=` for a `read_only` one. Its declared errors
+ * answer 422 and are listed in the description.
+ */
+const workflowOperation = (workflow: WorkflowEntry, components: Components) => {
+  const declared = Object.entries(workflow.errors);
+  const input = schemaOf(
+    workflow.input,
+    `workflows.${workflow.key}.input`,
+    components,
+    "input"
+  );
+  const common = {
+    operationId: workflow.key,
+    summary: workflow.label,
+    description: [
+      workflow.description,
+      ...(declared.length > 0
+        ? [
+            `Its own errors, each a 422 with \`declared: true\`: ${declared.map(([code, message]) => `\`${code}\` (${message})`).join("; ")}.`,
+          ]
+        : []),
+    ].join("\n\n"),
+    tags: ["workflows"],
+    responses: {
+      "200": {
+        description: "The workflow's output and the run it wrote.",
+        ...json({
+          type: "object",
+          required: ["output", "runId", "replayed"],
+          properties: {
+            output: { type: "object" },
+            runId: { type: "string", format: "uuid" },
+            replayed: { type: "boolean" },
+          },
+        }),
+      },
+      ...errorStatuses([
+        "validation",
+        "unauthenticated",
+        "permission",
+        "not_found",
+        "conflict",
+        "internal",
+      ]),
+      ...(declared.length > 0 ? { "422": errorResponse } : {}),
+    },
+  };
+  if (workflow.readOnly) {
+    return {
+      get: {
+        ...common,
+        parameters: [
+          { $ref: "#/components/parameters/RequestId" },
+          queryParameter("input", "The workflow's input as JSON.", {
+            type: "string",
+          }),
+        ],
+      },
+    };
+  }
+  return {
+    post: {
+      ...common,
+      parameters: [
+        { $ref: "#/components/parameters/RequestId" },
+        { $ref: "#/components/parameters/IdempotencyKey" },
+      ],
+      requestBody: { required: true, ...json(input) },
+    },
+  };
+};
+
+const runOperation = {
+  get: {
+    operationId: "run_get",
+    description:
+      "One run: its input, output or error, each step, and the changes and events it wrote. Your own runs, or any with the run.get permission.",
+    tags: ["workflows"],
+    parameters: [
+      { $ref: "#/components/parameters/RequestId" },
+      {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: { type: "string", format: "uuid" },
+      },
+    ],
+    responses: {
+      "200": {
+        description: "The run.",
+        ...json({ type: "object", properties: { output: { type: "object" } } }),
+      },
+      ...errorStatuses(["unauthenticated", "permission", "not_found"]),
+    },
+  },
+};
+
 export const openApiDocument = (
   registry: Registry,
-  endpoints: readonly ObjectEndpoint[] = []
+  endpoints: readonly ObjectEndpoint[] = [],
+  workflows: readonly WorkflowEntry[] = []
 ) => {
   const schemas: Components = {};
   const rest: Record<string, Record<string, unknown>> = {};
@@ -249,6 +350,13 @@ export const openApiDocument = (
   }
   const paths = Object.fromEntries([
     ...Object.entries(rest),
+    ...workflows
+      .filter((workflow) => workflow.called)
+      .map((workflow) => [
+        `/workflows/${workflow.key}`,
+        workflowOperation(workflow, schemas),
+      ]),
+    ["/runs/{id}", runOperation],
     ...registry.list().map((definition) => [
       pathOf(definition),
       definition.kind === "query"
@@ -265,7 +373,7 @@ export const openApiDocument = (
       title: "factory",
       version: "0.0.0",
       description:
-        "Each object's endpoints, and every action and query in the system. Errors share one shape; send `Authorization: Bearer <API key>` or a session cookie.",
+        "Each object's endpoints, each workflow, and every action and query in the system. Errors share one shape; send `Authorization: Bearer <API key>` or a session cookie.",
     },
     security: [{ apiKey: [] }, { session: [] }],
     paths,

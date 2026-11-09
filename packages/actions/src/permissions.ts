@@ -256,6 +256,10 @@ const narrowWorkflows = (
 };
 
 /** What both `a` and `b` allow: the narrower of the two. `own` is `a`'s. */
+/** Whether `granted` lets its holder call the workflow `key` (P2.18). */
+export const mayCall = (granted: Pick<Granted, "workflows">, key: string) =>
+  granted.workflows === "*" || granted.workflows.has(key);
+
 export const intersect = (a: Granted, b: Granted): Granted =>
   finish({
     on: (object) => {
