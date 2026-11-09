@@ -29,10 +29,10 @@ const createOrg = (
     description: "Create an organisation",
     input: z.object({ name: z.string().min(1) }),
     output: z.object({ id: z.string() }),
-    emits: { "organisation.created": created },
+    emits: { organisation_created: created },
     handler: async (ctx, input) => {
       const org = await ctx.repo.create(organisation, input);
-      ctx.emit("organisation.created", { id: org.id, name: org.name });
+      ctx.emit("organisation_created", { id: org.id, name: org.name });
       if (then === "fail") {
         return ctx.conflict("Changed my mind");
       }
@@ -134,7 +134,7 @@ describe("the action pipeline", () => {
     expect(audits).toMatchObject([{ stepId: steps[0]?.id }]);
     expect(events).toMatchObject([
       {
-        type: "organisation.created",
+        type: "organisation_created",
         payload: { id: org?.id, name: "Acme" },
         originUserId: userId,
         stepId: steps[0]?.id,
@@ -343,7 +343,7 @@ describe("the action pipeline", () => {
     expect(result).toMatchObject({
       ok: true,
       dryRun: true,
-      events: [{ type: "organisation.created" }],
+      events: [{ type: "organisation_created" }],
       changes: [{ object: "organisation", before: {}, after: { name: "Dry" } }],
     });
     await expect(orgsNamed("Dry")).resolves.toHaveLength(0);

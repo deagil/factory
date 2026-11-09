@@ -80,8 +80,8 @@ describe("record.history", () => {
     expect(
       entries.map((entry) => [entry.action, entry.before, entry.after])
     ).toStrictEqual([
-      ["organisation.update", { name: "Acme" }, { name: "Acme Ltd" }],
-      ["organisation.create", {}, expect.objectContaining({ name: "Acme" })],
+      ["organisation_update", { name: "Acme" }, { name: "Acme Ltd" }],
+      ["organisation_create", {}, expect.objectContaining({ name: "Acme" })],
     ]);
     expect(entries[0]?.actor).toMatchObject({ name: "Sarah", kind: "staff" });
     expect(entries[0]?.onBehalfOf).toBeNull();

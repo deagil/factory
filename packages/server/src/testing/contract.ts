@@ -1,12 +1,14 @@
-// Contract tests across surfaces (P1.17): every action runs through the HTTP
-// API and through MCP with the same input, and both must give the same
-// result and write the same log rows. A system's tests call `runContract`
-// with its registry; any difference is reported.
+// Contract tests across surfaces (P1.17, P2.13): every action, and every
+// generated query, runs through the objects' REST endpoints, `/actions` and
+// `/queries`, and MCP with the same input, and all must give the same result
+// and write the same log rows. A system's tests call `runContract` with its
+// registry; any difference is reported.
 import { randomUUID } from "node:crypto";
 
 import type {
-  AnyActionDefinition,
+  AnyDefinition,
   Caller,
+  ObjectEndpoint,
   Pipeline,
   Registry,
 } from "@workspace/actions";
@@ -25,9 +27,9 @@ export interface SurfaceCall {
   runId: string | null;
 }
 
-/** A way to call an action: the HTTP API, MCP, or a test's broken copy. */
+/** A way to call an action or query: REST, `/actions`, MCP, or a broken copy. */
 export type Surface = (
-  action: AnyActionDefinition,
+  definition: AnyDefinition,
   input: unknown
 ) => Promise<SurfaceCall>;
 
@@ -40,28 +42,97 @@ const headers = {
   accept: "application/json, text/event-stream",
 };
 
+const callOf = async (response: Response): Promise<SurfaceCall> => {
+  const body = (await response.json()) as {
+    output?: unknown;
+    error?: unknown;
+    runId?: string | null;
+  };
+  const runId = body.runId ?? null;
+  // approval_required is a 202: accepted, but not run, so it's an error.
+  return response.ok && body.error === undefined
+    ? { ok: true, body: body.output, runId }
+    : { ok: false, body: body.error, runId };
+};
+
+/** `/actions/<name>` and `/queries/<name>`, which go in P2.26. */
 export const httpSurface =
   (request: Fetch): Surface =>
-  async (action, input) => {
-    const response = await request(`/actions/${action.name}`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(input),
-    });
-    const body = (await response.json()) as {
-      output?: unknown;
-      error?: unknown;
-      runId: string | null;
+  async (definition, input) =>
+    callOf(
+      await request(
+        `/${definition.kind === "action" ? "actions" : "queries"}/${definition.name}`,
+        { method: "POST", headers, body: JSON.stringify(input) }
+      )
+    );
+
+/** A query parameter: strings as they are, lists comma-separated, else JSON. */
+const parameter = (value: unknown) => {
+  if (typeof value === "string") {
+    return value;
+  }
+  return Array.isArray(value) ? value.join(",") : JSON.stringify(value);
+};
+
+/** An object endpoint's request for `input`: path, query, If-Match, body. */
+const restRequest = (
+  endpoint: ObjectEndpoint,
+  input: unknown
+): { path: string; init: RequestInit } => {
+  const { id, version, ...rest } = (input ?? {}) as Record<string, unknown>;
+  const path = endpoint.path.replace("{id}", encodeURIComponent(String(id)));
+  if (endpoint.method === "GET") {
+    const query = new URLSearchParams(
+      Object.entries(rest).map(([key, value]) => [key, parameter(value)])
+    ).toString();
+    return {
+      path: query ? `${path}?${query}` : path,
+      init: { method: "GET", headers },
     };
-    // approval_required is a 202: accepted, but not run, so it's an error.
-    return response.ok && body.error === undefined
-      ? { ok: true, body: body.output, runId: body.runId }
-      : { ok: false, body: body.error, runId: body.runId };
+  }
+  const bodies: Partial<Record<ObjectEndpoint["job"], unknown>> = {
+    create: input,
+    update: rest,
   };
+  const body = bodies[endpoint.job];
+  return {
+    path,
+    init: {
+      method: endpoint.method,
+      headers:
+        version === undefined
+          ? headers
+          : { ...headers, "if-match": `"${String(version)}"` },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    },
+  };
+};
+
+/**
+ * The objects' REST endpoints (decision 0045); a definition without one goes
+ * to `/actions` or `/queries` instead.
+ */
+export const restSurface = (
+  request: Fetch,
+  endpoints: readonly ObjectEndpoint[]
+): Surface => {
+  const byName = new Map(
+    endpoints.map((endpoint) => [endpoint.name, endpoint])
+  );
+  const fallback = httpSurface(request);
+  return async (definition, input) => {
+    const endpoint = byName.get(definition.name);
+    if (!endpoint) {
+      return fallback(definition, input);
+    }
+    const { path, init } = restRequest(endpoint, input);
+    return callOf(await request(path, init));
+  };
+};
 
 export const mcpSurface =
   (request: Fetch): Surface =>
-  async (action, input) => {
+  async (definition, input) => {
     const response = await request("/mcp", {
       method: "POST",
       headers,
@@ -69,7 +140,7 @@ export const mcpSurface =
         jsonrpc: "2.0",
         id: 1,
         method: "tools/call",
-        params: { name: action.name.replace(".", "_"), arguments: input },
+        params: { name: definition.name.replace(".", "_"), arguments: input },
       }),
     });
     const { result } = (await response.json()) as {
@@ -165,7 +236,7 @@ export interface ContractOptions {
   surfaces: Record<string, Surface>;
   /**
    * Inputs for hand-written actions, made fresh for each surface. Generated
-   * create, update and archive actions get theirs from their fields.
+   * actions and queries get theirs from their fields.
    */
   samples?: Record<string, () => Promise<unknown>>;
   /** The loaded choice options, for samples of choice fields. */
@@ -198,6 +269,20 @@ const normalise = (value: unknown) => {
   ) as unknown;
 };
 
+/**
+ * A refused input that every surface can carry: an id that isn't one where
+ * the endpoint's path has an id, a bad page size for a list, else `{}`.
+ */
+const invalidFor = (definition: AnyDefinition) => {
+  const job = definition.objectPermission
+    ? definition.name.slice(definition.name.lastIndexOf("_") + 1)
+    : null;
+  if (job === null || job === "create") {
+    return {};
+  }
+  return job === "list" ? { limit: 0 } : { id: "not-a-uuid" };
+};
+
 /* oxlint-disable eslint/no-await-in-loop -- calls run one after another, so
    each surface sees the database as the one before left it. */
 /** Runs every action on every surface and reports any difference. */
@@ -215,7 +300,7 @@ export const runContract = async ({
 
   /** Creates a record directly through the pipeline; returns its id. */
   const createRecord = async (objectName: string): Promise<string> => {
-    const create = registry.get(`${objectName}.create`);
+    const create = registry.get(`${objectName}_create`);
     const object = byName.get(objectName);
     if (create?.kind !== "action" || !object) {
       throw new Error(`Can't make a ${objectName} to refer to`);
@@ -250,11 +335,11 @@ export const runContract = async ({
     );
   };
 
-  const sampleFor = (action: AnyActionDefinition) => {
-    if (samples[action.name]) {
-      return samples[action.name];
+  const sampleFor = (definition: AnyDefinition) => {
+    if (samples[definition.name]) {
+      return samples[definition.name];
     }
-    const needed = action.objectPermission;
+    const needed = definition.objectPermission;
     const object = needed && byName.get(needed.object);
     if (!(needed && object)) {
       return null;
@@ -271,6 +356,11 @@ export const runContract = async ({
       }
       case "archive": {
         return async () => ({ id: await createRecord(object.name) });
+      }
+      case "view": {
+        return definition.name.endsWith("_list")
+          ? () => Promise.resolve({ limit: 5 })
+          : async () => ({ id: await createRecord(object.name) });
       }
       default: {
         return null;
@@ -329,7 +419,12 @@ export const runContract = async ({
 
   const problems: ContractProblem[] = [];
   const entries = Object.entries(surfaces);
-  for (const action of registry.actions()) {
+  const definitions = [
+    ...registry.actions(),
+    // The generated queries: each is an object endpoint.
+    ...registry.queries().filter((query) => query.objectPermission),
+  ];
+  for (const action of definitions) {
     const sample = sampleFor(action);
     if (!sample) {
       problems.push({
@@ -339,7 +434,8 @@ export const runContract = async ({
       });
       continue;
     }
-    const cases = { sample, invalid: () => Promise.resolve({}) };
+    const invalid = invalidFor(action);
+    const cases = { sample, invalid: () => Promise.resolve(invalid) };
     for (const [name, makeInput] of Object.entries(cases)) {
       const seen: [string, string][] = [];
       for (const [surface, call] of entries) {

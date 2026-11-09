@@ -85,13 +85,13 @@ export const seed = async (
   const ids: string[] = [];
   for (const values of organisations) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- one at a time keeps the retry keys and log readable.
-    const result = await run("organisation.create", {
+    const result = await run("organisation_create", {
       ...values,
       owner: boss.id,
     });
     ids.push((result.output as { record: { id: string } }).record.id);
   }
-  await run("deal.create", {
+  await run("deal_create", {
     name: "Acme renewal",
     organisation: ids[0],
     value: { amount: 1_200_000, currency: "GBP" },
@@ -100,7 +100,7 @@ export const seed = async (
   });
   for (const { at, ...values } of contacts) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- as above.
-    await run("contact.create", {
+    await run("contact_create", {
       ...values,
       organisation: ids[at],
       active: true,

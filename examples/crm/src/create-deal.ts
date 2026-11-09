@@ -1,4 +1,4 @@
-// deal.create, hand-written so a new deal starts in an open stage. A deal
+// deal_create, hand-written so a new deal starts in an open stage. A deal
 // reaches won or lost only through deal.moveStage, which needs a reason for
 // lost and says so with deal.stageChanged.
 import { defineAction } from "@workspace/actions";
@@ -13,12 +13,12 @@ const input = deal.schemas.create as unknown as z.ZodObject &
   z.ZodType<z.infer<typeof deal.schemas.create>>;
 
 export const createDeal = defineAction({
-  name: "deal.create",
+  name: "deal_create",
   description:
     "Create a deal. It starts in an open stage; move it on with deal.moveStage.",
   input,
   output: z.object({ record: deal.schemas.record }),
-  emits: { "deal.created": z.object({ record: deal.schemas.record }) },
+  emits: { deal_created: z.object({ record: deal.schemas.record }) },
   handler: async (ctx, values) => {
     const option = ctx.config.choice?.(dealStages).get(values.stage);
     if (!option) {
@@ -30,7 +30,7 @@ export const createDeal = defineAction({
       );
     }
     const record = await ctx.repo.create(deal, values);
-    ctx.emit("deal.created", { record });
+    ctx.emit("deal_created", { record });
     return { record };
   },
 });

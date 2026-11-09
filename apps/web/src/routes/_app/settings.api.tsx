@@ -48,7 +48,7 @@ const ApiScreen = () => {
           </Link>{" "}
           lists the ones you can use.
         </p>
-        <Code>{`curl ${origin}/api/actions/organisation.create \\
+        <Code>{`curl ${origin}/api/actions/organisation_create \\
   -H "Authorization: Bearer fx_…" \\
   -H "Content-Type: application/json" \\
   -H "Idempotency-Key: 7d1c…" \\

@@ -127,12 +127,12 @@ describe("API keys, agents and integrations", () => {
     );
     const agent = await bearer(key);
     const created = await call(
-      "organisation.create",
+      "organisation_create",
       { name: "By agent" },
       agent
     );
     const archived = await call(
-      "organisation.archive",
+      "organisation_archive",
       {
         id: created.ok
           ? (created.output as { record: { id: string } }).record.id
@@ -203,11 +203,11 @@ describe("API keys, agents and integrations", () => {
     );
     const site = await bearer(key);
     const created = await call(
-      "organisation.create",
+      "organisation_create",
       { name: "From the site" },
       site
     );
-    const listed = await call("organisation.list", {}, site);
+    const listed = await call("organisation_list", {}, site);
     expect(site).toStrictEqual({ actorId, originUserId: null });
     expect(created.ok).toBeTruthy();
     expect(listed).toMatchObject({

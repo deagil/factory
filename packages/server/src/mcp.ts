@@ -23,7 +23,7 @@ import { callDefinition } from "./call.ts";
 /**
  * A definition's tool name. Clients such as Claude only accept letters,
  * digits, `_` and `-` in tool names, and definition names have exactly one
- * dot and no underscores, so `organisation.create` is `organisation_create`.
+ * dot and no underscores, so `organisation_create` is `organisation_create`.
  */
 export const toolNameOf = (definition: AnyDefinition) =>
   definition.name.replace(".", "_");

@@ -29,8 +29,8 @@ import { equalityOperators, isNullOperator } from "./filters.ts";
 export const choiceKey = z
   .string()
   .regex(
-    /^[a-z][a-z0-9-]*$/u,
-    "Use lower case letters, digits and dashes, starting with a letter"
+    /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u,
+    "Use snake_case: lower case letters and digits joined by single underscores, starting with a letter, such as public_sector"
   );
 
 /** The columns every option has, whatever its list. */

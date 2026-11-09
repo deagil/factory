@@ -61,7 +61,7 @@ const EventsScreen = () => {
         <TextFilter
           key={search.type ?? ""}
           label="Type"
-          placeholder="contact. or contact.created"
+          placeholder="contact. or contact_created"
           value={search.type}
           onChange={(type) => update({ type })}
         />

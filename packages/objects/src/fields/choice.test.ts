@@ -9,13 +9,13 @@ import { f } from "./index.ts";
 import { build, render, where } from "./test-helpers.ts";
 
 const dealStages = defineChoiceList({
-  key: "deal-stages",
+  key: "deal_stages",
   columns: { category: z.enum(["open", "won", "lost"]) },
 });
 const industries = defineChoiceList({ key: "industries" });
 
 const stages: ChoiceOptions = (list) =>
-  list === "deal-stages"
+  list === "deal_stages"
     ? [
         { key: "lead", label: "Lead", category: "open" },
         { key: "proposal", label: "Proposal", category: "open" },
@@ -48,7 +48,7 @@ describe("f.choice", () => {
   it("takes only a list's fixed keys, when it has them", () => {
     const status = f.choice(
       defineChoiceList({
-        key: "booking-status",
+        key: "booking_status",
         keys: ["pending", "confirmed"],
       }),
       { required: true }

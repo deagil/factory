@@ -16,7 +16,7 @@ import type {
   ConfigService,
   ObjectVerb,
 } from "./define-action.ts";
-import { objectVerbs } from "./define-action.ts";
+import { namePattern, objectVerbs } from "./define-action.ts";
 import { failures } from "./errors.ts";
 import type { ActionFailure } from "./errors.ts";
 
@@ -36,17 +36,14 @@ export const permissionSchema = z.union([
     scope: z.enum(scopes),
   }),
   z.strictObject({
-    action: z.union([
-      z.literal("*"),
-      z.string().regex(/^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/u),
-    ]),
+    action: z.union([z.literal("*"), z.string().regex(namePattern)]),
     scope: z.enum(scopes),
   }),
 ]);
 
 /** A role, as `config/roles/<key>.yaml` holds it. */
 export const roleSchema = z.strictObject({
-  key: z.string().regex(/^[a-z][a-z0-9-]*$/u),
+  key: z.string().regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u),
   label: z.string().min(1),
   permissions: z.array(permissionSchema),
 });

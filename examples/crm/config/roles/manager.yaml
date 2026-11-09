@@ -1,5 +1,5 @@
 # Sales managers: what sales can do, and changes to config in drafts, which
-# an admin approves (config/approvals/config-changes.yaml).
+# an admin approves (config/approvals/config_changes.yaml).
 key: manager
 label: Manager
 permissions:
@@ -14,7 +14,7 @@ permissions:
   - object: deal
     can: [view, update]
     scope: all
-  - action: deal.create
+  - action: deal_create
     scope: all
   - action: deal.moveStage
     scope: all

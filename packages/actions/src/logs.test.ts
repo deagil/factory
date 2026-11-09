@@ -116,24 +116,24 @@ describe("log queries", () => {
   it("lists runs newest first, filtered and paged", async () => {
     const { output } = await query<{ entries: Entry[] }>(
       runList,
-      { endpointPrefix: "organisation." },
+      { endpointPrefix: "organisation_" },
       admin
     );
     expect(output?.entries.map((entry) => entry.endpoint)).toStrictEqual([
-      "organisation.create",
-      "organisation.create",
-      "organisation.update",
-      "organisation.create",
+      "organisation_create",
+      "organisation_create",
+      "organisation_update",
+      "organisation_create",
     ]);
     const first = await query<{ entries: Entry[]; nextCursor: string }>(
       runList,
-      { endpoint: "organisation.create", limit: 2 },
+      { endpoint: "organisation_create", limit: 2 },
       admin
     );
     const second = await query<{ entries: Entry[]; nextCursor: null }>(
       runList,
       {
-        endpoint: "organisation.create",
+        endpoint: "organisation_create",
         limit: 2,
         cursor: first.output?.nextCursor,
       },
@@ -168,14 +168,14 @@ describe("log queries", () => {
       changedIn: output?.run.changes[0]?.stepId,
     }).toStrictEqual({
       steps: 1,
-      stepId: "organisation.update",
+      stepId: "organisation_update",
       changedIn: (step as { id?: string } | undefined)?.id,
     });
     expect(output?.run.changes.map((change) => change.after)).toStrictEqual([
       { name: "Acme Ltd" },
     ]);
     expect(output?.run.events.map((event) => event.type)).toStrictEqual([
-      "organisation.updated",
+      "organisation_updated",
     ]);
     const refused = await query(runGet, { id: renameId }, sam);
     expect(refused.code).toBe("permission");
@@ -186,8 +186,8 @@ describe("log queries", () => {
       entries: { recordId: string; action: string }[];
     }>(auditLogList, { field: "name", recordId: acmeId }, admin);
     expect(output?.entries.map((entry) => entry.action)).toStrictEqual([
-      "organisation.update",
-      "organisation.create",
+      "organisation_update",
+      "organisation_create",
     ]);
     const refused = await query(auditLogList, {}, sam);
     expect(refused.code).toBe("permission");
@@ -196,11 +196,11 @@ describe("log queries", () => {
   it("lists events by type prefix", async () => {
     const { output } = await query<{ entries: { type: string }[] }>(
       eventLogList,
-      { typePrefix: "organisation.upd" },
+      { typePrefix: "organisation_upd" },
       admin
     );
     expect(output?.entries.map((entry) => entry.type)).toStrictEqual([
-      "organisation.updated",
+      "organisation_updated",
     ]);
   });
 });

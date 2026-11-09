@@ -80,7 +80,7 @@ export const ConfigFiles = ({
   const types = [...new Set(editable.map((file) => file.type))];
   const startRole = () => {
     const key = newRole.trim();
-    if (!/^[a-z0-9][a-z0-9-]*$/u.test(key)) {
+    if (!/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u.test(key)) {
       return;
     }
     const file = {

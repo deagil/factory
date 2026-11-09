@@ -49,9 +49,9 @@ interface TimeRange {
 
 export interface RunFilter extends TimeRange {
   actorId?: string;
-  /** The endpoint called, as `contact.update`. */
+  /** The endpoint called, as `contact_update`. */
   endpoint?: string;
-  /** An endpoint prefix, as `contact.` for every contact endpoint. */
+  /** An endpoint prefix, as `contact_` for every contact endpoint. */
   endpointPrefix?: string;
   status?: RunStatus;
   dryRun?: boolean;
@@ -137,7 +137,7 @@ export interface ChangeFilter extends TimeRange {
 
 export interface EventFilter extends TimeRange {
   type?: string;
-  /** A type prefix, as `contact.` for every contact event. */
+  /** A type prefix, as `contact_` for every contact event. */
   typePrefix?: string;
   runId?: string;
 }

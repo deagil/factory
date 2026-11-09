@@ -6,10 +6,11 @@
 // on; there are no expressions.
 import { z } from "zod";
 
+import { namePattern } from "./define-action.ts";
 import type { Actor } from "./define-action.ts";
 import type { Granted } from "./permissions.ts";
 
-const key = z.string().regex(/^[a-z][a-z0-9-]*$/u);
+const key = z.string().regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u);
 const roles = z.array(key);
 
 export const conditionOperators = [
@@ -82,7 +83,7 @@ export const approvalRuleSchema = z.union([
   z
     .strictObject({
       ...common,
-      action: z.string().regex(/^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/u),
+      action: z.string().regex(namePattern),
       /** The record conditions read: an object, and where its id is in the input. */
       record: z
         .strictObject({

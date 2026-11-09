@@ -32,7 +32,7 @@ describe("the CRM's config", () => {
       .filter(
         (definition) =>
           definition.name === "contact.moveToOrganisation" ||
-          definition.name === "deal.create" ||
+          definition.name === "deal_create" ||
           definition.name === "deal.moveStage"
       ),
     migrations: crm.migrations,
@@ -47,7 +47,7 @@ describe("the CRM's config", () => {
 
   const listOrganisations = () =>
     server.pipeline.query(
-      system.registry.get("organisation.list") as AnyQueryDefinition,
+      system.registry.get("organisation_list") as AnyQueryDefinition,
       {},
       sam
     );
@@ -90,7 +90,7 @@ describe("the CRM's config", () => {
 
   it("records the config version on each action_log row", async () => {
     const created = await server.pipeline.run(
-      system.registry.get("contact.create") as AnyActionDefinition,
+      system.registry.get("contact_create") as AnyActionDefinition,
       { firstName: "Pat", active: true, organisation: crypto.randomUUID() },
       sam
     );

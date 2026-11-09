@@ -1,5 +1,10 @@
-// The OpenAPI 3.1 document, generated from the registry (decision 0026).
-import type { AnyDefinition, Registry } from "@workspace/actions";
+// The OpenAPI 3.1 document, generated from the registry and the objects'
+// endpoints (decisions 0026 and 0045).
+import type {
+  AnyDefinition,
+  ObjectEndpoint,
+  Registry,
+} from "@workspace/actions";
 import { z } from "zod";
 
 import { errorBodySchema, statusFor } from "./errors.ts";
@@ -80,7 +85,7 @@ const operation = (definition: AnyDefinition, components: Components) => {
     ...(isAction ? (["conflict", "approval_required"] as const) : []),
   ];
   return {
-    operationId: definition.name,
+    operationId: `${definition.kind === "action" ? "actions" : "queries"}.${definition.name}`,
     description: definition.description,
     parameters: [
       { $ref: "#/components/parameters/RequestId" },
@@ -117,7 +122,7 @@ const getOperation = (definition: AnyDefinition, components: Components) => {
   const { requestBody: _, ...rest } = operation(definition, components);
   return {
     ...rest,
-    operationId: `${definition.name}.get`,
+    operationId: `queries.${definition.name}.get`,
     parameters: [
       ...rest.parameters,
       {
@@ -131,10 +136,120 @@ const getOperation = (definition: AnyDefinition, components: Components) => {
   };
 };
 
-export const openApiDocument = (registry: Registry) => {
+const queryParameter = (
+  name: string,
+  description: string,
+  schema: unknown
+) => ({
+  name,
+  in: "query",
+  required: false,
+  description,
+  schema,
+});
+
+/** The path and query parameters each kind of object endpoint takes. */
+const endpointParameters = (endpoint: ObjectEndpoint) => {
+  const id = endpoint.path.includes("{id}")
+    ? [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ]
+    : [];
+  const read =
+    endpoint.job === "list" || endpoint.job === "get"
+      ? [
+          queryParameter("archived", "`include` to see archived records too.", {
+            type: "string",
+            enum: ["exclude", "include"],
+          }),
+          queryParameter(
+            "expand",
+            "Reference fields whose records to return in `related`, comma-separated.",
+            { type: "string" }
+          ),
+        ]
+      : [];
+  const list =
+    endpoint.job === "list"
+      ? [
+          queryParameter("filter", "The filter, as JSON.", { type: "string" }),
+          queryParameter("sort", "A field key; `-key` sorts descending.", {
+            type: "string",
+          }),
+          queryParameter("cursor", "`nextCursor` from the last page.", {
+            type: "string",
+          }),
+          queryParameter("limit", "Records per page.", { type: "integer" }),
+        ]
+      : [];
+  const ifMatch =
+    endpoint.job === "update"
+      ? [
+          {
+            name: "If-Match",
+            in: "header",
+            required: false,
+            description:
+              "The version you read (its ETag); a newer one is a conflict.",
+            schema: { type: "string" },
+          },
+        ]
+      : [];
+  return [...id, ...read, ...list, ...ifMatch];
+};
+
+/** One object endpoint: its action's or query's operation, over REST. */
+const endpointOperation = (
+  endpoint: ObjectEndpoint,
+  definition: AnyDefinition,
+  components: Components
+) => {
+  const { requestBody, parameters, responses, ...rest } = operation(
+    definition,
+    components
+  );
+  const { "200": success, ...errors } = responses;
+  const hasBody = endpoint.job === "create" || endpoint.job === "update";
+  return {
+    ...rest,
+    operationId: endpoint.name,
+    tags: [endpoint.object],
+    parameters: [...parameters, ...endpointParameters(endpoint)],
+    ...(hasBody ? { requestBody } : {}),
+    responses: {
+      [endpoint.job === "create" ? "201" : "200"]: success,
+      ...errors,
+    },
+  };
+};
+
+export const openApiDocument = (
+  registry: Registry,
+  endpoints: readonly ObjectEndpoint[] = []
+) => {
   const schemas: Components = {};
-  const paths = Object.fromEntries(
-    registry.list().map((definition) => [
+  const rest: Record<string, Record<string, unknown>> = {};
+  for (const endpoint of endpoints) {
+    const definition = registry.get(endpoint.name);
+    if (definition) {
+      rest[endpoint.path] = {
+        ...rest[endpoint.path],
+        [endpoint.method.toLowerCase()]: endpointOperation(
+          endpoint,
+          definition,
+          schemas
+        ),
+      };
+    }
+  }
+  const paths = Object.fromEntries([
+    ...Object.entries(rest),
+    ...registry.list().map((definition) => [
       pathOf(definition),
       definition.kind === "action"
         ? { post: operation(definition, schemas) }
@@ -142,15 +257,15 @@ export const openApiDocument = (registry: Registry) => {
             post: operation(definition, schemas),
             get: getOperation(definition, schemas),
           },
-    ])
-  );
+    ]),
+  ]);
   return {
     openapi: "3.1.0",
     info: {
       title: "factory",
       version: "0.0.0",
       description:
-        "Every action and query in the system. Errors share one shape; send `Authorization: Bearer <API key>` or a session cookie.",
+        "Each object's endpoints, and every action and query in the system. Errors share one shape; send `Authorization: Bearer <API key>` or a session cookie.",
     },
     security: [{ apiKey: [] }, { session: [] }],
     paths,

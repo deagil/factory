@@ -5,6 +5,7 @@ import {
   createRegistry,
   describeQuery,
   generateDefinitions,
+  objectEndpoints,
   rolePermissions,
 } from "@workspace/actions";
 import type { Caller, Pipeline, Role } from "@workspace/actions";
@@ -55,6 +56,11 @@ const definitions = [
   ...generateDefinitions(organisation),
   ...generateDefinitions(contact),
 ];
+
+/** The REST endpoints of the test objects. */
+export const endpoints = [organisation, contact].flatMap((object) =>
+  objectEndpoints(object)
+);
 
 export const registry = createRegistry([
   ...definitions,
@@ -129,6 +135,7 @@ export const createTestApi = async () => {
 
   const api = createApi({
     registry,
+    endpoints,
     pipeline,
     callerFrom: auth.callerFrom,
     authHandler: auth.auth.handler,

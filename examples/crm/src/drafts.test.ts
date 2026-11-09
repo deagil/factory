@@ -1,6 +1,6 @@
 // Drafts over git (P2.08): against a bare test remote, a draft that edits two
 // files publishes in one commit, the loader picks it up, and main has the
-// same changes. A draft the config-changes rule covers waits for an admin's
+// same changes. A draft the config_changes rule covers waits for an admin's
 // approval (P2.09), and the last approval publishes it. Each person's saves
 // go into their working draft, which they can undo or discard (decision 0044).
 import { execFileSync } from "node:child_process";
@@ -66,7 +66,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       .filter(
         (definition) =>
           definition.name === "contact.moveToOrganisation" ||
-          definition.name === "deal.create" ||
+          definition.name === "deal_create" ||
           definition.name === "deal.moveStage"
       ),
     migrations: crm.migrations,
@@ -125,12 +125,12 @@ describe("drafts over git", { timeout: 30_000 }, () => {
   it("publishes two files in one commit, which the loader and main pick up", async () => {
     const id = await open("Add a negotiation stage");
     const stages = readFileSync(
-      path.join(configDir, "choices", "deal-stages.yaml"),
+      path.join(configDir, "choices", "deal_stages.yaml"),
       "utf-8"
     );
     await save(
       id,
-      "config/choices/deal-stages.yaml",
+      "config/choices/deal_stages.yaml",
       stages.replace(
         "  - key: won",
         "  - key: negotiation\n    label: Negotiation\n    category: open\n  - key: won"
@@ -147,7 +147,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
         draft: {
           status: "valid",
           files: [
-            "config/choices/deal-stages.yaml",
+            "config/choices/deal_stages.yaml",
             "config/roles/viewer.yaml",
           ],
         },
@@ -172,7 +172,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       // The loader runs it, with the new stage and role.
       live: server.config.current()?.sha,
       stages: server.config.service
-        .choices?.("deal-stages")
+        .choices?.("deal_stages")
         ?.map((each) => each.key),
       roles: server.config.service.roles.map((each) => each.key),
       // Main has the same changes.
@@ -208,13 +208,13 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       listed as { output: { files: { path: string; value: unknown }[] } }
     ).output;
     const stages = files.find(
-      (file) => file.path === "config/choices/deal-stages.yaml"
+      (file) => file.path === "config/choices/deal_stages.yaml"
     )?.value as { key: string; options: object[] };
     const saved = await server.pipeline.run(
       action("draft.save"),
       {
         id,
-        path: "config/choices/deal-stages.yaml",
+        path: "config/choices/deal_stages.yaml",
         value: {
           ...stages,
           options: [
@@ -239,7 +239,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
           changes: [
             {
               type: "choices",
-              key: "deal-stages",
+              key: "deal_stages",
               afterValue: {
                 options: expect.arrayContaining([
                   expect.objectContaining({ key: "closing" }),
@@ -460,7 +460,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       check: {
         ok: true,
         output: {
-          signOffs: [{ rule: "config-changes", approverRole: "admin" }],
+          signOffs: [{ rule: "config_changes", approverRole: "admin" }],
         },
       },
       asked: {
@@ -471,7 +471,7 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       },
       again: {
         ok: false,
-        error: { code: "approval_required", rule: "config-changes" },
+        error: { code: "approval_required", rule: "config_changes" },
       },
       byAda: { ok: false, error: { code: "permission" } },
       approved: {

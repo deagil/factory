@@ -47,8 +47,8 @@ export const deal = defineObject({
     stage: f.choice(dealStages, { required: true }),
   },
   list: ["name", "organisation", "value", "stage", "owner"],
-  // deal.create starts a deal in an open stage; deal.moveStage owns it after.
-  actions: { create: "deal.create", update: { readOnly: ["stage"] } },
+  // deal_create starts a deal in an open stage; deal.moveStage owns it after.
+  actions: { create: "deal_create", update: { readOnly: ["stage"] } },
 });
 
 export const organisations = organisation.table;

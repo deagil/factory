@@ -62,7 +62,7 @@ describe("MCP server", () => {
     expect(
       tools.find((tool) => tool.name === "organisation_list")
     ).toMatchObject({
-      title: "organisation.list",
+      title: "organisation_list",
       annotations: { readOnlyHint: true },
     });
     for (const tool of tools) {
@@ -74,7 +74,7 @@ describe("MCP server", () => {
       arguments: { name: "Made by Claude" },
     });
     const log = await test.crm.db.query.runs.findFirst({
-      where: (t, { eq }) => eq(t.endpoint, "organisation.create"),
+      where: (t, { eq }) => eq(t.endpoint, "organisation_create"),
     });
     // The model sees the action id in the result, not only in `_meta`.
     expect(called.body.result).toMatchObject({

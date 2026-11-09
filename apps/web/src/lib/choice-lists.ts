@@ -17,7 +17,7 @@ export interface ListUse {
 export const canEditConfig = (description: SystemDescription | undefined) =>
   (description?.actions ?? []).some((action) => action.name === "draft.save");
 
-/** "deal-stages" → "Deal stages". */
+/** "deal_stages" → "Deal stages". */
 export const listLabel = (key: string) => {
   const words = key.replaceAll(/[-_]/gu, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);

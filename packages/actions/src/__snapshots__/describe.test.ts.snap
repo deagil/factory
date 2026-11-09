@@ -6,7 +6,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Create a organisation",
       "emits": [
-        "organisation.created",
+        "organisation_created",
       ],
       "input": {
         "$defs": {
@@ -94,7 +94,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "organisation.create",
+      "name": "organisation_create",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -198,7 +198,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Change fields on a organisation",
       "emits": [
-        "organisation.updated",
+        "organisation_updated",
       ],
       "input": {
         "$defs": {
@@ -296,7 +296,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "organisation.update",
+      "name": "organisation_update",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -400,7 +400,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Archive a organisation. Archived records are hidden, not deleted.",
       "emits": [
-        "organisation.archived",
+        "organisation_archived",
       ],
       "input": {
         "additionalProperties": false,
@@ -416,7 +416,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "organisation.archive",
+      "name": "organisation_archive",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -520,7 +520,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Restore an archived organisation, so it shows in lists again.",
       "emits": [
-        "organisation.restored",
+        "organisation_restored",
       ],
       "input": {
         "additionalProperties": false,
@@ -536,7 +536,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "organisation.restore",
+      "name": "organisation_restore",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -640,7 +640,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Create a contact",
       "emits": [
-        "contact.created",
+        "contact_created",
       ],
       "input": {
         "additionalProperties": false,
@@ -715,7 +715,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "contact.create",
+      "name": "contact_create",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -843,7 +843,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Change fields on a contact",
       "emits": [
-        "contact.updated",
+        "contact_updated",
       ],
       "input": {
         "additionalProperties": false,
@@ -921,7 +921,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "contact.update",
+      "name": "contact_update",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -1049,7 +1049,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Archive a contact. Archived records are hidden, not deleted.",
       "emits": [
-        "contact.archived",
+        "contact_archived",
       ],
       "input": {
         "additionalProperties": false,
@@ -1065,7 +1065,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "contact.archive",
+      "name": "contact_archive",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -1193,7 +1193,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "description": "Restore an archived contact, so it shows in lists again.",
       "emits": [
-        "contact.restored",
+        "contact_restored",
       ],
       "input": {
         "additionalProperties": false,
@@ -1209,7 +1209,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "contact.restore",
+      "name": "contact_restore",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -1436,7 +1436,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "organisation.created",
+      "type": "organisation_created",
     },
     {
       "payload": {
@@ -1554,7 +1554,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "organisation.updated",
+      "type": "organisation_updated",
     },
     {
       "payload": {
@@ -1656,7 +1656,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "organisation.archived",
+      "type": "organisation_archived",
     },
     {
       "payload": {
@@ -1758,7 +1758,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "organisation.restored",
+      "type": "organisation_restored",
     },
     {
       "payload": {
@@ -1884,7 +1884,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "contact.created",
+      "type": "contact_created",
     },
     {
       "payload": {
@@ -2026,7 +2026,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "contact.updated",
+      "type": "contact_updated",
     },
     {
       "payload": {
@@ -2152,7 +2152,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "contact.archived",
+      "type": "contact_archived",
     },
     {
       "payload": {
@@ -2278,13 +2278,50 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "type": "contact.restored",
+      "type": "contact_restored",
     },
   ],
   "objects": [
     {
       "customFields": true,
       "description": null,
+      "endpoints": [
+        {
+          "method": "GET",
+          "name": "organisation_list",
+          "path": "/organisations",
+        },
+        {
+          "method": "GET",
+          "name": "organisation_get",
+          "path": "/organisations/{id}",
+        },
+        {
+          "method": "POST",
+          "name": "organisation_create",
+          "path": "/organisations",
+        },
+        {
+          "method": "PATCH",
+          "name": "organisation_update",
+          "path": "/organisations/{id}",
+        },
+        {
+          "method": "POST",
+          "name": "organisation_archive",
+          "path": "/organisations/{id}/archive",
+        },
+        {
+          "method": "POST",
+          "name": "organisation_restore",
+          "path": "/organisations/{id}/restore",
+        },
+        {
+          "method": "GET",
+          "name": "organisation_history",
+          "path": "/organisations/{id}/history",
+        },
+      ],
       "fields": [
         {
           "description": null,
@@ -2412,6 +2449,43 @@ exports[`system.describe > describes everything to an admin 1`] = `
     {
       "customFields": false,
       "description": null,
+      "endpoints": [
+        {
+          "method": "GET",
+          "name": "contact_list",
+          "path": "/contacts",
+        },
+        {
+          "method": "GET",
+          "name": "contact_get",
+          "path": "/contacts/{id}",
+        },
+        {
+          "method": "POST",
+          "name": "contact_create",
+          "path": "/contacts",
+        },
+        {
+          "method": "PATCH",
+          "name": "contact_update",
+          "path": "/contacts/{id}",
+        },
+        {
+          "method": "POST",
+          "name": "contact_archive",
+          "path": "/contacts/{id}/archive",
+        },
+        {
+          "method": "POST",
+          "name": "contact_restore",
+          "path": "/contacts/{id}/restore",
+        },
+        {
+          "method": "GET",
+          "name": "contact_history",
+          "path": "/contacts/{id}/history",
+        },
+      ],
       "fields": [
         {
           "description": null,
@@ -2658,7 +2732,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "organisation.get",
+      "name": "organisation_get",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -3083,7 +3157,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         },
         "type": "object",
       },
-      "name": "organisation.list",
+      "name": "organisation_list",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -3209,6 +3283,135 @@ exports[`system.describe > describes everything to an admin 1`] = `
       },
     },
     {
+      "description": "Every change to one organisation, newest first: which fields changed from what to what, in which run, and who made it.",
+      "input": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+        ],
+        "type": "object",
+      },
+      "name": "organisation_history",
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "string",
+                },
+                "actor": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string",
+                    },
+                    "kind": {
+                      "type": "string",
+                    },
+                    "name": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                  ],
+                  "type": "object",
+                },
+                "after": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "at": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "type": "string",
+                },
+                "before": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "id": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+                "onBehalfOf": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                        },
+                        "name": {
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "type": "null",
+                    },
+                  ],
+                },
+                "runId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+                "stepId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+              },
+              "required": [
+                "id",
+                "at",
+                "action",
+                "runId",
+                "stepId",
+                "actor",
+                "onBehalfOf",
+                "before",
+                "after",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+        },
+        "required": [
+          "entries",
+        ],
+        "type": "object",
+      },
+    },
+    {
       "description": "One contact by id",
       "input": {
         "additionalProperties": false,
@@ -3240,7 +3443,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         ],
         "type": "object",
       },
-      "name": "contact.get",
+      "name": "contact_get",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -3879,7 +4082,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
         },
         "type": "object",
       },
-      "name": "contact.list",
+      "name": "contact_list",
       "output": {
         "additionalProperties": false,
         "properties": {
@@ -4029,6 +4232,135 @@ exports[`system.describe > describes everything to an admin 1`] = `
       },
     },
     {
+      "description": "Every change to one contact, newest first: which fields changed from what to what, in which run, and who made it.",
+      "input": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+        ],
+        "type": "object",
+      },
+      "name": "contact_history",
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "string",
+                },
+                "actor": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string",
+                    },
+                    "kind": {
+                      "type": "string",
+                    },
+                    "name": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "kind",
+                  ],
+                  "type": "object",
+                },
+                "after": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "at": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "type": "string",
+                },
+                "before": {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string",
+                  },
+                  "type": "object",
+                },
+                "id": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+                "onBehalfOf": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                        },
+                        "name": {
+                          "type": "string",
+                        },
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                      ],
+                      "type": "object",
+                    },
+                    {
+                      "type": "null",
+                    },
+                  ],
+                },
+                "runId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+                "stepId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string",
+                },
+              },
+              "required": [
+                "id",
+                "at",
+                "action",
+                "runId",
+                "stepId",
+                "actor",
+                "onBehalfOf",
+                "before",
+                "after",
+              ],
+              "type": "object",
+            },
+            "type": "array",
+          },
+        },
+        "required": [
+          "entries",
+        ],
+        "type": "object",
+      },
+    },
+    {
       "description": "Describes the objects, fields, actions, queries and events you may use, with their JSON Schemas.",
       "input": {
         "properties": {},
@@ -4115,6 +4447,34 @@ exports[`system.describe > describes everything to an admin 1`] = `
                     "string",
                     "null",
                   ],
+                },
+                "endpoints": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "method": {
+                        "enum": [
+                          "GET",
+                          "POST",
+                          "PATCH",
+                        ],
+                        "type": "string",
+                      },
+                      "name": {
+                        "type": "string",
+                      },
+                      "path": {
+                        "type": "string",
+                      },
+                    },
+                    "required": [
+                      "method",
+                      "path",
+                      "name",
+                    ],
+                    "type": "object",
+                  },
+                  "type": "array",
                 },
                 "fields": {
                   "items": {
@@ -4264,6 +4624,7 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "fields",
                 "list",
                 "customFields",
+                "endpoints",
               ],
               "type": "object",
             },

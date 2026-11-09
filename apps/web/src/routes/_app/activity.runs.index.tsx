@@ -68,7 +68,7 @@ const RunsScreen = () => {
         <TextFilter
           key={search.name ?? ""}
           label="Endpoint"
-          placeholder="contact. or contact.create"
+          placeholder="contact. or contact_create"
           value={search.name}
           onChange={(name) => update({ name })}
         />

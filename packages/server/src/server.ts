@@ -147,6 +147,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
   });
   const app = createApi({
     registry: system.registry,
+    endpoints: system.endpoints,
     pipeline,
     callerFrom: auth.callerFrom,
     authHandler: auth.auth.handler,

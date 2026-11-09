@@ -5,7 +5,7 @@ import { useMemo } from "react";
 
 import { PageHeader } from "../../components/page-header.tsx";
 import { RecordForm } from "../../components/record-form.tsx";
-import { describeSystem, runAction } from "../../lib/api.ts";
+import { describeSystem, objectApi } from "../../lib/api.ts";
 import {
   findAction,
   formFields,
@@ -26,12 +26,11 @@ const CreateScreen = () => {
     queryFn: describeSystem,
   });
   const object = findObject(described.data, name);
-  const action = findAction(described.data, `${name}.create`);
+  const action = findAction(described.data, `${name}_create`);
   const fields = object && action ? formFields(action, object) : [];
   const create = useMutation({
     mutationFn: (values: FormValues) =>
-      runAction<{ record: { id: string } }>(
-        `${name}.create`,
+      objectApi(name, object?.endpoints).create<{ record: { id: string } }>(
         fromFormValues(fields, values),
         { retryKey }
       ),

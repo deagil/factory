@@ -1,5 +1,5 @@
 // deal.moveStage: the only way to change a deal's stage. It owns the field,
-// so deal.update can't, and it records the stage's category on the event.
+// so deal_update can't, and it records the stage's category on the event.
 import { defineAction } from "@workspace/actions";
 import { z } from "zod";
 

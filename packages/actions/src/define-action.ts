@@ -311,7 +311,7 @@ export interface QueryOptions<
   TInput extends ObjectSchema,
   TOutput extends ObjectSchema,
 > {
-  /** `<object>.<verb>`, such as `contact.list`. */
+  /** `<object>.<verb>`, such as `contact_list`. */
   name: TName;
   description: string;
   input: TInput;
@@ -376,8 +376,13 @@ export interface AnyQueryDefinition {
 /** Any action or query: what the registry holds. */
 export type AnyDefinition = AnyActionDefinition | AnyQueryDefinition;
 
-/** Action, query and event names: `<object>.<word>`, each part camelCase. */
-export const namePattern = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/u;
+/**
+ * Action, query and event names: snake_case (`deal_create`, decision 0047),
+ * or phase 1's `<object>.<verb>` in camelCase (`deal.moveStage`), which
+ * hand-written definitions keep until workflows replace them (P2.24, P2.25).
+ */
+export const namePattern =
+  /^(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)*|[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*)$/u;
 
 const check = (
   kind: "defineAction" | "defineQuery",
@@ -386,7 +391,7 @@ const check = (
   const { name, description } = options;
   if (!namePattern.test(name)) {
     throw new Error(
-      `${kind}("${name}"): the name must be <object>.<verb> in camelCase, such as "deal.moveStage"`
+      `${kind}("${name}"): the name must be snake_case, such as "deal_move_stage"`
     );
   }
   if (description.trim() === "") {
@@ -397,7 +402,7 @@ const check = (
   for (const type of Object.keys(options.emits ?? {})) {
     if (!namePattern.test(type)) {
       throw new Error(
-        `${kind}("${name}"): the event "${type}" must be <object>.<pastTense> in camelCase, such as "deal.stageChanged"`
+        `${kind}("${name}"): the event "${type}" must be snake_case in the past tense, such as "deal_stage_changed"`
       );
     }
   }

@@ -18,9 +18,9 @@ const catalog: ConfigCatalog = {
   objects: new Map([["contact", ["firstName", "email"]]]),
   actions: new Set(["contact.moveToOrganisation"]),
   objectActions: new Map([
-    ["contact.create", { object: "contact", can: "create" }],
+    ["contact_create", { object: "contact", can: "create" }],
   ]),
-  events: new Set(["contact.created"]),
+  events: new Set(["contact_created"]),
   choiceLists: [],
 };
 
@@ -44,7 +44,7 @@ permissions:
     scope: all
   - action: contact.moveToOrganisation
     scope: all
-  - action: contact.create
+  - action: contact_create
     scope: all
   - action: contact.merge
     scope: all
@@ -54,7 +54,7 @@ permissions:
     expect(files).toHaveLength(1);
     expect(problems.map(formatProblem)).toStrictEqual([
       'config/roles/sales.yaml:7 permissions.1.object: There is no object "deal". Objects: contact.',
-      "config/roles/sales.yaml:12 permissions.3.action: contact.create is generated for contact, so grant it as an object permission: object: contact, can: [create].",
+      "config/roles/sales.yaml:12 permissions.3.action: contact_create is generated for contact, so grant it as an object permission: object: contact, can: [create].",
       'config/roles/sales.yaml:14 permissions.4.action: There is no action or query "contact.merge".',
     ]);
   });

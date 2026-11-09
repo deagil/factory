@@ -176,7 +176,7 @@ describe("approval rules", () => {
       approvalRuleSchema.safeParse({
         key: "x",
         label: "X",
-        action: "deal.update",
+        action: "deal_update",
         approver: "admin",
         ...change,
       }).success

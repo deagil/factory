@@ -37,7 +37,7 @@ describe("core tables", () => {
     const [inserted] = await db
       .insert(actionLog)
       .values({
-        name: "contact.create",
+        name: "contact_create",
         actorId: actor.id,
         originUserId: user.id,
         input: { firstName: "Ada" },
@@ -53,7 +53,7 @@ describe("core tables", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      name: "contact.create",
+      name: "contact_create",
       actorId: actor.id,
       originUserId: user.id,
       input: { firstName: "Ada" },

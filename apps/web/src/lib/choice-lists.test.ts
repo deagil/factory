@@ -37,13 +37,13 @@ describe(usesOf, () => {
           name: "deal",
           label: "Deal",
           fields: [
-            { key: "stage", label: "Stage", list: "deal-stages" },
+            { key: "stage", label: "Stage", list: "deal_stages" },
             { key: "name", label: "Name", list: null },
           ],
         },
       ],
     } as never;
-    expect(usesOf(description, "deal-stages")).toStrictEqual([
+    expect(usesOf(description, "deal_stages")).toStrictEqual([
       {
         object: "deal",
         objectLabel: "Deal",
@@ -56,6 +56,6 @@ describe(usesOf, () => {
 
 describe(listLabel, () => {
   it("reads a key as words", () => {
-    expect(listLabel("deal-stages")).toBe("Deal stages");
+    expect(listLabel("deal_stages")).toBe("Deal stages");
   });
 });

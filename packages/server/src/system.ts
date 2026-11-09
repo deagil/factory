@@ -15,9 +15,11 @@ import {
   historyQuery,
   identityQueries,
   logQueries,
+  objectEndpoints,
 } from "@workspace/actions";
 import type {
   AnyDefinition,
+  ObjectEndpoint,
   Registry,
   SystemDescription,
 } from "@workspace/actions";
@@ -60,6 +62,8 @@ export interface System {
   readonly objects: readonly AnyObjectDefinition[];
   /** Every action and query, generated and hand-written. */
   readonly registry: Registry;
+  /** Each object's REST endpoints (decision 0045). */
+  readonly endpoints: readonly ObjectEndpoint[];
   /** The system's migrations folder, if it has one. */
   readonly migrations: string | undefined;
   /** The system's `config/` folder, if it has one. */
@@ -122,6 +126,7 @@ export const defineSystem = (options: SystemOptions): System => {
     name: options.name,
     objects: options.objects,
     registry,
+    endpoints: options.objects.flatMap((object) => objectEndpoints(object)),
     migrations: options.migrations,
     config: options.config,
     catalog: catalogNow,

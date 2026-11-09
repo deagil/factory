@@ -88,7 +88,7 @@ describe(defineObject, () => {
         name: "lead",
         fields: {
           company: f.ref("company"),
-          source: f.choice(defineChoiceList({ key: "lead-sources" })),
+          source: f.choice(defineChoiceList({ key: "lead_sources" })),
         },
       });
       expect(
@@ -333,9 +333,9 @@ describe(defineObject, () => {
         defineObject({
           name: "b3",
           fields: { a: text },
-          actions: { create: "place" },
+          actions: { create: "Place" },
         })
-      ).toThrow(/an action name such as "b3.place"/u);
+      ).toThrow(/an action name such as "b3_place"/u);
     });
 
     it("refuses a ref to an object that isn't defined, when the table is built", () => {

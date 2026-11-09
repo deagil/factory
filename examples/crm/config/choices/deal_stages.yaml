@@ -1,7 +1,7 @@
 # deal.stage. Staff add, rename, reorder and archive stages; each one's
 # category is open, won or lost, and code acts on the category. The list's
 # columns are defined in src/choices.ts.
-key: deal-stages
+key: deal_stages
 options:
   - key: lead
     label: Lead

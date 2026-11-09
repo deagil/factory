@@ -85,6 +85,9 @@ const closestIssues = (issues: readonly Issue[]): Issue[] =>
     }));
   });
 
+/** Config keys are snake_case, the same name on every surface (decision 0047). */
+const snakeCase = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u;
+
 /** One file's problems and, if it has none, its value. */
 const readFile = (
   configType: AnyConfigType,
@@ -163,6 +166,18 @@ const readFile = (
           path: ["key"],
           line: lineOf(doc, lines, ["key"]),
           message: `The key is "${value.key}" but the file is named ${key}${configExtension}; they must match.`,
+        },
+      ],
+    };
+  }
+  if (!snakeCase.test(key)) {
+    return {
+      problems: [
+        {
+          file,
+          path: ["key"],
+          line: lineOf(doc, lines, ["key"]),
+          message: `The key "${key}" isn't snake_case. Use lower case letters and digits joined by single underscores, such as deal_stages, and name the file the same (decision 0047).`,
         },
       ],
     };

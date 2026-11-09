@@ -7,10 +7,11 @@ import {
   httpSurface,
   identitySamples,
   mcpSurface,
+  restSurface,
   runContract,
 } from "./testing/contract.ts";
 import type { ContractOptions, Surface } from "./testing/contract.ts";
-import { createTestApi, registry } from "./testing/test-api.ts";
+import { createTestApi, endpoints, registry } from "./testing/test-api.ts";
 import type { TestApi } from "./testing/test-api.ts";
 
 /** A surface that changes the input on the way, as a buggy one might. */
@@ -24,12 +25,14 @@ describe("contract across surfaces", () => {
   let options: Omit<ContractOptions, "surfaces">;
   let http: Surface;
   let mcp: Surface;
+  let rest: Surface;
 
   beforeAll(async () => {
     test = await createTestApi();
     const caller: Caller = test.admin;
     const api = createApi({
       registry,
+      endpoints,
       pipeline: test.pipeline,
       callerFrom: () => Promise.resolve(caller),
     });
@@ -37,6 +40,7 @@ describe("contract across surfaces", () => {
       api.request(path, init);
     http = httpSurface(request);
     mcp = mcpSurface(request);
+    rest = restSurface(request, endpoints);
 
     options = {
       registry,
@@ -52,8 +56,11 @@ describe("contract across surfaces", () => {
     await test?.crm.close();
   });
 
-  it("gives the same results and log rows over HTTP and MCP for every action", async () => {
-    const problems = await runContract({ ...options, surfaces: { http, mcp } });
+  it("gives the same results and log rows over REST, /actions and MCP", async () => {
+    const problems = await runContract({
+      ...options,
+      surfaces: { rest, http, mcp },
+    });
     expect(problems).toStrictEqual([]);
   });
 
@@ -63,7 +70,7 @@ describe("contract across surfaces", () => {
       surfaces: { http, lossy: lossy(mcp) },
     });
     expect(problems.map((problem) => problem.action)).toContain(
-      "organisation.create"
+      "organisation_create"
     );
   });
 

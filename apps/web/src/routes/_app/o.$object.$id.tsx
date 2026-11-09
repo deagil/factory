@@ -11,10 +11,11 @@ import { useState } from "react";
 import { PageHeader, PageSupplement } from "../../components/page-header.tsx";
 import { ErrorMessage, RecordForm } from "../../components/record-form.tsx";
 import { RecordHistory } from "../../components/record-history.tsx";
-import { describeSystem, runAction, runQuery } from "../../lib/api.ts";
+import { describeSystem, objectApi, runAction } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
 import {
   customActions,
+  verbOf,
   findAction,
   formFields,
   fromFormValues,
@@ -79,7 +80,7 @@ const ActionButton = ({
       await refresh();
     },
   });
-  const label = humanise(action.name.split(".")[1] ?? action.name);
+  const label = humanise(verbOf(action.name, object.name) ?? action.name);
   return (
     <>
       <Button
@@ -129,16 +130,16 @@ const Details = ({
   // An archived record can't be changed until it's restored.
   const updateAction = loaded.record.archivedAt
     ? undefined
-    : findAction(description, `${object.name}.update`);
+    : findAction(description, `${object.name}_update`);
   const fields = updateAction ? formFields(updateAction, object) : [];
   const editable = new Set(fields.map((field) => field.key));
   const save = useMutation({
     mutationFn: (values: FormValues) =>
-      runAction(`${object.name}.update`, {
-        ...fromFormValues(fields, values, loaded.record),
+      objectApi(object.name, object.endpoints).update(
         id,
-        version: loaded.record.version,
-      }),
+        Number(loaded.record.version),
+        fromFormValues(fields, values, loaded.record)
+      ),
     onSuccess: refresh,
   });
   const fixed = object.fields.filter((field) => !editable.has(field.key));
@@ -197,8 +198,7 @@ const RecordScreen = () => {
   const loaded = useQuery({
     queryKey: ["record", name, id],
     queryFn: () =>
-      runQuery<Loaded>(`${name}.get`, {
-        id,
+      objectApi(name, object?.endpoints).get<Loaded>(id, {
         archived: "include",
         expand: expandable(object?.fields ?? []),
       }),
@@ -207,11 +207,11 @@ const RecordScreen = () => {
   const refresh = useRefresh(name, id);
   // Archiving stays on the record, so Restore is right there to undo it.
   const archive = useMutation({
-    mutationFn: () => runAction(`${name}.archive`, { id }),
+    mutationFn: () => objectApi(name, object?.endpoints).archive(id),
     onSuccess: refresh,
   });
   const restore = useMutation({
-    mutationFn: () => runAction(`${name}.restore`, { id }),
+    mutationFn: () => objectApi(name, object?.endpoints).restore(id),
     onSuccess: refresh,
   });
 
@@ -253,8 +253,8 @@ const RecordScreen = () => {
   const record = loaded.data;
   const archivedAt = record.record.archivedAt as string | null;
   const canArchive =
-    !archivedAt && findAction(described.data, `${name}.archive`);
-  const canRestore = findAction(described.data, `${name}.restore`);
+    !archivedAt && findAction(described.data, `${name}_archive`);
+  const canRestore = findAction(described.data, `${name}_restore`);
   return (
     <div className="flex flex-col gap-4">
       <PageHeader

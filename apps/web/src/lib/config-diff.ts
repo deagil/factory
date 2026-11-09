@@ -13,7 +13,7 @@ export interface ConfigChange {
 
 export interface DescribedChange {
   path: string;
-  /** "Choice list deal-stages", "Role manager". */
+  /** "Choice list deal_stages", "Role manager". */
   title: string;
   /** "added", "removed" or "changed". */
   kind: "added" | "removed" | "changed";
