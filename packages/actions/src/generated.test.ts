@@ -35,9 +35,9 @@ describe("generated actions and queries", () => {
   /** Runs a generated action or query by name. */
   const call = (name: string, input: unknown) => {
     const found = definition(name);
-    return found.kind === "action"
-      ? pipeline.run(found, input, caller)
-      : pipeline.query(found, input, caller);
+    return found.kind === "query"
+      ? pipeline.query(found, input, caller)
+      : pipeline.run(found, input, caller);
   };
 
   /** Runs a call that must succeed, and returns its output. */

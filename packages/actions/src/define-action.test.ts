@@ -15,6 +15,7 @@ const stageChanged = z.object({
 
 const moveStage = defineAction({
   name: "deal.moveStage",
+  kind: "internal",
   description: "Move a deal to another pipeline stage",
   input: z.object({ dealId: z.string(), stage: z.string() }),
   output: z.object({ dealId: z.string(), stage: z.string() }),
@@ -41,7 +42,7 @@ const getDeal = defineQuery({
 
 describe(defineAction, () => {
   it("returns a frozen definition with its schemas and events", () => {
-    expect(moveStage.kind).toBe("action");
+    expect(moveStage.kind).toBe("internal");
     expect(moveStage.name).toBe("deal.moveStage");
     expect(Object.keys(moveStage.emits)).toStrictEqual(["deal.stageChanged"]);
     expect(Object.isFrozen(moveStage)).toBeTruthy();
@@ -51,6 +52,7 @@ describe(defineAction, () => {
   it("has no events unless it declares some", () => {
     const archive = defineAction({
       name: "deal_archive",
+      kind: "internal",
       description: "Archive a deal",
       input: z.object({ id: z.string() }),
       output: z.object({}),
@@ -93,6 +95,7 @@ describe(defineAction, () => {
     expect(() =>
       defineAction({
         name,
+        kind: "internal",
         description: "x",
         input: z.object({}),
         output: z.object({}),
@@ -105,6 +108,7 @@ describe(defineAction, () => {
     expect(() =>
       defineAction({
         name: "deal.move",
+        kind: "internal",
         description: "  ",
         input: z.object({}),
         output: z.object({}),
@@ -117,6 +121,7 @@ describe(defineAction, () => {
     expect(() =>
       defineAction({
         name: "deal.move",
+        kind: "internal",
         description: "Move a deal",
         input: z.object({}),
         output: z.object({}),
@@ -164,6 +169,7 @@ describe("types", () => {
   it("only lets an action emit the events it declares, with their payloads", () => {
     defineAction({
       name: "deal.close",
+      kind: "internal",
       description: "Close a deal",
       input: z.object({ dealId: z.string() }),
       output: z.object({}),
@@ -183,6 +189,7 @@ describe("types", () => {
   it("lets an action that declares no events emit nothing", () => {
     defineAction({
       name: "deal.touch",
+      kind: "internal",
       description: "Touch a deal",
       input: z.object({}),
       output: z.object({}),
@@ -198,6 +205,7 @@ describe("types", () => {
   it("types the handler's input and output from the schemas", () => {
     defineAction({
       name: "deal.rename",
+      kind: "internal",
       description: "Rename a deal",
       input: z.object({ title: z.string(), note: z.string().optional() }),
       output: z.object({ title: z.string() }),
@@ -208,6 +216,7 @@ describe("types", () => {
     });
     defineAction({
       name: "deal.rename",
+      kind: "internal",
       description: "Rename a deal",
       input: z.object({ title: z.string() }),
       output: z.object({ title: z.string() }),
@@ -233,6 +242,7 @@ describe("types", () => {
       | "approvals"
       | "dryRun"
       | "grantsBeyond"
+      | "fail"
       | "dal"
       | "granted"
       | "config"

@@ -276,7 +276,10 @@ export const scheduleFollowUp = defineAction({
 - Handlers get everything through `ctx`: `repo` (the segment's repository), `dal` (reads), `config`, `clock` and the error helpers. Expected failures are returned as typed errors (`validation`, `not_found`, `conflict`, or the action's declared codes), not thrown.
 - Inside a workflow, actions run under the **service key**: full internal access, as a code API runs with its database rights. The caller's role rules were checked at the endpoint; getting each step right is the workflow's job, and the publish gate (4.6) is the control.
 - **Actions never write logs.** Each step hands back its output or error, and the engine writes the run and its steps.
-- Actions are never on a surface. Modules and systems add their own; `fx describe` lists them with their kind and schemas.
+- An external action gets no repository and can't emit events: a workflow's `emit` step does that. It gets `ctx.retryKey` (the run and step id, the same on every attempt) to send as `Idempotency-Key`.
+- `ctx.fail(code, message?)` returns one of the action's declared errors; the message given in `errors` is the default. Declared codes are snake_case and can't reuse a built-in one.
+- Actions are never on a surface. Modules and systems add their own (`defineSystem({ stepActions })`); `fx describe` lists them with their kind, schemas and errors.
+- `testAction(db, action, input, { actor })` from `@workspace/actions/testing` runs one as a step against a test database, in a run of its own; a failure rolls back, as a segment's would.
 
 **Connects to.** Every surface calls endpoints. Workflows run actions; internal actions write through repositories and emit events.
 

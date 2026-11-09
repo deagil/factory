@@ -31,8 +31,7 @@ const roles: Role[] = [
 ];
 
 const [create, update] = generateDefinitions(organisation).filter(
-  (definition): definition is AnyActionDefinition =>
-    definition.kind === "action"
+  (definition): definition is AnyActionDefinition => definition.kind !== "query"
 ) as [AnyActionDefinition, AnyActionDefinition];
 const history = historyQuery([organisation, contact]);
 

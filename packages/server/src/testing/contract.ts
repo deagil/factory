@@ -61,7 +61,7 @@ export const httpSurface =
   async (definition, input) =>
     callOf(
       await request(
-        `/${definition.kind === "action" ? "actions" : "queries"}/${definition.name}`,
+        `/${definition.kind === "query" ? "queries" : "actions"}/${definition.name}`,
         { method: "POST", headers, body: JSON.stringify(input) }
       )
     );
@@ -300,7 +300,7 @@ export const runContract = async ({
   const createRecord = async (objectName: string): Promise<string> => {
     const create = registry.get(`${objectName}_create`);
     const object = byName.get(objectName);
-    if (create?.kind !== "action" || !object) {
+    if (!create || create.kind === "query" || !object) {
       throw new Error(`Can't make a ${objectName} to refer to`);
     }
     // oxlint-disable-next-line eslint/no-use-before-define -- mutual recursion: a ref's target is made from its own fields.
@@ -467,7 +467,7 @@ export const identitySamples = (
   const setUp = async (name: string, input: unknown) => {
     const action = registry.get(name);
     const result =
-      action?.kind === "action"
+      action && action.kind !== "query"
         ? await pipeline.run(action, input, caller)
         : null;
     if (!result?.ok) {

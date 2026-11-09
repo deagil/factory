@@ -4,6 +4,7 @@
 export { createActionContext, createQueryContext } from "./context.ts";
 export type { ActionServices, EmittedEvent, QueryServices } from "./context.ts";
 export {
+  actionKinds,
   defineAction,
   defineQuery,
   namePattern,
@@ -12,6 +13,7 @@ export {
 export type {
   ActionContext,
   ActionDefinition,
+  ActionKind,
   ActionOptions,
   Actor,
   AnyActionDefinition,
@@ -24,10 +26,15 @@ export type {
   ConfigCheckProblem,
   ConfigFileDiff,
   ConfigService,
+  ContextFor,
   Emit,
+  ErrorMessages,
   EventSchemas,
+  ExternalContext,
+  Fail,
   GitService,
   HandlerResult,
+  NoErrors,
   NoEvents,
   ObjectJob,
   ObjectPermission,
@@ -75,6 +82,7 @@ export type {
   ActionError,
   ActionErrorCode,
   ActionFailure,
+  DeclaredError,
   ApprovalRequiredError,
   ConflictError,
   ErrorHelpers,
@@ -167,3 +175,7 @@ export type {
   RunStepEntry,
 } from "./log-schemas.ts";
 export type { DescribeOptions, SystemDescription } from "./describe.ts";
+export { checkActions } from "./checks.ts";
+export { recordActions, stepActions } from "./record-actions.ts";
+export { retryKeyOf, runExternalStep, runInternalStep } from "./step.ts";
+export type { StepOptions, StepPlace, StepResult } from "./step.ts";

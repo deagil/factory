@@ -27,6 +27,7 @@ const createOrg = (
 ) =>
   defineAction({
     name,
+    kind: "internal",
     description: "Create an organisation",
     input: z.object({ name: z.string().min(1) }),
     output: z.object({ id: z.string() }),
@@ -49,6 +50,7 @@ const slowCreate = (name: string) => {
   const counter = { runs: 0 };
   const action = defineAction({
     name,
+    kind: "internal",
     description: "Create an organisation slowly",
     input: z.object({ name: z.string() }),
     output: z.object({ id: z.string() }),

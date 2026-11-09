@@ -111,6 +111,7 @@ const decidable = async (
 
 export const approvalApprove = defineAction({
   name: "approval.approve",
+  kind: "internal",
   description:
     "Approve a pending approval. When it's the last one a pending action or draft needs, the action runs now, once, as the person who asked; a draft publishes, as the person who asked to publish it.",
   input: decisionInput,
@@ -165,6 +166,7 @@ export const approvalApprove = defineAction({
 
 export const approvalReject = defineAction({
   name: "approval.reject",
+  kind: "internal",
   description:
     "Reject a pending approval. A pending action is then never run; a draft goes back to valid, to change and publish again.",
   input: decisionInput,
@@ -195,6 +197,7 @@ export const approvalReject = defineAction({
 
 export const approvalWithdraw = defineAction({
   name: "approval.withdraw",
+  kind: "internal",
   description:
     "Withdraw a request for approval you made, or one made for you, such as by your agent: a pending action never runs, and a draft goes back to valid, to change and publish again. Takes the pending action's or the draft's id.",
   input: z.strictObject({ subjectId: z.uuid() }),

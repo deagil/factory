@@ -18,7 +18,7 @@ import type {
   GitService,
   QueryContext,
 } from "./define-action.ts";
-import { failures } from "./errors.ts";
+import { declaredFailure, failures } from "./errors.ts";
 import type { Granted } from "./permissions.ts";
 
 /** The services one run's `ctx` is made from. */
@@ -67,7 +67,7 @@ export const createQueryContext = (services: QueryServices): QueryContext =>
  * in order, for the record stage to write to event_log.
  */
 export const createActionContext = <TEmits extends EventSchemas>(
-  action: Pick<AnyActionDefinition, "name"> & { emits: TEmits },
+  action: Pick<AnyActionDefinition, "name" | "errors"> & { emits: TEmits },
   services: ActionServices
 ): { ctx: ActionContext<TEmits>; events: () => EmittedEvent[] } => {
   const emitted: EmittedEvent[] = [];
@@ -96,6 +96,7 @@ export const createActionContext = <TEmits extends EventSchemas>(
     approvals: services.approvals,
     dryRun: services.dryRun,
     grantsBeyond: services.grantsBeyond,
+    fail: declaredFailure(action.errors),
     emit,
   }) as ActionContext<TEmits>;
   return { ctx, events: () => [...emitted] };

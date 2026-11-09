@@ -41,6 +41,8 @@ export interface Description {
   actions: Definition[];
   queries: Definition[];
   events: { type: string; payload: JsonSchema }[];
+  /** The actions workflow steps run (P2.15); never callable. */
+  stepActions?: Definition[];
 }
 
 interface Definition {
@@ -49,6 +51,10 @@ interface Definition {
   input: JsonSchema;
   output: JsonSchema;
   emits?: string[];
+  /** An action's kind: `internal` or `external`. */
+  kind?: string;
+  /** An action's own error codes, with their messages. */
+  errors?: Record<string, string>;
 }
 
 export interface SystemPackage {
@@ -144,7 +150,8 @@ export const narrow = (
   const object = description.objects.find((each) => each.name === name);
   if (object) {
     const ours = (definition: { name: string }) =>
-      definition.name.startsWith(`${name}.`);
+      definition.name.startsWith(`${name}.`) ||
+      definition.name.startsWith(`${name}_`);
     return {
       match: "object",
       description: {
@@ -152,8 +159,9 @@ export const narrow = (
         actions: description.actions.filter(ours),
         queries: description.queries.filter(ours),
         events: description.events.filter((event) =>
-          event.type.startsWith(`${name}.`)
+          ours({ name: event.type })
         ),
+        stepActions: (description.stepActions ?? []).filter(ours),
       },
     };
   }
@@ -166,6 +174,13 @@ export const narrow = (
   const action = description.actions.find((each) => each.name === name);
   if (action) {
     return { match: "action", description: { ...empty, actions: [action] } };
+  }
+  const step = description.stepActions?.find((each) => each.name === name);
+  if (step) {
+    return {
+      match: "action",
+      description: { ...empty, stepActions: [step] },
+    };
   }
   const query = description.queries.find((each) => each.name === name);
   if (query) {
@@ -260,17 +275,31 @@ export const formatDescribe = ({
       const emits = definition.emits?.length
         ? `  → ${definition.emits.join(", ")}`
         : "";
-      lines.push(`  ${definition.name}  ${definition.description}${emits}`);
+      const kind = definition.kind ? ` (${definition.kind})` : "";
+      lines.push(
+        `  ${definition.name}${kind}  ${definition.description}${emits}`
+      );
       if (detailed) {
+        const errors = Object.entries(definition.errors ?? {});
         lines.push(
           `    input: ${schemaText(definition.input)}`,
-          `    output: ${schemaText(definition.output)}`
+          `    output: ${schemaText(definition.output)}`,
+          ...(errors.length > 0
+            ? [
+                "    errors:",
+                ...errors.map(([code, message]) => `      ${code}: ${message}`),
+              ]
+            : [])
         );
       }
     }
   };
   definitions("Actions", description.actions);
   definitions("Queries", description.queries);
+  definitions(
+    "Step actions (workflow steps run these; never callable)",
+    description.stepActions ?? []
+  );
   if (description.events.length > 0) {
     lines.push("", "Events");
     for (const event of description.events) {

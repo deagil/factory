@@ -133,7 +133,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
     permissions: rolePermissions({ db, config }),
     actions: (name) => {
       const definition = system.registry.get(name);
-      return definition?.kind === "action" ? definition : undefined;
+      return definition && definition.kind !== "query" ? definition : undefined;
     },
     objects: system.objects,
   });

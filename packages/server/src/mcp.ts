@@ -108,7 +108,7 @@ const toolResult = (result: CallResult): CallToolResult => {
  * result carries one. Queries write no run, so theirs is as is.
  */
 const outputSchemaOf = (definition: AnyDefinition) =>
-  definition.kind === "action" && definition.output instanceof z.ZodObject
+  definition.kind !== "query" && definition.output instanceof z.ZodObject
     ? definition.output.extend({
         runId: z.uuid().describe("The run this call wrote."),
       })

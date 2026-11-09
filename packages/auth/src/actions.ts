@@ -37,6 +37,7 @@ const overCeiling = (
 /** An agent that acts for the caller, never with more than they have. */
 export const createAgent = defineAction({
   name: "actor.createAgent",
+  kind: "internal",
   description:
     "Create an agent actor that acts for you, such as Claude Code over MCP. It can never do more than you can.",
   input: z.strictObject({
@@ -69,6 +70,7 @@ export const createAgent = defineAction({
 /** An external system, limited to the roles it's given. */
 export const createIntegration = defineAction({
   name: "actor.createIntegration",
+  kind: "internal",
   description:
     "Create an integration actor for an external system. It can do only what its roles allow.",
   input: z.strictObject({
@@ -93,6 +95,7 @@ export const createIntegration = defineAction({
 /** A key for an agent or integration. The key is shown once. */
 export const createApiKey = defineAction({
   name: "apiKey.create",
+  kind: "internal",
   description:
     "Create an API key for an agent or integration. The key is returned once and never stored.",
   input: z.strictObject({
@@ -131,6 +134,7 @@ export const createApiKey = defineAction({
 
 export const revokeApiKey = defineAction({
   name: "apiKey.revoke",
+  kind: "internal",
   description: "Revoke an API key. It stops working at once.",
   input: z.strictObject({ id: z.uuid() }),
   output: z.object({ id: z.uuid() }),
@@ -169,6 +173,7 @@ const unknownRoles = (ctx: ActionContext, keys: readonly string[]) => {
 /** A person who will sign in with a code: their user and staff actor. */
 export const inviteUser = defineAction({
   name: "user.invite",
+  kind: "internal",
   description:
     "Invite a person: makes their user and staff actor with these roles. They sign in with a code sent to their email.",
   input: z.strictObject({
@@ -200,6 +205,7 @@ export const inviteUser = defineAction({
  */
 export const setRoles = defineAction({
   name: "actor.setRoles",
+  kind: "internal",
   description:
     "Replace an actor's roles. An agent's roles must be among its person's, since it can only do less than they can. You can't change your own, give a role that does more than yours, or change the roles of someone who has one.",
   input: z.strictObject({ id: z.uuid(), roles: roleKeys }),
@@ -277,6 +283,7 @@ const setStatus = async (
 
 export const disableActor = defineAction({
   name: "actor.disable",
+  kind: "internal",
   description:
     "Disable an actor: it can't act, and its API keys are refused. Disabling a person's staff actor also stops them signing in and ends their sessions; their agents stop too. You can't disable yourself.",
   input: z.strictObject({ id: z.uuid() }),
@@ -286,6 +293,7 @@ export const disableActor = defineAction({
 
 export const enableActor = defineAction({
   name: "actor.enable",
+  kind: "internal",
   description:
     "Enable a disabled actor again. Enabling a person's staff actor lets them sign in again.",
   input: z.strictObject({ id: z.uuid() }),

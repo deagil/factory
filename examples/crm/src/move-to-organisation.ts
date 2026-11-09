@@ -8,6 +8,7 @@ import { contact, organisation } from "./objects.ts";
 
 export const moveToOrganisation = defineAction({
   name: "contact.moveToOrganisation",
+  kind: "internal",
   description:
     "Move a contact to another organisation. The only way to change a contact's organisation.",
   input: z.strictObject({
