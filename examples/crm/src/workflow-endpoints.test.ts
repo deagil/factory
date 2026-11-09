@@ -84,18 +84,18 @@ describe("workflow endpoints (P2.18)", () => {
         {
           name: "won",
           key: "deal_move_stage",
-          input: async () => ({
-            deal: (await newDeal()).record.id,
-            stage: "won",
-          }),
+          input: async () => {
+            const { record } = await newDeal();
+            return { deal: record.id, stage: "won" };
+          },
         },
         {
           name: "lost without a reason",
           key: "deal_move_stage",
-          input: async () => ({
-            deal: (await newDeal()).record.id,
-            stage: "lost",
-          }),
+          input: async () => {
+            const { record } = await newDeal();
+            return { deal: record.id, stage: "lost" };
+          },
         },
       ],
     });
@@ -129,9 +129,8 @@ describe("workflow endpoints (P2.18)", () => {
     const { record } = await newDeal();
     const key = { "idempotency-key": `move-${record.id}` };
     const input = { deal: record.id, stage: "won" };
-    const first = (await (
-      await post("/workflows/deal_move_stage", input, key)
-    ).json()) as { runId: string };
+    const firstResponse = await post("/workflows/deal_move_stage", input, key);
+    const first = (await firstResponse.json()) as { runId: string };
     const again = await post("/workflows/deal_move_stage", input, key);
     const other = await post(
       "/workflows/deal_move_stage",
@@ -185,7 +184,8 @@ describe("workflow endpoints (P2.18)", () => {
 
   it("is POST only, and in the OpenAPI document with its errors", async () => {
     const got = await request("/workflows/deal_move_stage");
-    const document = (await (await request("/openapi.json")).json()) as {
+    const served = await request("/openapi.json");
+    const document = (await served.json()) as {
       paths: Record<string, Record<string, { description: string }>>;
     };
     const operation = document.paths["/workflows/deal_move_stage"];
