@@ -4,8 +4,8 @@ import path from "node:path";
 import {
   dropDatabase,
   listDatabases,
-  migrationsHash,
-  templatePrefix,
+  templateDatabaseName,
+  templatePrefixFor,
   withAdmin,
 } from "@workspace/testing/databases";
 
@@ -30,11 +30,15 @@ const succeeds = async (cwd: string, ...args: string[]): Promise<boolean> => {
   }
 };
 
-/** True when gh knows of a merged PR from `branch`. False without gh. */
-const mergedOnGitHub = async (
+/**
+ * Head commits of merged pull requests from `branch`, or none when gh is
+ * missing or the lookup fails. A merged pull request for the branch name is
+ * not enough: the local tip may have commits that were never in that pull request.
+ */
+const mergedPullRequestHeads = async (
   cwd: string,
   branch: string
-): Promise<boolean> => {
+): Promise<readonly string[]> => {
   try {
     const found = await capture(
       "gh",
@@ -46,22 +50,27 @@ const mergedOnGitHub = async (
         "--state",
         "merged",
         "--json",
-        "number",
-        "--jq",
-        "length",
+        "headRefOid",
       ],
       { cwd }
     );
-    return found.code === 0 && Number(found.stdout.trim()) > 0;
+    if (found.code !== 0) {
+      return [];
+    }
+    const rows = JSON.parse(found.stdout) as { headRefOid?: unknown }[];
+    return rows.flatMap((row) =>
+      typeof row.headRefOid === "string" ? [row.headRefOid] : []
+    );
   } catch {
-    return false;
+    return [];
   }
 };
 
 /**
- * True when `branch`'s work is in `base`: merged or fast-forwarded (it is in
+ * True when `branch`'s tip is in `base`: merged or fast-forwarded (it is in
  * base's history), squash-merged (merging it into base changes nothing), or
- * merged according to gh.
+ * the head commit of a merged pull request. A merged pull request whose head
+ * is an older commit does not count.
  */
 export const isMerged = async (
   cwd: string,
@@ -80,7 +89,9 @@ export const isMerged = async (
   } catch {
     // The merge conflicts, so base doesn't have the branch's changes as-is.
   }
-  return await mergedOnGitHub(cwd, branch);
+  const tip = await git(cwd, "rev-parse", branch);
+  const heads = await mergedPullRequestHeads(cwd, branch);
+  return heads.includes(tip);
 };
 
 /** Template databases that neither the main checkout nor any open change uses. */
@@ -92,7 +103,7 @@ export const staleTemplates = (
 
 const templateFor = (root: string): string | undefined =>
   existsSync(migrationsFolder(root))
-    ? `${templatePrefix}${migrationsHash(migrationsFolder(root))}`
+    ? templateDatabaseName(migrationsFolder(root))
     : undefined;
 
 const pruneTemplates = async (
@@ -104,8 +115,10 @@ const pruneTemplates = async (
   const inUse = new Set(
     roots.map(templateFor).filter((name) => name !== undefined)
   );
+  // Only this checkout's templates. Another clone shares the server and the
+  // `factory_template_` shape, and its databases must survive this prune.
   const existing = await withAdmin(
-    (client) => listDatabases(client, templatePrefix),
+    (client) => listDatabases(client, templatePrefixFor(repo.mainRoot)),
     adminUrl
   );
   const stale = staleTemplates(existing, inUse);
@@ -197,47 +210,61 @@ const assertSafe = async (
   }
 };
 
-/** Removes the worktree, the local branch and, once merged, origin's copy. */
-const removeBranch = async (
+/** The commit origin's `branch` points at, or null when the branch is absent. */
+const remoteTip = async (
+  cwd: string,
+  branch: string
+): Promise<string | null> => {
+  const listed = await git(cwd, "ls-remote", "--heads", "origin", branch);
+  const [sha] = listed.split(/\s+/u);
+  return sha || null;
+};
+
+/**
+ * Deletes origin's `branch` only when it still points at `tip`, the commit
+ * `isMerged` checked. A lease refuses the delete if the remote moved.
+ */
+const deleteRemoteBranch = async (
+  cwd: string,
+  branch: string,
+  tip: string
+): Promise<boolean> => {
+  const remote = await remoteTip(cwd, branch);
+  if (remote === null) {
+    return false;
+  }
+  if (remote !== tip) {
+    throw new FxError(
+      "change_not_merged",
+      `origin/${branch} is at ${remote}, which fx done has not checked. It only verified ${tip}.`,
+      "Look at the commits on the remote branch before deleting it."
+    );
+  }
+  await git(
+    cwd,
+    "push",
+    "--quiet",
+    "origin",
+    `--force-with-lease=refs/heads/${branch}:${tip}`,
+    `:refs/heads/${branch}`
+  );
+  return true;
+};
+
+/** Removes the worktree and the local branch. The remote is handled separately. */
+const removeLocalBranch = async (
   repo: Repo,
   change: Change,
-  options: { merged: boolean; origin: boolean; force: boolean }
-): Promise<boolean> => {
+  force: boolean
+): Promise<void> => {
   // A worktree folder someone already deleted only needs git's record pruned.
   const removeWorktree = existsSync(change.worktree)
-    ? [
-        "worktree",
-        "remove",
-        ...(options.force ? ["--force"] : []),
-        change.worktree,
-      ]
+    ? ["worktree", "remove", ...(force ? ["--force"] : []), change.worktree]
     : ["worktree", "prune"];
   await git(repo.mainRoot, ...removeWorktree);
   if ((await git(repo.mainRoot, "branch", "--list", change.branch)) !== "") {
     await git(repo.mainRoot, "branch", "-D", change.branch);
   }
-  if (!options.merged || !options.origin) {
-    return false;
-  }
-  const onOrigin = await git(
-    repo.mainRoot,
-    "ls-remote",
-    "--heads",
-    "origin",
-    change.branch
-  );
-  if (onOrigin === "") {
-    return false;
-  }
-  await git(
-    repo.mainRoot,
-    "push",
-    "--quiet",
-    "origin",
-    "--delete",
-    change.branch
-  );
-  return true;
 };
 
 const installDependencies = async (cwd: string): Promise<void> => {
@@ -337,18 +364,23 @@ export const done = async (
   }
   const branchExists =
     (await git(repo.mainRoot, "branch", "--list", change.branch)) !== "";
-  // With no branch left there is no unmerged work to lose.
+  // With no branch left there is no local tip to verify, so the remote
+  // branch is left alone: deleting it could drop commits nothing checked.
   const merged =
     !branchExists || (await isMerged(repo.mainRoot, change.branch, base));
   const force = options.force === true;
   await assertSafe(change, merged, base, force);
 
+  const deletedRemoteBranch =
+    merged && origin && branchExists
+      ? await deleteRemoteBranch(
+          repo.mainRoot,
+          change.branch,
+          await git(repo.mainRoot, "rev-parse", change.branch)
+        )
+      : false;
   log(`Removing ${change.worktree} and ${change.branch}…`);
-  const deletedRemoteBranch = await removeBranch(repo, change, {
-    merged,
-    origin,
-    force,
-  });
+  await removeLocalBranch(repo, change, force);
   log(`Dropping database ${change.database}…`);
   await withAdmin((client) => dropDatabase(client, change.database), adminUrl);
   await removeChange(repo.stateDir, change.slug);

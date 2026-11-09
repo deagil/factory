@@ -686,22 +686,61 @@ const checkChange = async (
   return { shipped, runs };
 };
 
+/**
+ * The remote-tracking commit for `branch`, or null when this checkout has
+ * never seen it. This is the commit a later push may replace. Reading it
+ * here, rather than letting `--force-with-lease` read the tracking ref at
+ * push time, means a fetch during the checks cannot widen what we overwrite.
+ */
+const trackedRemote = async (
+  cwd: string,
+  branch: string
+): Promise<string | null> => {
+  try {
+    const sha = await git(
+      cwd,
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `refs/remotes/origin/${branch}`
+    );
+    return sha || null;
+  } catch {
+    return null;
+  }
+};
+
 /** Pushes the branch, then opens a PR or works out where to open one. */
 const publish = async (
   change: Change,
+  /** The remote commit this checkout last saw, or null if the branch is new. */
+  expectedRemote: string | null,
   openPullRequest: OpenPullRequest,
   log: Log
 ): Promise<Pick<ShipResult, "pushed" | "pullRequest" | "compareUrl">> => {
   log(`Pushing ${change.branch}…`);
-  await git(
-    change.worktree,
-    "push",
-    "--quiet",
-    "--force-with-lease",
-    "--set-upstream",
-    "origin",
-    change.branch
-  );
+  const lease = `--force-with-lease=refs/heads/${change.branch}:${expectedRemote ?? ""}`;
+  try {
+    await git(
+      change.worktree,
+      "push",
+      "--quiet",
+      lease,
+      "--set-upstream",
+      "origin",
+      change.branch
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("stale info")) {
+      throw new FxError(
+        "command_failed",
+        `Refusing to push ${change.branch}: origin moved since this checkout last saw ${expectedRemote ?? "no branch"}. ${message}`,
+        "Fetch the remote branch, look at the commits, and ship again."
+      );
+    }
+    throw error;
+  }
   const pullRequest = await openPullRequest(
     change.worktree,
     change.branch,
@@ -739,6 +778,9 @@ export const ship = async (
   const { repo, change } = await findShippableChange(cwd);
   const origin = await hasOrigin(repo.mainRoot);
   const base = origin ? `origin/${mainBranch}` : mainBranch;
+  const expectedRemote = origin
+    ? await trackedRemote(change.worktree, change.branch)
+    : null;
   if (origin) {
     log(`Fetching origin/${mainBranch}…`);
     await git(repo.mainRoot, "fetch", "--quiet", "origin", mainBranch);
@@ -758,7 +800,12 @@ export const ship = async (
     log
   );
   const published = origin
-    ? await publish(change, options.openPullRequest ?? openWithGh, log)
+    ? await publish(
+        change,
+        expectedRemote,
+        options.openPullRequest ?? openWithGh,
+        log
+      )
     : { pushed: false, pullRequest: null, compareUrl: null };
   const remoteCheck = published.pushed
     ? await (options.watchRemoteCheck ?? watchRemoteCheck)(

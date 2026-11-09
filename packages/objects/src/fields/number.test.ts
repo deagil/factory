@@ -130,5 +130,14 @@ describe("f.number", () => {
         acceptsFilter(field, { in: Array.from({ length: 101 }, () => 1) })
       ).toBeFalsy();
     });
+
+    it("keeps an integer field's filters to int32", () => {
+      const whole = f.number({ integer: true });
+      expect(acceptsFilter(whole, { eq: 2 })).toBeTruthy();
+      expect(acceptsFilter(whole, { eq: 1.5 })).toBeFalsy();
+      expect(acceptsFilter(whole, { gt: 2_147_483_648 })).toBeFalsy();
+      expect(acceptsFilter(whole, { in: [-2_147_483_649] })).toBeFalsy();
+      expect(acceptsFilter(field, { eq: 1.5 })).toBeTruthy();
+    });
   });
 });

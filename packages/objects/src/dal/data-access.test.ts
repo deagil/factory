@@ -8,6 +8,7 @@ import type { CrmDatabase } from "../test-fixtures/crm-database.ts";
 import { contact, organisation } from "../test-fixtures/crm-schema.ts";
 import { createDataAccess } from "./data-access.ts";
 import type { DataAccess, ReadAccess } from "./data-access.ts";
+import { encodeCursor } from "./list-input.ts";
 import type { ListInput } from "./list-input.ts";
 
 const gbp = (amount: number) => ({ amount, currency: "GBP" });
@@ -464,6 +465,55 @@ describe("the data access layer", () => {
       await expect(
         dal.list(contact, { cursor: nextCursor ?? "", sort: "firstName" })
       ).rejects.toThrow(/This cursor is for the sort/u);
+    });
+
+    it("refuses a cursor value that doesn't fit the sort column", async () => {
+      const text = encodeCursor({
+        sort: "firstName",
+        value: 1,
+        id: ids.Ada ?? "",
+      });
+      const fraction = encodeCursor({
+        sort: "employees",
+        value: 1.5,
+        id: ids.Acme ?? "",
+      });
+      const tooBig = encodeCursor({
+        sort: "employees",
+        value: 2_147_483_648,
+        id: ids.Acme ?? "",
+      });
+      const badDate = encodeCursor({
+        sort: "birthday",
+        value: "not-a-date",
+        id: ids.Ada ?? "",
+      });
+      await expect(
+        dal.list(contact, { sort: "firstName", cursor: text })
+      ).rejects.toThrow(/doesn't fit/u);
+      await expect(
+        dal.list(organisation, { sort: "employees", cursor: fraction })
+      ).rejects.toThrow(/doesn't fit/u);
+      await expect(
+        dal.list(organisation, { sort: "employees", cursor: tooBig })
+      ).rejects.toThrow(/doesn't fit/u);
+      await expect(
+        dal.list(contact, { sort: "birthday", cursor: badDate })
+      ).rejects.toThrow(/doesn't fit/u);
+    });
+
+    it("pages from an integer cursor", async () => {
+      const page = await dal.list(organisation, {
+        sort: "employees",
+        cursor: encodeCursor({
+          sort: "employees",
+          value: 10,
+          id: ids.Initech ?? "",
+        }),
+      });
+      expect(page.records.map((record) => record.name)).not.toContain(
+        "Initech"
+      );
     });
   });
 

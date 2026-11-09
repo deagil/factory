@@ -179,6 +179,83 @@ describe("HTTP API", () => {
     ]);
   });
 
+  it("rejects an integer filter and a cursor that don't fit the object list", async () => {
+    const filter = encodeURIComponent(
+      JSON.stringify({ employees: { eq: 1.5 } })
+    );
+    const cursor = encodeURIComponent(
+      Buffer.from(
+        JSON.stringify({
+          s: "employees",
+          v: 1.5,
+          id: "00000000-0000-4000-8000-000000000001",
+        })
+      ).toString("base64url")
+    );
+    const fraction = await send("GET", `/organisations?filter=${filter}`);
+    const paged = await send(
+      "GET",
+      `/organisations?sort=employees&cursor=${cursor}`
+    );
+    const huge = encodeURIComponent(
+      JSON.stringify({ employees: { gt: 2_147_483_648 } })
+    );
+    const beyond = await send("GET", `/organisations?filter=${huge}`);
+    expect(fraction).toMatchObject({
+      status: 400,
+      body: { error: { code: "validation" } },
+    });
+    expect(paged).toMatchObject({
+      status: 400,
+      body: { error: { code: "validation" } },
+    });
+    expect(beyond).toMatchObject({
+      status: 400,
+      body: { error: { code: "validation" } },
+    });
+  });
+
+  it("checks permission before replaying an object endpoint", async () => {
+    const made = await test.pipeline.run(
+      registry.get("actor.createIntegration") as never,
+      { name: "Temp site", roles: ["website"] },
+      test.admin
+    );
+    const { actorId } = (made.ok ? made.output : {}) as { actorId: string };
+    const keyed = await test.pipeline.run(
+      registry.get("apiKey.create") as never,
+      { actorId, label: "temp" },
+      test.admin
+    );
+    const { key: tempKey } = (keyed.ok ? keyed.output : {}) as { key: string };
+    const headers = {
+      authorization: `Bearer ${tempKey}`,
+      "idempotency-key": "rest-auth",
+    };
+    const first = await send(
+      "POST",
+      "/organisations",
+      { name: "Kept" },
+      headers
+    );
+    const changed = await test.pipeline.run(
+      registry.get("actor.setRoles") as never,
+      { id: actorId, roles: ["reader"] },
+      test.admin
+    );
+    const second = await send(
+      "POST",
+      "/organisations",
+      { name: "Kept" },
+      headers
+    );
+    expect(first).toMatchObject({ status: 201, body: { replayed: false } });
+    expect(changed.ok).toBeTruthy();
+    expect(second.status).toBe(403);
+    expect(second.body.error?.code).toBe("permission");
+    expect(second.body.replayed).toBeUndefined();
+  });
+
   it("runs a query by GET with ?input=", async () => {
     const input = encodeURIComponent(JSON.stringify({ limit: 1 }));
     const { status, body } = await send(
