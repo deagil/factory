@@ -2919,17 +2919,25 @@ exports[`system.describe > describes everything to an admin 1`] = `
                 "additionalProperties": false,
                 "properties": {
                   "eq": {
-                    "type": "number",
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer",
                   },
                   "gt": {
-                    "type": "number",
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer",
                   },
                   "gte": {
-                    "type": "number",
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer",
                   },
                   "in": {
                     "items": {
-                      "type": "number",
+                      "maximum": 2147483647,
+                      "minimum": -2147483648,
+                      "type": "integer",
                     },
                     "maxItems": 100,
                     "minItems": 1,
@@ -2939,13 +2947,19 @@ exports[`system.describe > describes everything to an admin 1`] = `
                     "type": "boolean",
                   },
                   "lt": {
-                    "type": "number",
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer",
                   },
                   "lte": {
-                    "type": "number",
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer",
                   },
                   "ne": {
-                    "type": "number",
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer",
                   },
                 },
                 "type": "object",

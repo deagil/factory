@@ -215,6 +215,22 @@ describe("API keys, agents and integrations", () => {
     });
   });
 
+  it("refuses an integration role that does not exist", async () => {
+    const result = await call(
+      "actor.createIntegration",
+      { name: "Ghost", roles: ["boss"] },
+      admin
+    );
+    const stored = await crm.db.query.actors.findMany({
+      where: (table, { eq: equals }) => equals(table.name, "Ghost"),
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "validation" },
+    });
+    expect(stored).toStrictEqual([]);
+  });
+
   it("only an agent's own user can make its keys", async () => {
     const { actorId } = await must(
       "actor.createAgent",

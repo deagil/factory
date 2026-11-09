@@ -67,6 +67,19 @@ export const createAgent = defineAction({
   },
 });
 
+const roleKeys = z.array(z.string().min(1)).max(50);
+
+/** A validation failure for any of `keys` config doesn't define, or null. */
+const unknownRoles = (ctx: ActionContext, keys: readonly string[]) => {
+  const known = new Set(ctx.config.roles.map((role) => role.key));
+  const unknown = keys.filter((key) => !known.has(key));
+  return unknown.length === 0
+    ? null
+    : ctx.invalid(`There is no role ${unknown.join(", ")}`, [
+        { path: ["roles"], message: `Unknown roles: ${unknown.join(", ")}` },
+      ]);
+};
+
 /** An external system, limited to the roles it's given. */
 export const createIntegration = defineAction({
   name: "actor.createIntegration",
@@ -79,7 +92,9 @@ export const createIntegration = defineAction({
   }),
   output: actorOutput,
   handler: async (ctx, { name, roles }) => {
-    const refused = overCeiling(ctx, "actor.createIntegration", roles, "give");
+    const refused =
+      unknownRoles(ctx, roles) ??
+      overCeiling(ctx, "actor.createIntegration", roles, "give");
     if (refused) {
       return refused;
     }
@@ -156,19 +171,6 @@ export const revokeApiKey = defineAction({
     return { id };
   },
 });
-
-const roleKeys = z.array(z.string().min(1)).max(50);
-
-/** A validation failure for any of `keys` config doesn't define, or null. */
-const unknownRoles = (ctx: ActionContext, keys: readonly string[]) => {
-  const known = new Set(ctx.config.roles.map((role) => role.key));
-  const unknown = keys.filter((key) => !known.has(key));
-  return unknown.length === 0
-    ? null
-    : ctx.invalid(`There is no role ${unknown.join(", ")}`, [
-        { path: ["roles"], message: `Unknown roles: ${unknown.join(", ")}` },
-      ]);
-};
 
 /** A person who will sign in with a code: their user and staff actor. */
 export const inviteUser = defineAction({

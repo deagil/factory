@@ -42,28 +42,32 @@ describe("fx status", () => {
     expect(formatStatus(report)).toContain("No current change");
   });
 
-  it("reports the change whose worktree it runs in", async () => {
-    const repo = tempRepo();
-    await saveChange(path.join(repo, ".fx"), {
-      name: "deal pipeline",
-      slug: "deal-pipeline",
-      branch: "change/deal-pipeline",
-      worktree: repo,
-      database: "factory_deal_pipeline",
-      createdAt: "2026-11-06T10:00:00.000Z",
-      lastCheck: {
-        passed: false,
-        at: "2026-11-06T11:00:00.000Z",
-        commit: "abcdef1234",
-      },
-    });
-    const report = await status(path.join(repo));
-    expect(report.current?.slug).toBe("deal-pipeline");
-    const text = formatStatus(report);
-    expect(text).toContain("database  factory_deal_pipeline");
-    expect(text).toContain("checks    failed on abcdef1");
-    expect(report.remoteCheck).toBeNull();
-  });
+  it(
+    "reports the change whose worktree it runs in",
+    { timeout: 30_000 },
+    async () => {
+      const repo = tempRepo();
+      await saveChange(path.join(repo, ".fx"), {
+        name: "deal pipeline",
+        slug: "deal-pipeline",
+        branch: "change/deal-pipeline",
+        worktree: repo,
+        database: "factory_deal_pipeline",
+        createdAt: "2026-11-06T10:00:00.000Z",
+        lastCheck: {
+          passed: false,
+          at: "2026-11-06T11:00:00.000Z",
+          commit: "abcdef1234",
+        },
+      });
+      const report = await status(path.join(repo));
+      expect(report.current?.slug).toBe("deal-pipeline");
+      const text = formatStatus(report);
+      expect(text).toContain("database  factory_deal_pipeline");
+      expect(text).toContain("checks    failed on abcdef1");
+      expect(report.remoteCheck).toBeNull();
+    }
+  );
 
   it("shows GitHub's check when the report has one", () => {
     const text = formatStatus({

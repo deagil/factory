@@ -429,20 +429,68 @@ describe(compareUrl, () => {
   });
 });
 
+describe("a remote that moved", () => {
+  it(
+    "refuses to push over a remote commit it has not checked",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, worktree } = await shipRepo();
+      commitSchema(worktree, "a+b", "feat: add b");
+      await ship(worktree, shipWith([]));
+      const seen = git(
+        worktree,
+        "rev-parse",
+        "refs/remotes/origin/change/try-it"
+      );
+      const origin = git(repo, "remote", "get-url", "origin");
+      const other = path.join(path.dirname(repo), "other");
+      execFileSync("git", [
+        "clone",
+        "-q",
+        "--branch",
+        "change/try-it",
+        origin,
+        other,
+      ]);
+      git(other, "config", "user.email", "t@example.com");
+      git(other, "config", "user.name", "T");
+      write(path.join(other, "other.txt"), "later\n");
+      git(other, "add", "-A");
+      git(other, "commit", "-q", "-m", "feat: later");
+      git(other, "push", "-q", "origin", "change/try-it");
+      const later = git(other, "rev-parse", "HEAD");
+      commitSchema(worktree, "a+b+c", "feat: add c");
+
+      await expect(ship(worktree, shipWith([]))).rejects.toThrow(/stale info/u);
+      expect(git(repo, "ls-remote", "origin", "change/try-it")).toContain(
+        later
+      );
+      expect(git(repo, "ls-remote", "origin", "change/try-it")).not.toContain(
+        git(worktree, "rev-parse", "HEAD")
+      );
+      expect(seen).not.toBe(later);
+    }
+  );
+});
+
 describe(pullRequestMessages, () => {
-  it("counts from origin/main, not a local main that has fallen behind", async () => {
-    const { repo, worktree } = await shipRepo();
-    write(path.join(repo, "other.txt"), "x");
-    git(repo, "add", "-A");
-    git(repo, "commit", "-q", "-m", "feat: someone else's change");
-    git(repo, "push", "-q", "origin", "main");
-    git(repo, "reset", "-q", "--hard", "HEAD~1");
-    git(worktree, "rebase", "-q", "origin/main");
-    commitSchema(worktree, "b", "feat: add b");
-    await expect(pullRequestMessages(worktree, "main")).resolves.toStrictEqual([
-      "feat: add b",
-    ]);
-  });
+  it(
+    "counts from origin/main, not a local main that has fallen behind",
+    { timeout: 30_000 },
+    async () => {
+      const { repo, worktree } = await shipRepo();
+      write(path.join(repo, "other.txt"), "x");
+      git(repo, "add", "-A");
+      git(repo, "commit", "-q", "-m", "feat: someone else's change");
+      git(repo, "push", "-q", "origin", "main");
+      git(repo, "reset", "-q", "--hard", "HEAD~1");
+      git(worktree, "rebase", "-q", "origin/main");
+      commitSchema(worktree, "b", "feat: add b");
+      await expect(
+        pullRequestMessages(worktree, "main")
+      ).resolves.toStrictEqual(["feat: add b"]);
+    }
+  );
 });
 
 describe(pullRequestCopy, () => {

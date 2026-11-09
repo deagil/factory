@@ -1,6 +1,7 @@
 // What a list takes: filters, one sort, a cursor, a page size, whether to
 // show archived records, and which refs to follow. listInputSchema(object)
-// validates it; the generated `.list` query (P1.09) uses the same schema.
+// validates it. The object list endpoint, the generated list query and the
+// record list action all use this schema.
 
 import { eq, gt, gte, inArray, lt, lte, ne } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -11,6 +12,7 @@ import type { AnyObjectDefinition } from "../define-object.ts";
 import type { AnyField } from "../fields/field.ts";
 import { filterSchema, maxInValues } from "../fields/filters.ts";
 import type { Filterable } from "../fields/filters.ts";
+import { int32Schema } from "../fields/number.ts";
 
 /** The most records one page returns, and the default. */
 export const maxPageSize = 200;
@@ -99,6 +101,57 @@ const cursorShape = z.strictObject({
   id: z.uuid(),
 });
 
+const isIntegerNumber = (field: AnyField): boolean =>
+  field.kind === "number" &&
+  "integer" in field &&
+  (field as { integer?: unknown }).integer === true;
+
+/** The sort value a cursor may carry for `field`, null included when it can be empty. */
+const cursorValueSchema = (field: AnyField): z.ZodType => {
+  let value: z.ZodType;
+  switch (field.kind) {
+    case "text": {
+      value = z.string();
+      break;
+    }
+    case "number": {
+      value = isIntegerNumber(field) ? int32Schema : z.number();
+      break;
+    }
+    case "money": {
+      value = z.int();
+      break;
+    }
+    case "date": {
+      value = z.iso.date();
+      break;
+    }
+    case "boolean": {
+      value = z.boolean();
+      break;
+    }
+    default: {
+      value = z.never();
+    }
+  }
+  return field.required ? value : z.union([value, z.null()]);
+};
+
+/** True when `cursor`'s value fits the column `cursor.sort` orders by. */
+export const cursorValueFits = (
+  object: AnyObjectDefinition,
+  cursor: Cursor
+): boolean => {
+  const { key } = parseSort(cursor.sort);
+  if ((timestampSortKeys as readonly string[]).includes(key)) {
+    return z.iso.datetime({ offset: true }).safeParse(cursor.value).success;
+  }
+  const field = (object.fields as Record<string, AnyField>)[key];
+  return field
+    ? cursorValueSchema(field).safeParse(cursor.value).success
+    : false;
+};
+
 /** The cursor in `text`, or undefined if it isn't one. */
 export const decodeCursor = (text: string): Cursor | undefined => {
   try {
@@ -159,6 +212,12 @@ const buildListInputSchema = (object: AnyObjectDefinition) => {
           code: "custom",
           path: ["cursor"],
           message: `This cursor is for the sort "${cursor.sort}". Use that sort, or start again without a cursor.`,
+        });
+      } else if (!cursorValueFits(object, cursor)) {
+        context.addIssue({
+          code: "custom",
+          path: ["cursor"],
+          message: `This cursor's value doesn't fit the sort "${cursor.sort}". Start again without a cursor.`,
         });
       }
     });

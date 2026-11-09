@@ -40,11 +40,17 @@ type NumberColumns<
   >
 >;
 
-const numberFilters = {
-  ...equalityOperators(z.number()),
-  ...rangeOperators(z.number()),
+/** Postgres `integer` limits, which an integer field's values must keep to. */
+export const int32Schema = z.int().min(-2_147_483_648).max(2_147_483_647);
+
+const filtersFor = (value: z.ZodNumber) => ({
+  ...equalityOperators(value),
+  ...rangeOperators(value),
   isNull: isNullOperator(),
-};
+});
+
+const numberFilters = filtersFor(z.number());
+const integerFilters = filtersFor(int32Schema);
 
 export type NumberField<
   TRequired extends boolean = boolean,
@@ -54,11 +60,8 @@ export type NumberField<
   number,
   TRequired,
   NumberColumns<TRequired, TInteger>,
-  typeof numberFilters
->;
-
-/** Postgres `integer` limits, which an integer field's input must keep to. */
-const int32 = { min: -2_147_483_648, max: 2_147_483_647 };
+  TInteger extends true ? typeof integerFilters : typeof numberFilters
+> & { readonly integer: TInteger };
 
 /**
  * A number. Quantities, scores and percentages; use money for amounts of
@@ -72,7 +75,7 @@ export const number = <
 ): NumberField<NoInfer<TRequired>, NoInfer<TInteger>> => {
   const base = baseOptions(options);
   const isInteger = options?.integer ?? false;
-  let value = isInteger ? z.int().min(int32.min).max(int32.max) : z.number();
+  let value = isInteger ? int32Schema : z.number();
   if (options?.min !== undefined) {
     value = value.min(options.min);
   }
@@ -94,6 +97,11 @@ export const number = <
     input: orNull(value, base.required),
     output: orNull(z.number(), base.required),
     display: (v) => (v === null ? "" : String(v)),
-    filters: numberFilters,
+    integer: isInteger as TInteger,
+    filters: (isInteger
+      ? integerFilters
+      : numberFilters) as TInteger extends true
+      ? typeof integerFilters
+      : typeof numberFilters,
   };
 };

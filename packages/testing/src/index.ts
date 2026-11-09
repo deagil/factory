@@ -13,7 +13,9 @@ export {
   ensureTemplateDatabase,
   listDatabases,
   migrationsHash,
-  templatePrefix,
+  templateDatabaseName,
+  templatePrefixFor,
+  templateScope,
   testDatabasePrefix,
   withAdmin,
 } from "./databases.ts";
