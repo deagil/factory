@@ -17,7 +17,7 @@ flowchart LR
     M[modules: comms · documents · payments · reports]
   end
   subgraph Repo["Client repo"]
-    E[objects, actions, steps]
+    E[objects, actions, workflows]
     C[config files]
   end
   subgraph Instance["Client instance"]
