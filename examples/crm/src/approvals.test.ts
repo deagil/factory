@@ -1,4 +1,4 @@
-// Approval rules (P2.09): the CRM's rule on organisation.archive makes a
+// Approval rules (P2.09): the CRM's rule on organisation_archive makes a
 // sales user's archive wait until an admin approves, and approving runs it
 // exactly once, with both people in action_log. approval.check says so
 // beforehand, and whoever asked can withdraw it (decision 0044).
@@ -71,14 +71,14 @@ describe("approval rules", () => {
   });
 
   it("makes a sales user's archive wait for an admin, then runs it once", async () => {
-    const created = await run("organisation.create", { name: "Acme" }, sales);
+    const created = await run("organisation_create", { name: "Acme" }, sales);
     const { id } = (created as { output: { record: { id: string } } }).output
       .record;
 
-    const archived = await run("organisation.archive", { id }, sales);
+    const archived = await run("organisation_archive", { id }, sales);
     expect(archived).toMatchObject({
       ok: false,
-      error: { code: "approval_required", rule: "archive-organisations" },
+      error: { code: "approval_required", rule: "archive_organisations" },
     });
     const pendingId = archived.runId ?? "";
     const listed = await query("approval.list", { status: "pending" });
@@ -88,7 +88,7 @@ describe("approval rules", () => {
 
     // Sam can't approve his own; Ada can, once.
     const bySales = await run("approval.approve", { id: approval?.id }, sales);
-    const record = await query("organisation.get", { id });
+    const record = await query("organisation_get", { id });
     const approved = await run("approval.approve", { id: approval?.id }, admin);
     const again = await run("approval.approve", { id: approval?.id }, admin);
     expect({ bySales, record, approved, again }).toMatchObject({
@@ -104,7 +104,7 @@ describe("approval rules", () => {
     const rows = await database.db
       .select()
       .from(runs)
-      .where(eq(runs.endpoint, "organisation.archive"));
+      .where(eq(runs.endpoint, "organisation_archive"));
     const changes = await database.db
       .select({ runId: auditLog.runId })
       .from(auditLog)
@@ -113,7 +113,7 @@ describe("approval rules", () => {
       archive: rows.map((row) => [row.actorId, row.status]),
       approve: approved.runId,
       changes: changes.map((change) => change.runId),
-      record: await query("organisation.get", { id }),
+      record: await query("organisation_get", { id }),
     }).toMatchObject({
       archive: [[sales.actorId, "succeeded"]],
       approve: expect.any(String),
@@ -133,13 +133,13 @@ describe("approval rules", () => {
   });
 
   it("lets an admin archive straight away, and a rejection never runs it", async () => {
-    const created = await run("organisation.create", { name: "Beta" }, admin);
+    const created = await run("organisation_create", { name: "Beta" }, admin);
     const { id } = (created as { output: { record: { id: string } } }).output
       .record;
-    const other = await run("organisation.create", { name: "Gamma" }, sales);
+    const other = await run("organisation_create", { name: "Gamma" }, sales);
     const otherId = (other as { output: { record: { id: string } } }).output
       .record.id;
-    const waiting = await run("organisation.archive", { id: otherId }, sales);
+    const waiting = await run("organisation_archive", { id: otherId }, sales);
     const listed = await query("approval.list", { status: "pending" });
     const approval = (
       listed as { output: { approvals: { id: string; subjectId: string }[] } }
@@ -154,10 +154,10 @@ describe("approval rules", () => {
       .from(runs)
       .where(eq(runs.id, waiting.runId ?? ""));
     expect({
-      direct: await run("organisation.archive", { id }, admin),
+      direct: await run("organisation_archive", { id }, admin),
       rejected,
       row,
-      gamma: await query("organisation.get", { id: otherId }),
+      gamma: await query("organisation_get", { id: otherId }),
     }).toMatchObject({
       direct: { ok: true },
       rejected: { ok: true, output: { approval: { status: "rejected" } } },
@@ -167,13 +167,13 @@ describe("approval rules", () => {
   });
 
   it("says beforehand who must approve, lists requests by record, mine and decidable, and lets the requester withdraw", async () => {
-    const created = await run("organisation.create", { name: "Delta" }, sales);
+    const created = await run("organisation_create", { name: "Delta" }, sales);
     const { id } = (created as { output: { record: { id: string } } }).output
       .record;
     const check = (caller: { actorId: string }) =>
       query(
         "approval.check",
-        { action: "organisation.archive", input: { id } },
+        { action: "organisation_archive", input: { id } },
         caller
       );
     const [forSales, forAdmin] = await Promise.all([
@@ -181,7 +181,7 @@ describe("approval rules", () => {
       check(admin),
     ]);
 
-    const waiting = await run("organisation.archive", { id }, sales);
+    const waiting = await run("organisation_archive", { id }, sales);
     const pendingId = waiting.runId ?? "";
     const [onRecord, salesMine, adminMine, adminDecides, salesDecides] =
       await Promise.all([
@@ -217,14 +217,14 @@ describe("approval rules", () => {
       withdrawn,
       row,
       left: subjects(await query("approval.list", { decidable: true })),
-      record: await query("organisation.get", { id }),
+      record: await query("organisation_get", { id }),
     }).toMatchObject({
       forSales: {
         ok: true,
         output: {
           signOffs: [
             {
-              rule: "archive-organisations",
+              rule: "archive_organisations",
               label: "Archiving an organisation",
               approverRole: "admin",
               approvals: 1,

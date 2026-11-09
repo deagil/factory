@@ -64,7 +64,7 @@ const configFile = z
   .string()
   .regex(
     new RegExp(
-      `^config/[a-z][a-z0-9-]*/[a-z0-9][a-z0-9-]*${configExtension.replace(".", "\\.")}$`,
+      `^config/[a-z][a-z0-9-]*/[a-z][a-z0-9]*(?:_[a-z0-9]+)*${configExtension.replace(".", "\\.")}$`,
       "u"
     ),
     "A config file is config/<type>/<key>.yaml"
@@ -108,7 +108,7 @@ const typeAndKey = (file: string) => {
   return { type, key: name.replace(configExtension, "") };
 };
 
-/** "Edit deal-stages and manager", from the files a draft changes. */
+/** "Edit deal_stages and manager", from the files a draft changes. */
 export const titleFor = (files: readonly string[]) => {
   const keys = files.map((file) => typeAndKey(file).key);
   if (keys.length === 0) {

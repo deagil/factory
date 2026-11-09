@@ -35,7 +35,9 @@ interface InputSchema {
 
 /** "moveToOrganisation" → "Move to organisation". */
 export const humanise = (key: string) => {
-  const words = key.replaceAll(/(?<lower>[a-z])(?<upper>[A-Z])/gu, "$1 $2");
+  const words = key
+    .replaceAll("_", " ")
+    .replaceAll(/(?<lower>[a-z])(?<upper>[A-Z])/gu, "$1 $2");
   return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase();
 };
 
@@ -44,14 +46,23 @@ export const findAction = (
   name: string
 ) => description?.actions.find((action) => action.name === name);
 
-/** The object's hand-written actions: `<object>.<verb>` beyond the generated three. */
+/**
+ * What `name` does to `object`: `move_stage` for `deal_move_stage`, or for
+ * the dotted names still in code, `moveStage` for `deal.moveStage`.
+ */
+export const verbOf = (name: string, object: string) =>
+  ["_", "."].some((separator) => name.startsWith(`${object}${separator}`))
+    ? name.slice(object.length + 1)
+    : undefined;
+
+/** The object's hand-written actions: `<object>_<verb>` beyond the generated ones. */
 export const customActions = (
   description: SystemDescription | undefined,
   object: string
 ) =>
   (description?.actions ?? []).filter((action) => {
-    const [owner, verb] = action.name.split(".");
-    return owner === object && verb !== undefined && !generatedVerbs.has(verb);
+    const verb = verbOf(action.name, object);
+    return verb !== undefined && !generatedVerbs.has(verb);
   });
 
 /**

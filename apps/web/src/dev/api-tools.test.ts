@@ -12,17 +12,17 @@ describe("the API menu's hooks", () => {
   it("sends only actions as dry runs", async () => {
     apiTools.setDryRun(true);
     await expect(
-      apiDevHooks.before("/actions/contact.create")
+      apiDevHooks.before("/actions/contact_create")
     ).resolves.toStrictEqual({ dryRun: true });
     await expect(
-      apiDevHooks.before("/queries/contact.list")
+      apiDevHooks.before("/queries/contact_list")
     ).resolves.toStrictEqual({ dryRun: false });
   });
 
   it("fails just the next call with the chosen error", async () => {
     apiTools.setFailNext("conflict");
     await expect(
-      apiDevHooks.before("/actions/contact.update")
+      apiDevHooks.before("/actions/contact_update")
     ).resolves.toStrictEqual({ fail: forcedError("conflict") });
     expect(apiTools.read().failNext).toBeNull();
     expect(forcedError("conflict").status).toBe(409);

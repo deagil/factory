@@ -25,7 +25,7 @@ const contact = {
 } as unknown as ObjectDescription;
 
 const update = {
-  name: "contact.update",
+  name: "contact_update",
   input: {
     properties: {
       firstName: {},
@@ -84,7 +84,7 @@ describe("forms from action inputs", () => {
       actions: [
         update,
         move,
-        { name: "contact.restore" },
+        { name: "contact_restore" },
         { name: "organisation.merge" },
       ],
     } as unknown as SystemDescription;

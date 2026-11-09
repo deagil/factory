@@ -6,7 +6,7 @@ import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { useState } from "react";
 
-import { ApiCallError, runQuery } from "../lib/api.ts";
+import { ApiCallError, objectApi, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
 import { canEditConfig } from "../lib/choice-lists.ts";
 import type { FormField, FormValues } from "../lib/forms.ts";
@@ -36,7 +36,7 @@ const RefSelect = ({
   const isActor = target === "actor";
   const listable = isActor
     ? can("actor.list")
-    : findObject(description, target) !== undefined && can(`${target}.list`);
+    : findObject(description, target) !== undefined && can(`${target}_list`);
   const options = useQuery({
     queryKey: ["options", target],
     queryFn: async (): Promise<Record<string, unknown>[]> => {
@@ -46,9 +46,10 @@ const RefSelect = ({
         }>("actor.list", { kind: "staff", status: "active", limit: 200 });
         return entries;
       }
-      const { records } = await runQuery<ListPage>(`${target}.list`, {
-        limit: 100,
-      });
+      const { records } = await objectApi(
+        target,
+        findObject(description, target)?.endpoints
+      ).list<ListPage>({ limit: 100 });
       return records;
     },
     enabled: listable,

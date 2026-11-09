@@ -25,7 +25,7 @@ claude mcp add --transport http factory-crm http://localhost:4000/mcp --header "
 Call the API with the integration key:
 
 ```bash
-curl -X POST http://localhost:4000/actions/organisation.create -H "Authorization: Bearer <integration key>" -H "content-type: application/json" -d '{"name":"Signed up online"}'
+curl -X POST http://localhost:4000/actions/organisation_create -H "Authorization: Bearer <integration key>" -H "content-type: application/json" -d '{"name":"Signed up online"}'
 ```
 
 Seed data: `admin@example.com` (admin), `sarah@example.com` (sales), `sam@example.com` (support: contacts only), `mo@example.com` (manager: sales, plus config drafts), the Claude agent and the Website integration, three organisations and four contacts.

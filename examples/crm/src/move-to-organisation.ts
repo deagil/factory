@@ -1,5 +1,5 @@
 // contact.moveToOrganisation: the one hand-written action. It owns the
-// contact's organisation field, so the generated contact.update can't change
+// contact's organisation field, so the generated contact_update can't change
 // it, and it says so with its own event.
 import { defineAction } from "@workspace/actions";
 import { z } from "zod";

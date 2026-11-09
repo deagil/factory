@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createApi } from "./api.ts";
-import { createTestApi, registry } from "./testing/test-api.ts";
+import { createTestApi, endpoints, registry } from "./testing/test-api.ts";
 import type { TestApi } from "./testing/test-api.ts";
 
 interface Body {
@@ -82,7 +82,7 @@ describe("HTTP API", () => {
   it("runs an action with an API key", async () => {
     const { status, body } = await send(
       "POST",
-      "/actions/organisation.create",
+      "/actions/organisation_create",
       {
         name: "Acme",
       }
@@ -100,19 +100,74 @@ describe("HTTP API", () => {
     const headers = { "idempotency-key": "once" };
     const first = await send(
       "POST",
-      "/actions/organisation.create",
+      "/actions/organisation_create",
       { name: "Once" },
       headers
     );
     const second = await send(
       "POST",
-      "/actions/organisation.create",
+      "/actions/organisation_create",
       { name: "Once" },
       headers
     );
     expect(second.body).toMatchObject({
       replayed: true,
       runId: first.body.runId,
+    });
+  });
+
+  it("serves each object's REST endpoints, with ETag and If-Match", async () => {
+    const agent = { authorization: `Bearer ${test.keys.agent}` };
+    const created = await send(
+      "POST",
+      "/organisations",
+      { name: "Rest" },
+      agent
+    );
+    const id = created.body.output?.record?.id ?? "";
+    const read = await send("GET", `/organisations/${id}`, undefined, agent);
+    const stale = await send(
+      "PATCH",
+      `/organisations/${id}`,
+      { name: "Stale" },
+      { ...agent, "if-match": '"999"' }
+    );
+    const etag = read.headers.get("etag") ?? "";
+    const patched = await send(
+      "PATCH",
+      `/organisations/${id}`,
+      { name: "Renamed" },
+      { ...agent, "if-match": etag }
+    );
+    const filter = encodeURIComponent(
+      JSON.stringify({ name: { eq: "Renamed" } })
+    );
+    const listed = await send(
+      "GET",
+      `/organisations?filter=${filter}&limit=5`,
+      undefined,
+      agent
+    );
+    const history = await send(
+      "GET",
+      `/organisations/${id}/history`,
+      undefined,
+      agent
+    );
+    expect({
+      created: created.status,
+      etag,
+      stale: [stale.status, stale.body.error?.code],
+      patched: patched.body.output?.record,
+      listed: listed.body.output?.records,
+      history: (history.body.output?.entries as unknown[] | undefined)?.length,
+    }).toStrictEqual({
+      created: 201,
+      etag: '"1"',
+      stale: [409, "conflict"],
+      patched: expect.objectContaining({ name: "Renamed", version: 2 }),
+      listed: [expect.objectContaining({ id })],
+      history: 2,
     });
   });
 
@@ -128,27 +183,27 @@ describe("HTTP API", () => {
     const input = encodeURIComponent(JSON.stringify({ limit: 1 }));
     const { status, body } = await send(
       "GET",
-      `/queries/organisation.list?input=${input}`
+      `/queries/organisation_list?input=${input}`
     );
     expect(status).toBe(200);
     expect(body.output).toHaveProperty("records");
   });
 
   it.each([
-    ["validation", 400, "POST", "/actions/organisation.create", {}],
-    ["validation", 400, "POST", "/actions/organisation.create", "{not json"],
+    ["validation", 400, "POST", "/actions/organisation_create", {}],
+    ["validation", 400, "POST", "/actions/organisation_create", "{not json"],
     [
       "permission",
       403,
       "POST",
-      "/actions/organisation.archive",
+      "/actions/organisation_archive",
       { id: crypto.randomUUID() },
     ],
     [
       "not_found",
       404,
       "POST",
-      "/queries/organisation.get",
+      "/queries/organisation_get",
       { id: crypto.randomUUID() },
     ],
     ["not_found", 404, "POST", "/actions/nothing.here", {}],
@@ -171,7 +226,7 @@ describe("HTTP API", () => {
   it("refuses a request with no caller", async () => {
     const response = await send(
       "POST",
-      "/actions/organisation.create",
+      "/actions/organisation_create",
       {},
       {
         authorization: "Bearer fx_wrong",
@@ -202,6 +257,8 @@ describe("HTTP API", () => {
     );
     expect(refs.filter((ref) => resolve(ref) === undefined)).toStrictEqual([]);
     expect(new Set(operationIds).size).toBe(operationIds.length);
-    expect(Object.keys(document.paths)).toHaveLength(registry.list().length);
+    expect(Object.keys(document.paths)).toHaveLength(
+      registry.list().length + new Set(endpoints.map((e) => e.path)).size
+    );
   });
 });

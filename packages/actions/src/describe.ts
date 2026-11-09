@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { defineQuery } from "./define-action.ts";
 import type { AnyDefinition } from "./define-action.ts";
+import { objectEndpoints } from "./generated.ts";
 import type { Granted } from "./permissions.ts";
 
 const jsonSchema = z.record(z.string(), z.unknown());
@@ -68,6 +69,14 @@ export const describeOutput = z.object({
       fields: z.array(fieldSchema),
       list: z.array(z.string()),
       customFields: z.boolean(),
+      /** The object's REST endpoints the caller may use (decision 0045). */
+      endpoints: z.array(
+        z.object({
+          method: z.enum(["GET", "POST", "PATCH"]),
+          path: z.string(),
+          name: z.string(),
+        })
+      ),
     })
   ),
   actions: z.array(definitionSchema.extend({ emits: z.array(z.string()) })),
@@ -167,6 +176,7 @@ export const describeFor = (
     (definition) => granted.authorise(definition) === null
   );
   const actions = usable.filter((definition) => definition.kind === "action");
+  const names = new Set(usable.map((definition) => definition.name));
   const events = new Map<string, z.ZodType>();
   for (const action of actions) {
     for (const [type, payload] of Object.entries(action.emits)) {
@@ -185,6 +195,9 @@ export const describeFor = (
         ),
         list: [...object.list],
         customFields: object.customFields,
+        endpoints: objectEndpoints(object)
+          .filter((endpoint) => names.has(endpoint.name))
+          .map(({ method, path, name }) => ({ method, path, name })),
       })),
     actions: actions.map((action) => ({
       ...describeDefinition(action),

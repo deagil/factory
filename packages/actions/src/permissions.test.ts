@@ -91,8 +91,8 @@ describe("roles and permissions", () => {
   });
 
   it("lets an actor do what its roles allow", async () => {
-    const created = await call("organisation.create", { name: "Acme" }, sales);
-    const listed = await call("organisation.list", {}, sales);
+    const created = await call("organisation_create", { name: "Acme" }, sales);
+    const listed = await call("organisation_list", {}, sales);
     expect(created.ok).toBeTruthy();
     expect(listed).toMatchObject({
       ok: true,
@@ -102,11 +102,11 @@ describe("roles and permissions", () => {
 
   it("refuses the rest, naming the missing permission and changing nothing", async () => {
     const result = await call(
-      "organisation.create",
+      "organisation_create",
       { name: "Not allowed" },
       nobody
     );
-    const listed = await call("organisation.list", {}, sales);
+    const listed = await call("organisation_list", {}, sales);
     expect(result).toMatchObject({
       ok: false,
       error: {
@@ -123,11 +123,11 @@ describe("roles and permissions", () => {
 
   it("checks object verbs and hand-written actions by name", async () => {
     const archive = await call(
-      "organisation.archive",
+      "organisation_archive",
       { id: crypto.randomUUID() },
       sales
     );
-    const contacts = await call("contact.list", {}, sales);
+    const contacts = await call("contact_list", {}, sales);
     const report = await call("report.counts", {}, nobody);
     expect(archive).toMatchObject({
       error: { permission: "organisation.archive" },

@@ -8,6 +8,7 @@ import {
   configSamples,
   identitySamples,
   mcpSurface,
+  restSurface,
   runContract,
 } from "@workspace/server/testing";
 import type { SystemDatabase } from "@workspace/server/testing";
@@ -53,7 +54,7 @@ describe("example CRM", () => {
 
   it("seeds once, and a second run changes nothing", async () => {
     const again = await seed(crm, server.db, server.pipeline);
-    const listed = await server.app.request("/queries/organisation.list", {
+    const listed = await server.app.request("/queries/organisation_list", {
       method: "POST",
       headers: bearer(seeded.agentKey),
       body: "{}",
@@ -73,10 +74,10 @@ describe("example CRM", () => {
         headers: bearer(seeded.integrationKey),
         body: JSON.stringify(body),
       });
-    const created = await as("/actions/organisation.create", {
+    const created = await as("/actions/organisation_create", {
       name: "Signed up online",
     });
-    const listed = await as("/queries/contact.list", {});
+    const listed = await as("/queries/contact_list", {});
     expect(seeded.integrationKey).toMatch(/^fx_/u);
     expect(created.status).toBe(200);
     expect(listed.status).toBe(403);
@@ -97,16 +98,16 @@ describe("example CRM", () => {
   };
 
   it("takes an industry only from the industries list, and filters by it", async () => {
-    const unknown = await call("organisation.create", {
+    const unknown = await call("organisation_create", {
       name: "Rocket Co",
       industry: "aerospace",
     });
-    const made = await call("organisation.create", {
+    const made = await call("organisation_create", {
       name: "Corner Shop",
       industry: "retail",
     });
     const listed = await server.pipeline.query(
-      crm.registry.get("organisation.list") as AnyQueryDefinition,
+      crm.registry.get("organisation_list") as AnyQueryDefinition,
       { filter: { industry: { eq: "retail" } } },
       seeded.admin
     );
@@ -118,20 +119,20 @@ describe("example CRM", () => {
   });
 
   it("starts a deal in an open stage, moves it only through deal.moveStage, and records the category", async () => {
-    const buyer = await call("organisation.create", { name: "Buyer" });
-    const startWon = await call("deal.create", {
+    const buyer = await call("organisation_create", { name: "Buyer" });
+    const startWon = await call("deal_create", {
       name: "Already won",
       organisation: buyer.output?.record.id,
       stage: "won",
     });
-    const made = await call("deal.create", {
+    const made = await call("deal_create", {
       name: "New logo",
       organisation: buyer.output?.record.id,
       value: { amount: 5000, currency: "GBP" },
       stage: "lead",
     });
     const id = made.output?.record.id;
-    const viaUpdate = await call("deal.update", { id, stage: "won" });
+    const viaUpdate = await call("deal_update", { id, stage: "won" });
     const unknown = await call("deal.moveStage", { id, stage: "nope" });
     const lostBare = await call("deal.moveStage", { id, stage: "lost" });
     const moved = await call("deal.moveStage", { id, stage: "qualified" });
@@ -149,7 +150,7 @@ describe("example CRM", () => {
       seeded.admin
     );
     const lostDeals = await server.pipeline.query(
-      crm.registry.get("deal.list") as AnyQueryDefinition,
+      crm.registry.get("deal_list") as AnyQueryDefinition,
       { filter: { stage: { where: { category: "lost" } } } },
       seeded.admin
     );
@@ -191,16 +192,16 @@ describe("example CRM", () => {
 
   it("moves a contact only through contact.moveToOrganisation", async () => {
     const [from, to] = await Promise.all([
-      call("organisation.create", { name: "From" }),
-      call("organisation.create", { name: "To" }),
+      call("organisation_create", { name: "From" }),
+      call("organisation_create", { name: "To" }),
     ]);
-    const made = await call("contact.create", {
+    const made = await call("contact_create", {
       firstName: "Mover",
       organisation: from.output?.record.id,
       active: true,
     });
     const id = made.output?.record.id;
-    const viaUpdate = await call("contact.update", {
+    const viaUpdate = await call("contact_update", {
       id,
       organisation: to.output?.record.id,
     });
@@ -225,7 +226,7 @@ describe("example CRM", () => {
 
   // It runs every action and query over both surfaces, which takes seconds
   // on CI, so it gets more than the default 5s.
-  it("gives the same results and log rows over HTTP and MCP", async () => {
+  it("gives the same results and log rows over REST, /actions and MCP", async () => {
     const caller = seeded.admin;
     const request = (url: string, init: RequestInit) =>
       server.app.request(url, {
@@ -245,12 +246,16 @@ describe("example CRM", () => {
       pipeline: server.pipeline,
       db: server.db,
       caller,
-      surfaces: { http: httpSurface(request), mcp: mcpSurface(request) },
+      surfaces: {
+        rest: restSurface(request, crm.endpoints),
+        http: httpSurface(request),
+        mcp: mcpSurface(request),
+      },
       samples: {
         ...identitySamples(crm.registry, server.pipeline, caller),
         ...configSamples(),
-        "deal.create": async () => {
-          const org = await run("organisation.create", { name: "Buyer" });
+        deal_create: async () => {
+          const org = await run("organisation_create", { name: "Buyer" });
           return {
             name: "Sample deal",
             organisation:
@@ -260,8 +265,8 @@ describe("example CRM", () => {
           };
         },
         "deal.moveStage": async () => {
-          const org = await run("organisation.create", { name: "Buyer" });
-          const created = await run("deal.create", {
+          const org = await run("organisation_create", { name: "Buyer" });
+          const created = await run("deal_create", {
             name: "Sample deal",
             organisation:
               org.ok && (org.output as { record: { id: string } }).record.id,
@@ -275,9 +280,9 @@ describe("example CRM", () => {
           };
         },
         "contact.moveToOrganisation": async () => {
-          const org = await run("organisation.create", { name: "Target" });
-          const other = await run("organisation.create", { name: "Start" });
-          const person = await run("contact.create", {
+          const org = await run("organisation_create", { name: "Target" });
+          const other = await run("organisation_create", { name: "Start" });
+          const person = await run("contact_create", {
             firstName: "Sam",
             active: true,
             organisation:

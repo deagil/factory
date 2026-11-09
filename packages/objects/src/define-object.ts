@@ -324,7 +324,9 @@ const jobFrom = (option: JobOption | undefined | object): ObjectJob => {
   return { generated: true, ownedBy: undefined };
 };
 
-const actionNamePattern = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/u;
+/** snake_case (decision 0047), or the dotted names still in code until P2.26. */
+const actionNamePattern =
+  /^(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)*|[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*)$/u;
 
 /** Checks field keys, and that no two fields need the same property or column. */
 const checkFields = (name: string, fields: ObjectFields): string[] => {
@@ -395,7 +397,7 @@ const checkOptions = (
     if (typeof owner === "string" && !actionNamePattern.test(owner)) {
       fail(
         name,
-        `actions.${job} must be false or an action name such as "${name}.place", not "${owner}"`
+        `actions.${job} must be false or an action name such as "${name}_place", not "${owner}"`
       );
     }
   }

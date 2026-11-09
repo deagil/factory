@@ -92,13 +92,13 @@ describe("system.describe", () => {
     const described = await describeAs("website");
     expect(described.objects).toStrictEqual([]);
     expect(described.actions.map((action) => action.name)).toStrictEqual([
-      "organisation.create",
+      "organisation_create",
     ]);
     expect(described.queries.map((query) => query.name)).toStrictEqual([
       "system.describe",
     ]);
     expect(described.events.map((event) => event.type)).toStrictEqual([
-      "organisation.created",
+      "organisation_created",
     ]);
   });
 

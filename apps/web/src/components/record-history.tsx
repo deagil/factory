@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { HistoryEntry } from "@workspace/actions";
 
-import { runQuery } from "../lib/api.ts";
+import { objectApi, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
 import { displayValue, findObject, titleOf } from "../lib/records.ts";
 import type { ObjectDescription } from "../lib/records.ts";
@@ -32,10 +32,9 @@ const RefName = ({
         );
         return actor.name;
       }
-      const { record } = await runQuery<{ record: Record<string, unknown> }>(
-        `${target}.get`,
-        { id, archived: "include" }
-      );
+      const { record } = await objectApi(target, object?.endpoints).get<{
+        record: Record<string, unknown>;
+      }>(id, { archived: "include" });
       return titleOf(record, object);
     },
     enabled: isActor || object !== undefined,
@@ -92,10 +91,9 @@ export const RecordHistory = ({
   const history = useQuery({
     queryKey: ["history", object.name, id],
     queryFn: () =>
-      runQuery<{ entries: HistoryEntry[] }>("record.history", {
-        object: object.name,
-        id,
-      }),
+      objectApi(object.name, object.endpoints).history<{
+        entries: HistoryEntry[];
+      }>(id),
   });
   if (history.isPending) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;

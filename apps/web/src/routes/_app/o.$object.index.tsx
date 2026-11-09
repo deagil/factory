@@ -7,7 +7,7 @@ import { Button, buttonVariants } from "@workspace/ui/components/button";
 
 import { FilterBar } from "../../components/filter-bar.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
-import { describeSystem, runQuery } from "../../lib/api.ts";
+import { describeSystem, objectApi } from "../../lib/api.ts";
 import { plural } from "../../lib/nav.ts";
 import {
   columnsOf,
@@ -45,7 +45,7 @@ const ListScreen = () => {
   const page = useQuery({
     queryKey: ["list", name, search],
     queryFn: () =>
-      runQuery<ListPage>(`${name}.list`, {
+      objectApi(name, object?.endpoints).list<ListPage>({
         filter: search.filter,
         sort: search.sort,
         archived: search.archived ? "include" : undefined,
@@ -87,7 +87,7 @@ const ListScreen = () => {
 
   const back = search.back ?? [];
   const canCreate = described.data?.actions.some(
-    (action) => action.name === `${name}.create`
+    (action) => action.name === `${name}_create`
   );
   return (
     <div className="flex flex-col gap-4">

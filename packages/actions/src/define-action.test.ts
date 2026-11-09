@@ -31,7 +31,7 @@ const moveStage = defineAction({
 });
 
 const getDeal = defineQuery({
-  name: "deal.get",
+  name: "deal_get",
   description: "One deal by id",
   input: z.object({ id: z.string() }),
   output: z.object({ id: z.string() }),
@@ -50,7 +50,7 @@ describe(defineAction, () => {
 
   it("has no events unless it declares some", () => {
     const archive = defineAction({
-      name: "deal.archive",
+      name: "deal_archive",
       description: "Archive a deal",
       input: z.object({ id: z.string() }),
       output: z.object({}),
@@ -85,10 +85,10 @@ describe(defineAction, () => {
   });
 
   it.each([
-    ["Deal.move", /must be <object>\.<verb>/u],
-    ["deal", /must be <object>\.<verb>/u],
-    ["deal.move.now", /must be <object>\.<verb>/u],
-    ["deal.move_stage", /must be <object>\.<verb>/u],
+    ["Deal.move", /must be snake_case/u],
+    ["deal_Move", /must be snake_case/u],
+    ["deal.move.now", /must be snake_case/u],
+    ["deal.move_stage", /must be snake_case/u],
   ])("refuses the name %s", (name, message) => {
     expect(() =>
       defineAction({
@@ -123,7 +123,7 @@ describe(defineAction, () => {
         emits: { "deal-moved": z.object({}) },
         handler: () => ({}),
       })
-    ).toThrow(/the event "deal-moved" must be <object>\.<pastTense>/u);
+    ).toThrow(/the event "deal-moved" must be snake_case/u);
   });
 });
 
@@ -149,13 +149,13 @@ describe(defineQuery, () => {
   it("refuses a bad name", () => {
     expect(() =>
       defineQuery({
-        name: "deals",
+        name: "Deals",
         description: "All deals",
         input: z.object({}),
         output: z.object({}),
         handler: () => ({}),
       })
-    ).toThrow(/defineQuery\("deals"\)/u);
+    ).toThrow(/defineQuery\("Deals"\)/u);
   });
 });
 

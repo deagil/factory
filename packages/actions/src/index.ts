@@ -97,7 +97,12 @@ export type {
   RunError,
   RunOptions,
 } from "./pipeline.ts";
-export { generateDefinitions } from "./generated.ts";
+export {
+  generateDefinitions,
+  type ObjectEndpoint,
+  type ObjectJob,
+  objectEndpoints,
+} from "./generated.ts";
 export {
   allowAll,
   grantedBy,

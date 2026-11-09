@@ -28,30 +28,30 @@ const query = (name: string) =>
 
 describe("the registry", () => {
   it("lists every action and query with its schemas", () => {
-    const create = action("contact.create");
-    const get = query("contact.get");
+    const create = action("contact_create");
+    const get = query("contact_get");
     const registry = createRegistry([create, get]);
     expect(registry.list()).toStrictEqual([create, get]);
     expect(registry.actions()).toStrictEqual([create]);
     expect(registry.queries()).toStrictEqual([get]);
-    expect(registry.get("contact.get")?.input).toBe(get.input);
+    expect(registry.get("contact_get")?.input).toBe(get.input);
     expect(registry.get("contact.delete")).toBeUndefined();
   });
 
   it("refuses two actions with the same name", () => {
     expect(() =>
-      createRegistry([action("contact.create"), action("contact.create")])
-    ).toThrow(/"contact\.create" is registered twice, as two actions/u);
+      createRegistry([action("contact_create"), action("contact_create")])
+    ).toThrow(/"contact_create" is registered twice, as two actions/u);
   });
 
   it("refuses the same definition twice", () => {
-    const create = action("contact.create");
+    const create = action("contact_create");
     expect(() => createRegistry([create, create])).toThrow(/registered twice/u);
   });
 
   it("refuses an action and a query with the same name", () => {
     expect(() =>
-      createRegistry([action("contact.get"), query("contact.get")])
+      createRegistry([action("contact_get"), query("contact_get")])
     ).toThrow(/registered twice, as an action and a query/u);
   });
 
@@ -59,7 +59,7 @@ describe("the registry", () => {
     const registry = createRegistry([
       action("contact.move", { "contact.moved": moved }),
       action("contact.moveToOrganisation", { "contact.moved": moved }),
-      action("contact.archive", { "contact.archived": z.object({}) }),
+      action("contact_archive", { contact_archived: z.object({}) }),
     ]);
     expect(
       registry.events().map(({ type, emittedBy }) => ({ type, emittedBy }))
@@ -68,7 +68,7 @@ describe("the registry", () => {
         type: "contact.moved",
         emittedBy: ["contact.move", "contact.moveToOrganisation"],
       },
-      { type: "contact.archived", emittedBy: ["contact.archive"] },
+      { type: "contact_archived", emittedBy: ["contact_archive"] },
     ]);
   });
 
@@ -86,7 +86,7 @@ describe("the registry", () => {
   });
 
   it("can't be changed through what it returns", () => {
-    const registry = createRegistry([action("contact.create")]);
+    const registry = createRegistry([action("contact_create")]);
     registry.list().pop();
     expect(registry.list()).toHaveLength(1);
     expect(Object.isFrozen(registry)).toBeTruthy();

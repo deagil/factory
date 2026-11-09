@@ -7,7 +7,7 @@ import { z } from "zod";
 
 /** Deal stages. Staff add and rename stages; code acts on each one's category. */
 export const dealStages = defineChoiceList({
-  key: "deal-stages",
+  key: "deal_stages",
   columns: { category: z.enum(["open", "won", "lost"]) },
 });
 

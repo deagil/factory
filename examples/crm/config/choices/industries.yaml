@@ -10,7 +10,7 @@ options:
     label: Retail
   - key: finance
     label: Financial services
-  - key: public-sector
+  - key: public_sector
     label: Public sector
   - key: other
     label: Other

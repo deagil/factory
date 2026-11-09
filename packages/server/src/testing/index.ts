@@ -5,6 +5,7 @@ export {
   configSamples,
   identitySamples,
   mcpSurface,
+  restSurface,
   runContract,
 } from "./contract.ts";
 export type {

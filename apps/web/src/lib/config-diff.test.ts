@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { describeChange } from "./config-diff.ts";
 
-const stages = (options: object[]) => ({ key: "deal-stages", options });
+const stages = (options: object[]) => ({ key: "deal_stages", options });
 
 const option = (key: string) => ({ key, label: key });
 
@@ -18,9 +18,9 @@ const changed = (beforeValue: unknown, afterValue: unknown) =>
 describe(describeChange, () => {
   it("names each option a choice list adds, renames, archives or moves", () => {
     const change = describeChange({
-      path: "config/choices/deal-stages.yaml",
+      path: "config/choices/deal_stages.yaml",
       type: "choices",
-      key: "deal-stages",
+      key: "deal_stages",
       beforeValue: stages([
         { key: "lead", label: "Lead", category: "open" },
         { key: "won", label: "Won", category: "won" },
@@ -38,8 +38,8 @@ describe(describeChange, () => {
       ]),
     });
     expect(change).toStrictEqual({
-      path: "config/choices/deal-stages.yaml",
-      title: "Choice list deal-stages",
+      path: "config/choices/deal_stages.yaml",
+      title: "Choice list deal_stages",
       kind: "changed",
       lines: [
         "Renames the option lead from “Lead” to “New lead”.",
@@ -60,7 +60,7 @@ describe(describeChange, () => {
         label: "Sales",
         permissions: [
           { object: "deal", can: ["view", "update"], scope: "all" },
-          { action: "deal.create", scope: "all" },
+          { action: "deal_create", scope: "all" },
         ],
       },
       afterValue: {
@@ -77,7 +77,7 @@ describe(describeChange, () => {
       "Can now archive deal.",
       "Can no longer update deal.",
       "Can now run deal.moveStage.",
-      "Can no longer run deal.create.",
+      "Can no longer run deal_create.",
     ]);
   });
 

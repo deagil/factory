@@ -12,7 +12,7 @@ permissions:
   - object: deal
     can: [view, update]
     scope: all
-  - action: deal.create
+  - action: deal_create
     scope: all
   - action: deal.moveStage
     scope: all

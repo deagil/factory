@@ -24,7 +24,7 @@ const tier = (key: string, approver: string, from: number, to?: number) =>
   [
     `key: ${key}`,
     `label: ${key}`,
-    "action: deal.archive",
+    "action: deal_archive",
     "record: { object: deal, id: input.id }",
     "when:",
     "  - { field: record.value.currency, operator: eq, value: GBP }",
@@ -57,7 +57,7 @@ describe("approval limits", () => {
   cpSync(path.resolve(import.meta.dirname, "../config"), config, {
     recursive: true,
   });
-  rmSync(path.join(config, "approvals", "archive-organisations.yaml"));
+  rmSync(path.join(config, "approvals", "archive_organisations.yaml"));
   const files: Record<string, string> = {
     "roles/junior.yaml": role("junior", [
       can("deal", "view, archive"),
@@ -72,21 +72,21 @@ describe("approval limits", () => {
       can("deal", "view, archive"),
       can("organisation", "view, archive"),
     ]),
-    "approvals/deal-medium.yaml": tier("deal-medium", "manager", 1000, 10_000),
-    "approvals/deal-large-manager.yaml": tier(
-      "deal-large-manager",
+    "approvals/deal_medium.yaml": tier("deal_medium", "manager", 1000, 10_000),
+    "approvals/deal_large_manager.yaml": tier(
+      "deal_large_manager",
       "manager",
       10_000
     ),
-    "approvals/deal-large-senior.yaml": tier(
-      "deal-large-senior",
+    "approvals/deal_large_senior.yaml": tier(
+      "deal_large_senior",
       "senior",
       10_000
     ),
-    "approvals/organisations-by-juniors.yaml": [
-      "key: organisations-by-juniors",
+    "approvals/organisations_by_juniors.yaml": [
+      "key: organisations_by_juniors",
       "label: Juniors archiving organisations",
-      "action: organisation.archive",
+      "action: organisation_archive",
       "requester: [junior]",
       "approvals: 2",
       "approver: manager",
@@ -104,7 +104,7 @@ describe("approval limits", () => {
       .filter((definition) =>
         [
           "contact.moveToOrganisation",
-          "deal.create",
+          "deal_create",
           "deal.moveStage",
         ].includes(definition.name)
       ),
@@ -141,10 +141,10 @@ describe("approval limits", () => {
       .toSorted((a, b) => a[1].localeCompare(b[1]));
   };
   const deal = async (pounds: number) => {
-    const org = await run("organisation.create", { name: "Buyer" }, "ada");
+    const org = await run("organisation_create", { name: "Buyer" }, "ada");
     return idOf(
       await run(
-        "deal.create",
+        "deal_create",
         {
           name: `£${pounds}`,
           organisation: idOf(org),
@@ -188,21 +188,21 @@ describe("approval limits", () => {
   });
 
   it("asks nothing for a small deal and one manager for a medium one", async () => {
-    const small = await run("deal.archive", { id: await deal(500) }, "jo");
-    const medium = await run("deal.archive", { id: await deal(5000) }, "jo");
+    const small = await run("deal_archive", { id: await deal(500) }, "jo");
+    const medium = await run("deal_archive", { id: await deal(5000) }, "jo");
     const [[approval] = []] = await pending(medium.runId);
     const bySenior = await run("approval.approve", { id: approval }, "sue");
     const byManager = await run("approval.approve", { id: approval }, "mia");
     expect({ small, medium, bySenior, byManager }).toMatchObject({
       small: { ok: true },
-      medium: { ok: false, error: { rule: "deal-medium" } },
+      medium: { ok: false, error: { rule: "deal_medium" } },
       bySenior: { ok: false, error: { code: "permission" } },
       byManager: { ok: true, output: { ran: { ok: true } } },
     });
   });
 
   it("needs a manager and a different senior for a large deal", async () => {
-    const waiting = await run("deal.archive", { id: await deal(20_000) }, "jo");
+    const waiting = await run("deal_archive", { id: await deal(20_000) }, "jo");
     const [[forManager] = [], [forSenior] = []] = await pending(waiting.runId);
     // Max holds both roles, but approves once.
     const first = await run("approval.approve", { id: forManager }, "max");
@@ -210,7 +210,7 @@ describe("approval limits", () => {
     const last = await run("approval.approve", { id: forSenior }, "sue");
     // A manager archiving a large deal needs only the senior.
     const byManager = await run(
-      "deal.archive",
+      "deal_archive",
       { id: await deal(20_000) },
       "mia"
     );
@@ -223,13 +223,13 @@ describe("approval limits", () => {
       first: { ok: true, output: { ran: null } },
       again: { ok: false, error: { code: "permission" } },
       last: { ok: true, output: { ran: { ok: true } } },
-      byManager: [false, [[expect.any(String), "deal-large-senior"]]],
+      byManager: [false, [[expect.any(String), "deal_large_senior"]]],
     });
   });
 
   it("needs two different managers when a junior archives an organisation", async () => {
-    const org = idOf(await run("organisation.create", { name: "Old" }, "ada"));
-    const waiting = await run("organisation.archive", { id: org }, "jo");
+    const org = idOf(await run("organisation_create", { name: "Old" }, "ada"));
+    const waiting = await run("organisation_archive", { id: org }, "jo");
     const [[one] = [], [two] = []] = await pending(waiting.runId);
     const first = await run("approval.approve", { id: one }, "mia");
     const twice = await run("approval.approve", { id: two }, "mia");
@@ -249,7 +249,7 @@ describe("approval limits", () => {
     );
     const agentId = (agent as { output: { actorId: string } }).output.actorId;
     const waiting = await run(
-      "deal.archive",
+      "deal_archive",
       { id: await deal(5000) },
       agentId
     );
@@ -259,7 +259,7 @@ describe("approval limits", () => {
       byMia: await run("approval.approve", { id: approval }, "mia"),
       byMax: await run("approval.approve", { id: approval }, "max"),
     }).toMatchObject({
-      waiting: { ok: false, error: { rule: "deal-medium" } },
+      waiting: { ok: false, error: { rule: "deal_medium" } },
       byMia: { ok: false, error: { code: "permission" } },
       byMax: { ok: true, output: { ran: { ok: true } } },
     });
@@ -267,16 +267,16 @@ describe("approval limits", () => {
 
   it("doesn't run an action that came to need more approval while it waited", async () => {
     const id = await deal(5000);
-    const waiting = await run("deal.archive", { id }, "jo");
+    const waiting = await run("deal_archive", { id }, "jo");
     const [[approval] = []] = await pending(waiting.runId);
     await run(
-      "deal.update",
+      "deal_update",
       { id, value: { amount: pence(50_000), currency: "GBP" } },
       "mia"
     );
     const approved = await run("approval.approve", { id: approval }, "max");
     const record = await server.pipeline.query(
-      system.registry.get("deal.get") as AnyQueryDefinition,
+      system.registry.get("deal_get") as AnyQueryDefinition,
       { id },
       people.ada as { actorId: string }
     );
