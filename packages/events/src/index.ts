@@ -1,3 +1,5 @@
-// event_log, delivery to workflows, outbound and inbound webhooks.
-// Placeholder until phase 1. See docs/SYSTEM_DESIGN.md, section 4.7 Events and webhooks.
-export const packageName = "@workspace/events";
+// Events (SYSTEM_DESIGN §4.7): the dispatcher, which starts the workflows an
+// event or a schedule starts (P2.19). Events themselves are written by the
+// pipeline and the runner, in the transaction of the change they record.
+export { createDispatcher } from "./dispatcher.ts";
+export type { Dispatcher, DispatcherOptions } from "./dispatcher.ts";

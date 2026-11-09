@@ -39,11 +39,12 @@ export type {
   WorkflowContext,
   WorkflowProblem,
 } from "./validate.ts";
-export { createRunner, maxDepth } from "./run.ts";
+export { createRunner, maxDepth, startsOn } from "./run.ts";
 export type {
   Runner,
   RunError,
   RunnerOptions,
+  RunStart,
   WorkflowResult,
   WorkflowRunOptions,
 } from "./run.ts";
@@ -54,3 +55,4 @@ export {
   workflowsIn,
 } from "./config-type.ts";
 export { definitionOf, workflowEntries } from "./entries.ts";
+export { cronMatches } from "./cron.ts";

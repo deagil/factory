@@ -14,6 +14,7 @@ objects:
     endpoints: [list, get, update, history]
     rows: all
     write: { except: [stage] } # deal.moveStage moves it
+  task: { endpoints: "*", rows: all }
 workflows:
   - contact.moveToOrganisation
   - deal_create

@@ -1,0 +1,15 @@
+# When someone becomes a deal's owner, add a task for them to
+# introduce themselves (P2.19). deal_updated carries only the fields that
+# changed in `after`, so this runs for owner changes and no others.
+key: deal_owner_task
+description: Add a task to introduce the new owner when a deal changes hands.
+starts_when:
+  event: deal_updated
+  when:
+    - { field: event.after.owner, empty: false }
+steps:
+  - id: add
+    action: task_create
+    with:
+      title: { value: Introduce the new owner }
+      deal: { from: event.record.id }

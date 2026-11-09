@@ -191,7 +191,7 @@ export const createWorkflowCalls = ({
       : { ok: false, error: result.error, runId: result.runId };
   };
 
-  return { call, actorOf: runner.actorOf };
+  return { call, actorOf: runner.actorOf, runner, events };
 };
 
 export type WorkflowCalls = ReturnType<typeof createWorkflowCalls>;

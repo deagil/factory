@@ -78,6 +78,13 @@
       "when": 1794253115501,
       "tag": "0010_p2_17_the_runner_for_runs_with_no_pauses",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794254884456,
+      "tag": "0011_p2_19_events_and_the_dispatcher",
+      "breakpoints": true
     }
   ]
 }

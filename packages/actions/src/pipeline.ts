@@ -235,7 +235,7 @@ interface RunState {
  * The config as it is now. A loader swaps versions while runs go on, so a
  * run takes one snapshot and reads only that (P2.05).
  */
-const pin = (config: ConfigService): ConfigService => {
+export const pin = (config: ConfigService): ConfigService => {
   const { choices } = config;
   return {
     sha: config.sha,

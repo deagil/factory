@@ -5,7 +5,7 @@
 import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
-import { createPipeline, rolePermissions } from "@workspace/actions";
+import { createPipeline, pinConfig, rolePermissions } from "@workspace/actions";
 import { createAuth, createDevOutbox } from "@workspace/auth";
 import type { SendCode } from "@workspace/auth";
 import {
@@ -22,6 +22,7 @@ import {
   recordConfigVersion,
 } from "@workspace/db";
 import type { Db } from "@workspace/db";
+import { createDispatcher } from "@workspace/events";
 
 import { createApi } from "./api.ts";
 import type { System } from "./system.ts";
@@ -48,6 +49,11 @@ export interface ServerOptions {
    * config is read from the working tree.
    */
   watchConfig?: boolean;
+  /**
+   * Dispatch events and start scheduled workflows every this many ms
+   * (P2.19). Off when absent; tests call `dispatcher.drain()` instead.
+   */
+  dispatchMs?: number;
   /** Where config loads are reported; the console by default. */
   log?: (line: string) => void;
   /**
@@ -154,6 +160,16 @@ export const createServer = async (system: System, options: ServerOptions) => {
     stepActions: system.stepActions,
     definitions: system.registry.list(),
   });
+  const dispatcher = createDispatcher({
+    db,
+    runner: workflowCalls.runner,
+    clock,
+    config: () => pinConfig(config),
+    events: workflowCalls.events,
+  });
+  const stopDispatching = options.dispatchMs
+    ? dispatcher.run(options.dispatchMs)
+    : undefined;
   const app = createApi({
     registry: system.registry,
     endpoints: system.endpoints,
@@ -172,11 +188,14 @@ export const createServer = async (system: System, options: ServerOptions) => {
     db,
     pipeline,
     workflowCalls,
+    /** Starts the workflows events and schedules start (P2.19). */
+    dispatcher,
     /** The config loader: the live version, and `load` to reload by hand. */
     config: loader,
     /** Closes the database pool; for tests that never listen. */
     close: () => {
       stopWatching?.();
+      stopDispatching?.();
       return closeDb(db);
     },
     /** Serves on `port` until `close` is called. */
@@ -185,6 +204,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
       return {
         close: async () => {
           stopWatching?.();
+          stopDispatching?.();
           await promisify(server.close.bind(server))();
           await closeDb(db);
         },

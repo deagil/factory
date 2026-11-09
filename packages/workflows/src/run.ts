@@ -24,11 +24,12 @@ import type {
   ConfigService,
   DeclaredError,
 } from "@workspace/actions";
-import { createIdentityStore } from "@workspace/db";
+import { createIdentityStore, isUniqueViolation } from "@workspace/db";
 import type { Db, Tx } from "@workspace/db";
 import type { z } from "zod";
 
 import { schemaOf } from "./fields.ts";
+import type { FieldSpecs } from "./fields.ts";
 import { operatorOf } from "./schema.ts";
 import type { Condition, Source, Step, WorkflowDefinition } from "./schema.ts";
 import { Trace } from "./trace.ts";
@@ -38,7 +39,26 @@ export type RunError = ActionError | DeclaredError;
 
 export type WorkflowResult =
   | { ok: true; runId: string; output: Record<string, unknown> }
-  | { ok: false; runId: string; error: RunError };
+  | {
+      ok: false;
+      runId: string;
+      error: RunError;
+      /** It had already run for this event or minute, so nothing ran (P2.19). */
+      duplicate?: true;
+    };
+
+/** How a run started when nobody called it (P2.19). */
+export interface RunStart {
+  /** The event that started it, and its payload, read as `event.…`. */
+  readonly event?: { readonly id: string; readonly payload: unknown };
+  /** The event's fields, when a workflow declares it: for choice columns. */
+  readonly eventSpecs?: FieldSpecs | undefined;
+  /** The run that emitted the event. */
+  readonly parentRunId?: string | null;
+  readonly depth?: number;
+  /** The minute a schedule started it for. */
+  readonly scheduledFor?: Date;
+}
 
 export interface RunnerOptions {
   readonly db: Db;
@@ -58,6 +78,8 @@ export interface WorkflowRunOptions {
   readonly events?: ReadonlyMap<string, z.ZodType>;
   /** The caller's retry key, kept on the top run (P2.18). */
   readonly retryKey?: string;
+  /** How it started, when an event or a schedule started it (P2.19). */
+  readonly start?: RunStart;
 }
 
 /** Nested runs deeper than this stop: a loop of workflows running each other. */
@@ -135,23 +157,35 @@ interface Frame {
   readonly actor: Actor;
   readonly depth: number;
   readonly input: Readonly<Record<string, unknown>>;
+  /** The event that started the run, for a top run an event started. */
+  readonly event?: RunStart | undefined;
   /** Each step's output, by id. */
   readonly outputs: Map<string, unknown>;
 }
 
 /** What `path` reads; a choice's column comes from the pinned config. */
-const read = (path: string, frame: Frame, config: ConfigService) => {
+/** The option `value` names in the choice list `list`, as config has it. */
+const optionOf = (config: ConfigService, list: string, value: unknown) =>
+  config.choices?.(list)?.find((each) => each.key === value);
+
+const read = (
+  path: string,
+  frame: Pick<Frame, "input" | "outputs" | "workflow" | "event">,
+  config: ConfigService
+) => {
   const [root, first = "", ...rest] = path.split(".");
   if (root === "steps") {
     return dig(frame.outputs.get(first), rest.slice(1));
   }
-  const value = frame.input[first];
-  const spec = frame.workflow.input?.[first];
+  const fromEvent = root === "event";
+  const value = fromEvent
+    ? dig(frame.event?.event?.payload, [first])
+    : frame.input[first];
+  const spec = fromEvent
+    ? frame.event?.eventSpecs?.[first]
+    : frame.workflow.input?.[first];
   if (spec?.type === "choice" && rest.length > 0) {
-    const option = config
-      .choices?.(spec.list)
-      ?.find((each) => each.key === value);
-    return dig(option, rest);
+    return dig(optionOf(config, spec.list, value), rest);
   }
   return dig(value, rest);
 };
@@ -470,7 +504,13 @@ export const createRunner = ({ db, actions, clock }: RunnerOptions) => {
     shared: Shared,
     workflow: WorkflowDefinition,
     input: unknown,
-    place: { parentRunId: string | null; depth: number; runId?: string }
+    place: {
+      parentRunId: string | null;
+      depth: number;
+      runId?: string;
+      /** The top run: it carries the retry key and how it started. */
+      start?: RunStart;
+    }
   ): Promise<Record<string, unknown>> => {
     const { tx, trace, options } = shared;
     const actor = await actorOf(workflow.key);
@@ -483,7 +523,9 @@ export const createRunner = ({ db, actions, clock }: RunnerOptions) => {
       input: input ?? {},
       status: "running",
       configSha: options.config.sha,
-      retryKey: place.depth === 0 ? (options.retryKey ?? null) : null,
+      retryKey: place.start ? (options.retryKey ?? null) : null,
+      eventId: place.start?.event?.id ?? null,
+      scheduledFor: place.start?.scheduledFor ?? null,
       parentRunId: place.parentRunId,
       depth: place.depth,
       startedAt: clock.now(),
@@ -501,6 +543,7 @@ export const createRunner = ({ db, actions, clock }: RunnerOptions) => {
       actor,
       depth: place.depth,
       input: parseInput(workflow, input, options.config),
+      event: place.start,
       outputs: new Map(),
     };
     const ended = await walk(shared, workflow.steps, frame, "steps");
@@ -528,16 +571,32 @@ export const createRunner = ({ db, actions, clock }: RunnerOptions) => {
     await actorOf(workflow.key);
     try {
       const output = await db.transaction(async (tx) => {
+        const start = options.start ?? {};
         const ended = await execute({ tx, trace, options }, workflow, input, {
-          parentRunId: null,
-          depth: 0,
+          parentRunId: start.parentRunId ?? null,
+          depth: start.depth ?? 0,
           runId,
+          start,
         });
         await trace.finish(tx);
         return ended;
       });
       return { ok: true, runId, output };
     } catch (error) {
+      if (
+        isUniqueViolation(error, "runs_event_unique") ||
+        isUniqueViolation(error, "runs_schedule_unique")
+      ) {
+        // Another dispatcher started it first; this one never ran.
+        return {
+          ok: false,
+          runId,
+          error: failures.conflict(
+            `${workflow.key} has already run for this ${options.start?.event ? "event" : "minute"}`
+          ).error,
+          duplicate: true,
+        };
+      }
       if (error instanceof RunFailedError) {
         await trace.rewrite(db, error.failure, clock.now());
         return { ok: false, runId, error: error.failure };
@@ -555,3 +614,31 @@ export const createRunner = ({ db, actions, clock }: RunnerOptions) => {
 };
 
 export type Runner = ReturnType<typeof createRunner>;
+
+/**
+ * Whether `event` starts `workflow`: its `starts_when` names the event's
+ * type and every `when` condition holds on the payload (P2.19).
+ */
+export const startsOn = (
+  workflow: WorkflowDefinition,
+  event: { readonly type: string; readonly payload: unknown },
+  config: ConfigService,
+  eventSpecs?: FieldSpecs
+) => {
+  const starts = workflow.starts_when;
+  if (typeof starts !== "object" || !("event" in starts)) {
+    return false;
+  }
+  if (starts.event !== event.type) {
+    return false;
+  }
+  const frame = {
+    workflow,
+    input: {},
+    outputs: new Map<string, unknown>(),
+    event: { event: { id: "", payload: event.payload }, eventSpecs },
+  };
+  return (starts.when ?? []).every((condition) =>
+    passes(condition, read(condition.field, frame, config) ?? null)
+  );
+};
