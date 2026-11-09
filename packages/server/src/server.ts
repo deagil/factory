@@ -54,6 +54,16 @@ export interface ServerOptions {
    * (P2.19). Off when absent; tests call `dispatcher.drain()` instead.
    */
   dispatchMs?: number;
+  /**
+   * Launch DBOS at start-up, which picks up the runs a stop left part way
+   * (P2.20). Without it DBOS launches when the first run that pauses or
+   * reaches another system starts.
+   */
+  durable?: boolean;
+  /** How external steps that fail with `unavailable` are tried again. */
+  retries?: { attempts: number; firstDelayMs: number };
+  /** How long a caller waits for a run to finish or pause; 10s by default. */
+  waitMs?: number;
   /** Where config loads are reported; the console by default. */
   log?: (line: string) => void;
   /**
@@ -159,7 +169,17 @@ export const createServer = async (system: System, options: ServerOptions) => {
     clock,
     stepActions: system.stepActions,
     definitions: system.registry.list(),
+    durable: {
+      name: system.name,
+      databaseUrl: options.databaseUrl,
+      config: () => pinConfig(config),
+      ...(options.retries ? { retries: options.retries } : {}),
+      ...(options.waitMs === undefined ? {} : { waitMs: options.waitMs }),
+    },
   });
+  if (options.durable) {
+    await workflowCalls.runner.start();
+  }
   const dispatcher = createDispatcher({
     db,
     runner: workflowCalls.runner,
@@ -193,10 +213,11 @@ export const createServer = async (system: System, options: ServerOptions) => {
     /** The config loader: the live version, and `load` to reload by hand. */
     config: loader,
     /** Closes the database pool; for tests that never listen. */
-    close: () => {
+    close: async () => {
       stopWatching?.();
       stopDispatching?.();
-      return closeDb(db);
+      await workflowCalls.runner.stop();
+      await closeDb(db);
     },
     /** Serves on `port` until `close` is called. */
     listen: (port: number) => {
@@ -206,6 +227,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
           stopWatching?.();
           stopDispatching?.();
           await promisify(server.close.bind(server))();
+          await workflowCalls.runner.stop();
           await closeDb(db);
         },
       };

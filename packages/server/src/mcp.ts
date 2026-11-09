@@ -101,7 +101,12 @@ const toolResult = (result: CallResult): CallToolResult => {
       _meta: metaOf(result),
     };
   }
-  const output = result.output as Record<string, unknown>;
+  // A run still going says so; GET /runs/{id} follows it (P2.20).
+  const output = (
+    "pending" in result && result.pending
+      ? { status: result.pending }
+      : result.output
+  ) as Record<string, unknown>;
   const runId = runIdOf(result);
   return {
     content: [

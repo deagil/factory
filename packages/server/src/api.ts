@@ -235,7 +235,12 @@ const workflowRoute =
     if (!result.ok) {
       return fail(c, result.error, result.runId);
     }
-    const { output, runId, replayed } = result;
+    const { output, runId, replayed, pending } = result;
+    if (pending) {
+      // Still going or paused: the run is the resource to follow (P2.20).
+      c.header("Location", `/runs/${runId}`);
+      return c.json({ runId, status: pending }, 202);
+    }
     return c.json({ output, runId, replayed });
   };
 

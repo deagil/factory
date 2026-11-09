@@ -30,6 +30,8 @@ export const runEntrySchema = z.object({
   /** The person at the start of the chain; null for integrations. */
   origin: userSummary,
   error: z.unknown(),
+  /** The role whose inbox gets it while it needs attention (P2.20). */
+  attentionRole: z.string().nullable(),
 });
 
 export const changeEntrySchema = z.object({

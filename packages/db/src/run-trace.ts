@@ -72,3 +72,37 @@ export const findRetriedRun = async (
     );
   return row ?? null;
 };
+
+/** The run `id`, locked until the transaction ends: one segment at a time. */
+export const lockRun = async (executor: Executor, id: string) => {
+  const [row] = await executor
+    .select()
+    .from(runs)
+    .where(eq(runs.id, id))
+    .for("update");
+  return row ?? null;
+};
+
+/** The run `id`, if there is one. */
+export const findRun = async (executor: Executor, id: string) => {
+  const [row] = await executor.select().from(runs).where(eq(runs.id, id));
+  return row ?? null;
+};
+
+/** Brings the run `id` up to date: its status, outcome or checkpoint. */
+export const updateRun = async (
+  executor: Executor,
+  id: string,
+  change: Partial<Omit<RunRow, "id">>
+) => {
+  await executor.update(runs).set(change).where(eq(runs.id, id));
+};
+
+/** Brings the run step `id` up to date: its output, error or end. */
+export const updateRunStep = async (
+  executor: Executor,
+  id: string,
+  change: Partial<Omit<RunStepRow, "id">>
+) => {
+  await executor.update(runSteps).set(change).where(eq(runSteps.id, id));
+};

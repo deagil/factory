@@ -14,7 +14,7 @@ import {
   users,
 } from "@workspace/db/schema";
 import type { runStatuses, runStepKinds } from "@workspace/db/schema";
-import { and, desc, eq, gte, like, lt, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lt, lte, or, sql } from "drizzle-orm";
 import type { AnyColumn, SQL } from "drizzle-orm";
 
 import type { ActorSummary } from "./data-access.ts";
@@ -57,6 +57,8 @@ export interface RunFilter extends TimeRange {
   dryRun?: boolean;
   /** Only runs this actor performed or this user started. */
   involving?: { actorId: string; userId: string | null };
+  /** Only runs whose attention role is one of these (P2.20). */
+  attentionRoles?: readonly string[];
 }
 
 export interface RunEntry {
@@ -70,6 +72,8 @@ export interface RunEntry {
   /** The person at the start of the chain; null for integrations. */
   origin: UserSummary | null;
   error: unknown;
+  /** The role whose inbox gets it while it needs attention. */
+  attentionRole: string | null;
 }
 
 /** One step of a run: a `run_steps` row. */
@@ -225,6 +229,7 @@ const toRunEntry = ({
   startedAt: Date;
   finishedAt: Date | null;
   error: unknown;
+  attentionRole: string | null;
   actor: ActorSummary;
   originId: string | null;
   originName: string | null;
@@ -244,6 +249,7 @@ export const createLogReader = (executor: Executor) => {
     startedAt: runs.startedAt,
     finishedAt: runs.finishedAt,
     error: runs.error,
+    attentionRole: runs.attentionRole,
     actor: { id: actors.id, name: actors.name, kind: actors.kind },
     originId: runs.originUserId,
     originName: users.name,
@@ -346,6 +352,11 @@ export const createLogReader = (executor: Executor) => {
                   : undefined
               )
             : undefined,
+          filter.attentionRoles
+            ? filter.attentionRoles.length > 0
+              ? inArray(runs.attentionRole, [...filter.attentionRoles])
+              : sql`false`
+            : undefined,
           ...within(runs.startedAt, filter),
           before(runs.startedAt, runs.id, decode(page.cursor))
         )
@@ -447,5 +458,14 @@ export const createLogReader = (executor: Executor) => {
     return paged(rows, size);
   };
 
-  return { runList, runGet, changes, events };
+  /** The roles some run that needs attention names (P2.20). */
+  const attentionRoles = async (): Promise<string[]> => {
+    const rows = await executor
+      .selectDistinct({ role: runs.attentionRole })
+      .from(runs)
+      .where(eq(runs.status, "needs_attention"));
+    return rows.flatMap((row) => (row.role ? [row.role] : []));
+  };
+
+  return { runList, runGet, changes, events, attentionRoles };
 };

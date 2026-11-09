@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dbos-inc/dbos-sdk": "5.4.0",
     "@workspace/actions": "workspace:*",
     "@workspace/config": "workspace:*",
     "@workspace/db": "workspace:*",
