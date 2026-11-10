@@ -52,6 +52,7 @@ const gitStub = (): GitService => ({
   diff: () => Promise.reject(new Error("unused")),
   remove: () => Promise.reject(new Error("unused")),
   files: () => Promise.reject(new Error("unused")),
+  file: () => Promise.resolve(null),
   blob: () => Promise.resolve(null),
   show: () => Promise.resolve(null),
   check: () => Promise.reject(new Error("unused")),

@@ -27,7 +27,9 @@ const git = (files: { path: string; content: string }[]): GitService => ({
   commit: () => Promise.reject(new Error("unused")),
   diff: () => Promise.reject(new Error("unused")),
   remove: () => Promise.reject(new Error("unused")),
-  files: () => Promise.resolve(files),
+  files: () =>
+    Promise.resolve(files.map((file) => ({ ...file, revision: "abc" }))),
+  file: () => Promise.resolve(null),
   blob: () => Promise.resolve(null),
   show: () => Promise.resolve(null),
   check: () => Promise.reject(new Error("unused")),
