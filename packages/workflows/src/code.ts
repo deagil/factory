@@ -15,10 +15,12 @@ import { z } from "zod";
 import { collectEvents, listStepActions } from "./action-events.ts";
 import { defineWorkflow } from "./define-workflow.ts";
 import {
+  checkUnsavedWorkflow,
   getWorkflow,
   listWorkflows,
   workflowGetOutput,
   workflowListOutput,
+  workflowValidateOutput,
 } from "./reading.ts";
 import type { WorkflowReadContext } from "./reading.ts";
 import type { WorkflowDefinition } from "./schema.ts";
@@ -69,6 +71,22 @@ const workflowGet = defineAction({
   }),
   output: workflowGetOutput,
   handler: (ctx, input) => getWorkflow(adapt(ctx), input),
+});
+
+const workflowValidate = defineAction({
+  name: "workflow_validate",
+  kind: "internal",
+  readOnly: true,
+  description:
+    "Check a workflow without saving it. Give its definition as JSON in value, or its YAML in content. Returns the value, the YAML a save would write, and the check: problems and warnings with their path and line, segments and scopes. It is checked against a draft's other files, or the live ones.",
+  input: z.strictObject({
+    key: z.string().regex(snake),
+    value: z.string().optional(),
+    content: z.string().optional(),
+    draft_id: z.uuid().optional(),
+  }),
+  output: workflowValidateOutput,
+  handler: (ctx, input) => checkUnsavedWorkflow(adapt(ctx), input),
 });
 
 const readWorkflow = (
@@ -126,6 +144,35 @@ const workflowGetWorkflow = readWorkflow(
     },
   },
   workflowGetOutput
+);
+
+const workflowValidateWorkflow = readWorkflow(
+  workflowValidate.name,
+  workflowValidate.description,
+  {
+    key: {
+      type: "text",
+      label: "Key",
+      description: "The workflow's key.",
+    },
+    value: {
+      type: "text",
+      optional: true,
+      label: "Value",
+      description: "The definition as JSON text. Give this or content.",
+    },
+    content: {
+      type: "text",
+      optional: true,
+      label: "Content",
+      description: "The definition as YAML. Give this or value.",
+    },
+    draft_id: {
+      ...draftField,
+      description: "Check it against this draft's other files.",
+    },
+  },
+  workflowValidateOutput
 );
 
 const jsonSchema = z.record(z.string(), z.unknown());
@@ -239,7 +286,11 @@ const editorActions = (parts: CoreStepParts): AnyActionDefinition[] => [
 ];
 
 /** The actions the core's code workflows run. None is on a surface. */
-export const coreWorkflowActions = [workflowList, workflowGet];
+export const coreWorkflowActions = [
+  workflowList,
+  workflowGet,
+  workflowValidate,
+];
 
 /**
  * Every action a core code workflow runs, including the ones that read the
@@ -253,6 +304,7 @@ export const coreStepActions = (
 export const coreWorkflows = [
   workflowListWorkflow,
   workflowGetWorkflow,
+  workflowValidateWorkflow,
   actionListWorkflow,
   eventListWorkflow,
 ];

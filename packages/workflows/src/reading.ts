@@ -10,9 +10,16 @@ import type {
   GitService,
   WorkflowEntry,
 } from "@workspace/actions";
-import { choiceListSchema, parseYaml, stringifyYaml } from "@workspace/config";
+import {
+  choiceListSchema,
+  parseYaml,
+  stringifyYaml,
+  yamlWithValue,
+} from "@workspace/config";
 import type { ConfigCatalog } from "@workspace/config";
 import type { DraftEntry } from "@workspace/objects";
+import { LineCounter, parseDocument } from "yaml";
+import type { Document } from "yaml";
 import { z } from "zod";
 
 import { definitionOf } from "./entries.ts";
@@ -101,6 +108,22 @@ export const workflowGetOutput = z.object({
   live_revision: z.string().nullable(),
   behind: z.boolean(),
   check: checkSchema,
+});
+
+const linedProblemSchema = problemSchema.extend({
+  /** The line of the file the problem is on, when it can be found. */
+  line: z.number().int().nullable(),
+});
+
+export const workflowValidateOutput = z.object({
+  /** The definition as a value. Null when the YAML can't be read. */
+  value: z.json().nullable(),
+  /** The YAML a save of this would write. */
+  content: z.string(),
+  check: checkSchema.extend({
+    problems: z.array(linedProblemSchema),
+    warnings: z.array(linedProblemSchema),
+  }),
 });
 
 type Failure = ActionFailure<ActionError>;
@@ -795,4 +818,209 @@ export const getWorkflow = async (
     snap?.workflows.get(input.key)?.content ?? stringifyYaml(workflow),
     context
   );
+};
+
+// ---------------------------------------------------------------------------
+// Checking a workflow that hasn't been saved
+
+type Path = readonly (string | number)[];
+type Lined = z.infer<typeof linedProblemSchema>;
+
+const noScopes = {
+  steps: {},
+  outputs: {},
+  input: null,
+  event: null,
+  eventSchema: null,
+};
+
+/** The line of the node at `at`, or of its nearest parent that exists. */
+const lineAt = (doc: Document, lines: LineCounter, at: Path): number | null => {
+  for (let { length } = at; length >= 0; length -= 1) {
+    const node = doc.getIn(at.slice(0, length), true) as
+      | { range?: [number, number, number] }
+      | undefined;
+    if (node?.range) {
+      return lines.linePos(node.range[0]).line;
+    }
+  }
+  return null;
+};
+
+const unchecked = (
+  value: unknown,
+  content: string,
+  problems: Lined[]
+): z.output<typeof workflowValidateOutput> => ({
+  value: value === null ? null : jsonValue(value),
+  content,
+  check: { problems, warnings: [], segments: [], scopes: noScopes },
+});
+
+/** The value a caller sent as JSON text: an object, or a message saying why not. */
+const valueFromJson = (
+  text: string
+): { value: Record<string, unknown> } | { error: string } => {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    return {
+      error: `value isn't JSON: ${error instanceof Error ? error.message : "it can't be read"}`,
+    };
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { error: "value must be a JSON object: the workflow's definition." };
+  }
+  return { value: { ...value } };
+};
+
+/** The other workflows and choice lists to check against, and the file as it is. */
+const surroundings = async (
+  ctx: WorkflowReadContext,
+  place: PlaceLive | PlaceDraft,
+  loaded: Loaded,
+  key: string
+) => {
+  const ref = place.kind === "draft" ? place.sha : ctx.config.sha;
+  const snap = ctx.git && ref ? await snapshotAt(ctx.git, ref) : null;
+  const existing = snap?.workflows.get(key)?.content ?? null;
+  if (place.kind === "live" || !snap) {
+    const workflows = new Map([...loaded.coded, ...loaded.live]);
+    return {
+      existing,
+      workflows,
+      choiceKeys: choiceKeysFromConfig(ctx.config, workflows.values()),
+    };
+  }
+  const workflows = new Map(loaded.coded);
+  for (const [name, held] of snap.workflows) {
+    if (held.definition && !loaded.code.has(name)) {
+      workflows.set(name, held.definition);
+    }
+  }
+  return { existing, workflows, choiceKeys: snap.choiceKeys };
+};
+
+/** The YAML to check: what was sent, or the value laid over the file. */
+const contentFor = (
+  input: { value?: string | undefined; content?: string | undefined },
+  existing: string | null
+): { content: string } | { error: string } => {
+  if (input.content !== undefined) {
+    return { content: input.content };
+  }
+  const parsed = valueFromJson(input.value ?? "");
+  if ("error" in parsed) {
+    return parsed;
+  }
+  return {
+    content:
+      existing === null
+        ? stringifyYaml(parsed.value)
+        : yamlWithValue(existing, parsed.value),
+  };
+};
+
+/**
+ * Check a workflow without saving it: the problems a save would give,
+ * against the draft's other files or the live ones, with the value and the
+ * YAML each way.
+ */
+export const checkUnsavedWorkflow = async (
+  ctx: WorkflowReadContext,
+  input: {
+    key: string;
+    value?: string | undefined;
+    content?: string | undefined;
+    draft_id?: string | undefined;
+  }
+): Promise<z.output<typeof workflowValidateOutput> | Failure> => {
+  if ((input.value === undefined) === (input.content === undefined)) {
+    return ctx.invalid(
+      "Give value (the definition as JSON) or content (its YAML), and not both."
+    );
+  }
+  const place = await resolvePlace(ctx, { draft_id: input.draft_id });
+  if (isFailure(place)) {
+    return place;
+  }
+  if (place.kind === "version") {
+    return ctx.invalid("A past version can't be checked against.");
+  }
+  const loaded = load(ctx);
+  if (loaded.coded.has(input.key)) {
+    return ctx.invalid(
+      `${input.key} is written in code and shipped with a release, so it can't be changed here.`
+    );
+  }
+  const around = await surroundings(ctx, place, loaded, input.key);
+  const made = contentFor(input, around.existing);
+  if ("error" in made) {
+    return ctx.invalid(made.error);
+  }
+  const { content } = made;
+  const lines = new LineCounter();
+  const doc = parseDocument(content, { lineCounter: lines });
+  if (doc.errors.length > 0) {
+    return unchecked(
+      null,
+      content,
+      doc.errors.map((error) => ({
+        path: [],
+        line: error.linePos?.[0].line ?? null,
+        message: error.message,
+      }))
+    );
+  }
+  const raw: unknown = doc.toJS();
+  const lined = (problem: { path: Path; message: string }): Lined => ({
+    path: [...problem.path],
+    line: lineAt(doc, lines, problem.path),
+    message: problem.message,
+  });
+  const parsed = workflowSchema.safeParse(raw);
+  if (!parsed.success) {
+    return unchecked(
+      raw ?? null,
+      content,
+      parsed.error.issues.map((issue) =>
+        lined({
+          path: issue.path.map((part) =>
+            typeof part === "number" ? part : String(part)
+          ),
+          message: issue.message,
+        })
+      )
+    );
+  }
+  const definition = parsed.data as WorkflowDefinition;
+  if (definition.key !== input.key) {
+    return unchecked(raw, content, [
+      lined({
+        path: ["key"],
+        message: `The file is ${workflowPath(input.key)}, but its key is ${definition.key}.`,
+      }),
+    ]);
+  }
+  const check = plainCheck(
+    validateWorkflow(
+      definition,
+      contextFor(
+        loaded.catalog,
+        new Map([...around.workflows, [input.key, definition]]),
+        around.choiceKeys,
+        ctx.config.choices
+      )
+    )
+  );
+  return {
+    value: jsonValue(definition),
+    content,
+    check: {
+      ...check,
+      problems: check.problems.map(lined),
+      warnings: check.warnings.map(lined),
+    },
+  };
 };

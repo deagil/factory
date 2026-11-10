@@ -22,6 +22,7 @@ workflows:
   - deal_move_stage # any deal: manager rows are all
   - workflow_list
   - workflow_get
+  - workflow_validate
   - action_list
   - event_list
   - actor.createAgent

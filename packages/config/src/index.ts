@@ -48,6 +48,7 @@ export type {
   LoadResult,
 } from "./loader.ts";
 export { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+export { yamlWithValue } from "./apply-yaml.ts";
 export { createGitConfigService, ensureLocalRemote } from "./git.ts";
 export type { GitConfigOptions, GitConfigService } from "./git.ts";
 export {
