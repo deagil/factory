@@ -1,4 +1,3 @@
-import type { Step } from "@workspace/workflows";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,7 +8,6 @@ import {
   readOnlyReason,
   showsReadOnly,
   sourceLabel,
-  stepLabel,
   versionForChange,
   whatStarts,
   workflowMissing,
@@ -200,33 +198,5 @@ describe(presentWorkflow, () => {
         missing: "only_in_draft",
       }).missingText
     ).toBe("This workflow is only in your draft.");
-  });
-});
-
-describe(stepLabel, () => {
-  it("uses the id, and the fail code or output when there is none", () => {
-    const steps: Step[] = [
-      { id: "load", action: "deal_get" },
-      // oxlint-disable-next-line unicorn/no-thenable -- a step's branch, not a promise
-      { id: "check", if: [], then: [] },
-      { id: "pause", wait: { for: "3d" } },
-      { id: "ask", wait_for_approval: { approver: "admin" } },
-      { id: "child", run: "deal_won_task" },
-      { id: "tell", emit: "deal_stage_changed" },
-      { fail: "reason_required" },
-      { id: "done", output: {} },
-      { output: {} },
-    ];
-    expect(steps.map((step) => stepLabel(step))).toStrictEqual([
-      "load",
-      "check",
-      "pause",
-      "ask",
-      "child",
-      "tell",
-      "reason_required",
-      "done",
-      "output",
-    ]);
   });
 });

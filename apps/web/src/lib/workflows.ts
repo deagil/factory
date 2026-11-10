@@ -1,11 +1,8 @@
 // The workflow list and page: who sees which list, how a start and a draft
 // change read, and the version, step and tab the page keeps in the URL.
-import type {
-  Step,
-  WorkflowCheck,
-  WorkflowDefinition,
-} from "@workspace/workflows";
+import type { WorkflowCheck, WorkflowDefinition } from "@workspace/workflows";
 
+import { workflowTree } from "./workflow-tree.ts";
 import { startWords, workflowFacts } from "./workflow-words.ts";
 
 /** The read-only workflow that lists every workflow. */
@@ -220,45 +217,6 @@ export const workflowReadInput = (
   return { key };
 };
 
-const stepKind = (
-  step: Step
-):
-  | "action"
-  | "if"
-  | "wait"
-  | "wait_for_approval"
-  | "run"
-  | "emit"
-  | "fail"
-  | "output" => {
-  if ("action" in step) {
-    return "action";
-  }
-  if ("if" in step) {
-    return "if";
-  }
-  if ("wait" in step) {
-    return "wait";
-  }
-  if ("wait_for_approval" in step) {
-    return "wait_for_approval";
-  }
-  if ("run" in step) {
-    return "run";
-  }
-  if ("emit" in step) {
-    return "emit";
-  }
-  if ("fail" in step) {
-    return "fail";
-  }
-  if ("output" in step) {
-    return "output";
-  }
-  const never: never = step;
-  return never;
-};
-
 const textOr = (
   first: string | undefined,
   second: string | undefined,
@@ -281,9 +239,6 @@ const startsOf = (
   definition: WorkflowDefinition | null,
   item: WorkflowListItem | undefined
 ) => startWords(definition?.starts_when ?? item?.starts_when);
-
-const stepsOf = (definition: WorkflowDefinition | null) =>
-  definition?.steps ?? [];
 
 const contentOf = (view: WorkflowView | undefined) => view?.content ?? null;
 
@@ -318,37 +273,9 @@ export const presentWorkflow = (input: {
     reason: readOnlyReason(why),
     starts: startsOf(definition, input.item),
     facts: workflowFacts(definition),
-    steps: stepsOf(definition),
+    tree: workflowTree(definition),
     content: contentOf(input.view),
     tab: tabOf(input.search.tab),
     missingText: missingTextOf(input.missing),
   };
-};
-
-/** The step's id, or for a `fail` or `output` with none, its kind. */
-export const stepLabel = (step: Step): string => {
-  if ("id" in step && step.id) {
-    return step.id;
-  }
-  const kind = stepKind(step);
-  switch (kind) {
-    case "fail": {
-      return "fail" in step ? step.fail : "fail";
-    }
-    case "output": {
-      return "output";
-    }
-    case "action":
-    case "if":
-    case "wait":
-    case "wait_for_approval":
-    case "run":
-    case "emit": {
-      return kind;
-    }
-    default: {
-      const never: never = kind;
-      return never;
-    }
-  }
 };
