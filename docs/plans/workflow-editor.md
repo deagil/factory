@@ -1,6 +1,6 @@
 # The workflow editor
 
-**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done. The outline and editing are not built yet.
+**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, and the page reads in words (WE.05). The outline and editing are not built yet.
 
 **Goal:** a person can open any workflow and understand it end to end: what starts it, what each step does, where each value comes from, where a run may pause, what happens when a step fails, who can call it and who it acts as. Then they can change it. Most workflows are written by agents over the API or MCP, so the editor is first a place to read and check, and second a place to build. Everything an agent can set in a workflow file can be edited here, through the same operations, with the same roles, validation, drafts and approvals. The web app gets nothing the API lacks.
 
@@ -14,8 +14,8 @@
 
 ## Resume here
 
-- **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done. The outline and editing are not built yet.
-- **Next task:** WE.05. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, and the page reads in words (WE.05). The outline and editing are not built yet.
+- **Next task:** WE.06. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Open follow-up.** The CRM's sales role (Sarah) still grants dotted names such as `deal.moveStage` rather than `deal_move_stage`.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
@@ -151,7 +151,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.01.
   - **Done when:** in the browser, an admin opens Move stage from the list and sees its description and key; a workflow started by an event is listed; a sales user still sees only their Run forms.
 
-- [ ] **WE.05 Words for triggers, values and conditions** [web]
+- [x] **WE.05 Words for triggers, values and conditions** [web]
   - `lib/workflow-words.ts`, pure and tested: what starts a workflow ("When a deal's stage changes, if the new stage's category is won"; "Every weekday at 09:00 UTC", with the viewer's local time beside it, falling back to the five named fields for a schedule it can't phrase); a condition for each of the nine operators, with choice columns ("the stage's category is lost"); a value ("the deal from the input", "the record's stage from the step Load", a fixed value); a duration. The file stays in UTC: no time zone is added to it.
   - The page shows what starts it, its input fields, its output and its errors, using them.
   - **Needs:** WE.04.
@@ -348,6 +348,7 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.03 · [#103](https://github.com/deagil/factory/pull/103) · `action_list` and `event_list` are the next pair in `packages/workflows/src/code.ts`, registered with `workflow_list` and `workflow_get` through `coreStepActions` and `coreWorkflows`. Output is `{ actions }` and `{ events }`. `draft_id` is text on the endpoint and a uuid in the action. A generated record event such as `deal_updated` comes from its object. Run steps carry `position`, and reads order by it.
 - 2026-11-10 · WE.12 WE.13 · [#104](https://github.com/deagil/factory/pull/104) · `draft.save` takes a file revision and refuses a stale one, only the draft's owner may save into it, and a save by value keeps the comments and lines it didn't change. `draft.files` returns each revision, and `draft.mine` returns `headSha`.
 - 2026-11-10 · WE.04 · [#106](https://github.com/deagil/factory/pull/106) · Automation → Workflows lists every workflow for people who may call `workflow_list`, including what starts it, code or config, and whether their draft changes it. People who may only call workflows keep the Run forms. A workflow page shows its label, key, source and read-only state, a draft or live toggle, Workflow and File tabs, and Run when they may call it. The version, step and tab are in the URL. `@workspace/workflows` is a type-only import for the web app.
+- 2026-11-10 · WE.05 · `lib/workflow-words.ts` phrases what starts a workflow, the nine condition operators, a value's source, a duration and a schedule (UTC, with the viewer's time beside it, or the five named fields). A record's own events read as "a deal is updated"; any other event reads by its name. The page shows what starts it, what it takes, what it gives back and how it can fail.
 
 ## Answers
 
