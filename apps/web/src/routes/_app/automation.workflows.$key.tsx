@@ -17,13 +17,16 @@ import type { ReactNode } from "react";
 import { useRoles } from "../../components/access.tsx";
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
+import { EditBar, useWorkflowEdit } from "../../components/workflow-edit.tsx";
 import { useEventList } from "../../components/workflow-events.tsx";
 import { WorkflowForm } from "../../components/workflow-form.tsx";
 import { WorkflowTab } from "../../components/workflow-view.tsx";
 import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
+import { canEditConfig } from "../../lib/choice-lists.ts";
 import type { WorkflowDescription } from "../../lib/forms.ts";
+import { editBlock, withDescription } from "../../lib/workflow-edit.ts";
 import { startedBy } from "../../lib/workflow-events.ts";
 import {
   canReadWorkflows,
@@ -106,7 +109,15 @@ const useWorkflowData = (key: string, version: string | undefined) => {
     }),
     retry: false,
   });
-  return { described, listed, got, item, missing, draftId: draft?.id };
+  return {
+    described,
+    listed,
+    got,
+    item,
+    missing,
+    draftId: draft?.id,
+    waiting: draft?.status === "awaiting_approval",
+  };
 };
 
 const VersionToggle = ({
@@ -263,27 +274,77 @@ const RunPanel = ({
 const callableOf = (description: SystemDescription | undefined, key: string) =>
   description?.workflows.find((workflow) => workflow.key === key);
 
+/** Edit mode: the working copy, what the page shows while it is open, and why it can't be. */
+const useEditing = (input: {
+  key: string;
+  version: string | undefined;
+  view: WorkflowView | undefined;
+  draftId: string | undefined;
+  change: WorkflowListItem["change"] | undefined;
+  canSave: boolean;
+}) => {
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { key, view, draftId } = input;
+  const edit = useWorkflowEdit({
+    workflow: key,
+    view,
+    draftId,
+    onSaved: () => {
+      void navigate({ search: (previous) => ({ ...previous, v: "draft" }) });
+    },
+    onDeleted: () => {
+      void navigate({ to: "/automation/workflows" });
+    },
+  });
+  const { copy } = edit;
+  // In edit mode the page shows the working copy and its own check.
+  const shown =
+    view && copy
+      ? {
+          ...view,
+          definition: copy.value,
+          check: edit.check ?? view.check,
+          content: edit.content ?? view.content,
+        }
+      : view;
+  const allowed = editBlock({
+    editable: view?.editable === true && view.definition !== null,
+    canSave: input.canSave,
+    version: input.version,
+    inDraft: draftChangesWorkflow(input.change),
+  });
+  // Edit mode stays open whatever a refresh finds, so a conflict can be read.
+  return { edit, shown, block: copy ? null : allowed };
+};
+
 const WorkflowScreen = () => {
   const { key } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const [running, setRunning] = useState(false);
-  const { described, listed, got, item, missing, draftId } = useWorkflowData(
+  const { described, listed, got, item, missing, draftId, waiting } =
+    useWorkflowData(key, search.v);
+  const { edit, shown, block } = useEditing({
     key,
-    search.v
-  );
+    version: search.v,
+    view: got.data,
+    draftId,
+    change: item?.change,
+    canSave: canEditConfig(described.data),
+  });
+  const { copy } = edit;
   const present = presentWorkflow({
     key,
     search,
     item,
-    view: got.data,
+    view: shown,
     missing,
   });
   const callable = callableOf(described.data, key);
   const roles = useRoles(mayReadRoles(described.data?.queries));
   const eventList = useEventList(search.v === "draft" ? draftId : undefined);
   const whatNext = startedBy(
-    emitsOf(got.data?.definition ?? null, item),
+    emitsOf(shown?.definition ?? null, item),
     eventList.events ?? [],
     eventList.labels
   );
@@ -328,7 +389,7 @@ const WorkflowScreen = () => {
         />
       </div>
       <DraftToggle
-        change={item?.change}
+        change={copy ? undefined : item?.change}
         version={search.v}
         onDraft={() => setSearch({ v: "draft" })}
         onLive={() => setSearch({ v: undefined })}
@@ -359,10 +420,16 @@ const WorkflowScreen = () => {
       <ErrorText error={listed.error ?? (pastGone ? null : got.error)} />
       <Notice text={present.missingText} />
       <Loading show={got.isLoading} />
+      <EditBar
+        edit={edit}
+        block={block}
+        waiting={waiting}
+        theirs={got.data?.content}
+      />
       <WorkflowTabs
         tab={present.tab}
         content={present.content}
-        check={got.data?.check}
+        check={shown?.check}
         onTab={(tab) => setSearch({ tab })}
       >
         <WorkflowTab
@@ -372,7 +439,12 @@ const WorkflowScreen = () => {
           startsWhen={present.startsWhen}
           facts={present.facts}
           tree={present.tree}
-          check={got.data?.check}
+          check={shown?.check}
+          onDescription={
+            copy
+              ? (text) => edit.set(withDescription(copy.value, text))
+              : undefined
+          }
           roles={roles.data}
           next={whatNext}
           selected={search.step}

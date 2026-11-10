@@ -1,16 +1,20 @@
 // Automation → Workflows. People who may read workflows see every one.
 // People who may only call them keep a Run form for each.
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
+import { NewWorkflowForm } from "../../components/workflow-edit.tsx";
+import { useEventList } from "../../components/workflow-events.tsx";
 import { WorkflowForm } from "../../components/workflow-form.tsx";
 import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
+import { canEditConfig } from "../../lib/choice-lists.ts";
 import type { WorkflowDescription } from "../../lib/forms.ts";
 import {
   canReadWorkflows,
@@ -106,16 +110,20 @@ const ReaderList = ({
   workflows,
   error,
   loading,
+  adding,
 }: {
   workflows: WorkflowListItem[];
   error: Error | null;
   loading: boolean;
+  /** The New workflow button or its form, for people who may save drafts. */
+  adding: ReactNode;
 }) => (
   <div className="flex max-w-4xl flex-col gap-4">
     <PageHeader title="Workflows" />
     <p className="text-sm text-muted-foreground">
       Every workflow. Open one to see what starts it and how it is written.
     </p>
+    {adding}
     <ErrorText error={error} />
     {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
     {!loading && workflows.length === 0 && error === null ? (
@@ -156,6 +164,42 @@ const ReaderList = ({
     </ul>
   </div>
 );
+
+/** Start a workflow in the caller's draft, then open it there. */
+const NewWorkflow = ({
+  taken,
+  draftId,
+}: {
+  taken: readonly string[];
+  draftId: string | undefined;
+}) => {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const { events } = useEventList(draftId);
+  if (!open) {
+    return (
+      <div>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          New workflow
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <NewWorkflowForm
+      taken={taken}
+      events={(events ?? []).map((event) => event.type)}
+      onCancel={() => setOpen(false)}
+      onCreated={(key) => {
+        void navigate({
+          to: "/automation/workflows/$key",
+          params: { key },
+          search: { v: "draft" },
+        });
+      }}
+    />
+  );
+};
 
 const WorkflowsScreen = () => {
   const described = useQuery({
@@ -205,6 +249,16 @@ const WorkflowsScreen = () => {
       workflows={listed.data?.workflows ?? []}
       error={listed.error}
       loading={listed.isLoading}
+      adding={
+        canEditConfig(described.data) ? (
+          <NewWorkflow
+            taken={(listed.data?.workflows ?? []).map(
+              (workflow) => workflow.key
+            )}
+            draftId={draft?.id}
+          />
+        ) : null
+      }
     />
   );
 };
