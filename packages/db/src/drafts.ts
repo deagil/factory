@@ -13,6 +13,8 @@ export interface DraftChanges {
   autoTitle?: boolean;
   status?: DraftStatus;
   files?: string[];
+  /** The draft branch's latest commit, or null to clear it. */
+  headSha?: string | null;
   publishedSha?: string;
   syncedSha?: string | null;
   publishedAt?: Date;

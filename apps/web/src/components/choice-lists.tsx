@@ -18,6 +18,8 @@ export interface ChoiceFile {
   type: string;
   key: string;
   content: string;
+  /** The file's git blob id. */
+  revision: string;
   value: unknown;
 }
 

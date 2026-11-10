@@ -31,6 +31,17 @@ const env = {
   GIT_COMMITTER_NAME: "Dev",
   GIT_COMMITTER_EMAIL: "dev@example.com",
 };
+/** Added and removed lines of a unified diff, without the file headers. */
+const changedLines = (diff: string) =>
+  diff
+    .split("\n")
+    .filter(
+      (line) =>
+        (line.startsWith("+") || line.startsWith("-")) &&
+        !line.startsWith("+++") &&
+        !line.startsWith("---")
+    );
+
 const git = (cwd: string, ...args: string[]) =>
   execFileSync("git", args, {
     cwd,
@@ -553,6 +564,256 @@ describe("drafts over git", { timeout: 30_000 }, () => {
       rejected: { ok: true },
       third: { status: "rejected" },
       draft: { output: { draft: { status: "valid" } } },
+    });
+  });
+
+  it("saves with a revision, refuses a stale one, and keeps the file's comments", async () => {
+    const id = await open("Revise a workflow");
+    const opened = await query("draft.get", { id });
+    const workflow = "config/workflows/deal_move_stage.yaml";
+    const read = await query("draft.files", { id, path: workflow });
+    const { files } = (
+      read as {
+        output: {
+          files: {
+            revision: string;
+            value: {
+              steps: { id?: string; with?: Record<string, unknown> }[];
+            };
+          }[];
+        };
+      }
+    ).output;
+    const [file] = files;
+    if (!file) {
+      throw new Error("deal_move_stage wasn't in the draft");
+    }
+    const update = file.value.steps.find((step) => step.id === "update");
+    if (!update?.with) {
+      throw new Error("update has no with");
+    }
+    update.with = { id: { from: "input.deal" }, stage: { value: "won" } };
+    const saved = await server.pipeline.run(
+      action("draft.save"),
+      { id, path: workflow, value: file.value, revision: file.revision },
+      admin
+    );
+    const stale = await server.pipeline.run(
+      action("draft.save"),
+      {
+        id,
+        path: workflow,
+        value: file.value,
+        revision: file.revision,
+      },
+      admin
+    );
+    const without = await server.pipeline.run(
+      action("draft.save"),
+      {
+        id,
+        path: workflow,
+        value: {
+          ...file.value,
+          description: "Move a deal, and say why.",
+        },
+      },
+      admin
+    );
+    const { draft } = (
+      saved as {
+        output: {
+          draft: { baseSha: string; headSha: string };
+          revision: string;
+        };
+      }
+    ).output;
+    const diff = git(
+      bare,
+      "diff",
+      draft.baseSha,
+      draft.headSha,
+      "--",
+      workflow
+    );
+    const shown = git(bare, "show", `${draft.headSha}:${workflow}`);
+    const stagesPath = "config/choices/deal_stages.yaml";
+    const stages = await query("draft.files", { id, path: stagesPath });
+    const [stageFile] = (
+      stages as {
+        output: {
+          files: {
+            revision: string;
+            value: { options: { key: string; label: string }[] };
+          }[];
+        };
+      }
+    ).output.files;
+    if (!stageFile) {
+      throw new Error("deal_stages wasn't in the draft");
+    }
+    const lead = stageFile.value.options.find(
+      (option) => option.key === "lead"
+    );
+    if (!lead) {
+      throw new Error("no lead stage");
+    }
+    lead.label = "New lead";
+    const stagesSaved = await server.pipeline.run(
+      action("draft.save"),
+      {
+        id,
+        path: stagesPath,
+        value: stageFile.value,
+        revision: stageFile.revision,
+      },
+      admin
+    );
+    const rolePath = "config/roles/sales.yaml";
+    const roles = await query("draft.files", { id, path: rolePath });
+    const [roleFile] = (
+      roles as {
+        output: { files: { revision: string; value: { label: string } }[] };
+      }
+    ).output.files;
+    if (!roleFile) {
+      throw new Error("sales wasn't in the draft");
+    }
+    roleFile.value.label = "Sales team";
+    await server.pipeline.run(
+      action("draft.save"),
+      {
+        id,
+        path: rolePath,
+        value: roleFile.value,
+        revision: roleFile.revision,
+      },
+      admin
+    );
+    const head = git(bare, "rev-parse", `draft/${id}`);
+    const stageDiff = git(
+      bare,
+      "diff",
+      `${draft.headSha}..${head}`,
+      "--",
+      stagesPath
+    );
+    const roleDiff = git(
+      bare,
+      "diff",
+      `${draft.headSha}..${head}`,
+      "--",
+      rolePath
+    );
+    const stageShown = git(bare, "show", `${head}:${stagesPath}`);
+    const roleShown = git(bare, "show", `${head}:${rolePath}`);
+    const reverted = await server.pipeline.run(
+      action("draft.revert"),
+      { id, path: workflow },
+      admin
+    );
+    const savedRevision = (saved as { output: { revision: string } }).output
+      .revision;
+    const revertedHead = (
+      reverted as { output: { draft: { headSha: string } } }
+    ).output.draft.headSha;
+    expect({
+      opened,
+      oneFile: files.length,
+      saved,
+      stale,
+      without,
+      blob: git(bare, "rev-parse", `${draft.headSha}:${workflow}`),
+      changed: changedLines(diff),
+      stagesSaved,
+      stageChanged: changedLines(stageDiff),
+      roleChanged: changedLines(roleDiff),
+      reverted,
+      keptHeader: shown.startsWith("# Moving a deal's stage"),
+      keptStageHeader: stageShown.startsWith("# deal.stage."),
+      keptRoleComment: roleShown.includes(
+        "write: { except: [organisation] } # contact.moveToOrganisation moves it"
+      ),
+      keptOwnComment: roleShown.includes(
+        "rows: own # the deal's owner is them"
+      ),
+      headMoved: revertedHead !== draft.headSha,
+      // The stale save changed nothing: the description save is what moved the file on.
+      described: git(bare, "show", `${head}:${workflow}`).includes(
+        "description: Move a deal, and say why."
+      ),
+    }).toMatchObject({
+      opened: { output: { draft: { headSha: null } } },
+      oneFile: 1,
+      saved: {
+        ok: true,
+        output: {
+          revision: savedRevision,
+          draft: { headSha: expect.any(String) },
+        },
+      },
+      stale: {
+        ok: false,
+        error: { code: "conflict", revision: savedRevision },
+      },
+      without: { ok: true },
+      blob: savedRevision,
+      changed: [
+        "-      stage: { from: input.stage }",
+        "+      stage: { value: won }",
+      ],
+      stagesSaved: { ok: true },
+      stageChanged: ["-    label: Lead", "+    label: New lead"],
+      roleChanged: ["-label: Sales", "+label: Sales team"],
+      reverted: { ok: true, output: { draft: { headSha: revertedHead } } },
+      keptHeader: true,
+      keptStageHeader: true,
+      keptRoleComment: true,
+      keptOwnComment: true,
+      headMoved: true,
+      described: true,
+    });
+  });
+
+  it("lets an agent save into its person's draft, and refuses a stranger", async () => {
+    const agent = await agentFor("Ada's editor");
+    const id = await open("Ada's working edits");
+    const byAgent = await save(
+      id,
+      "config/roles/auditor.yaml",
+      role("auditor"),
+      agent
+    );
+    const byStranger = await save(
+      id,
+      "config/roles/intruder.yaml",
+      role("intruder"),
+      bea
+    );
+    const agentsDraft = await open("The agent's own draft", agent);
+    const byPerson = await save(
+      agentsDraft,
+      "config/roles/helper.yaml",
+      role("helper"),
+      admin
+    );
+    const byOtherAgent = await agentFor("Ada's other editor");
+    const bySibling = await save(
+      agentsDraft,
+      "config/roles/sibling.yaml",
+      role("sibling"),
+      byOtherAgent
+    );
+    const mine = await query("draft.mine", {}, admin);
+    expect({ byAgent, byStranger, byPerson, bySibling, mine }).toMatchObject({
+      byAgent: {
+        ok: true,
+        output: { draft: { id, headSha: expect.any(String) } },
+      },
+      byStranger: { ok: false, error: { code: "permission" } },
+      byPerson: { ok: true, output: { draft: { id: agentsDraft } } },
+      bySibling: { ok: false, error: { code: "permission" } },
+      mine: { ok: true, output: { draft: { headSha: expect.any(String) } } },
     });
   });
 });

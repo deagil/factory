@@ -29,8 +29,11 @@ const ChoiceListScreen = () => {
   const refresh = useRefreshDrafts();
   const [showLive, setShowLive] = useState(false);
   const save = useMutation({
-    mutationFn: (input: { path: string; value: Record<string, unknown> }) =>
-      runAction<Checked>("draft.save", input),
+    mutationFn: (input: {
+      path: string;
+      value: Record<string, unknown>;
+      revision: string;
+    }) => runAction<Checked>("draft.save", input),
     onSuccess: refresh,
   });
   const title = listLabel(list);
@@ -111,7 +114,9 @@ const ChoiceListScreen = () => {
           live={optionsOf(live)}
           saving={save.isPending}
           saveLabel={waiting ? "Save and withdraw request" : undefined}
-          onSave={(value) => save.mutate({ path: file.path, value })}
+          onSave={(value) =>
+            save.mutate({ path: file.path, value, revision: file.revision })
+          }
         />
       )}
     </div>

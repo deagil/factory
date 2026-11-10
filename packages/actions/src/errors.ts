@@ -35,6 +35,11 @@ export interface ApprovalRequiredError {
 export interface ConflictError {
   code: "conflict";
   message: string;
+  /**
+   * The current revision of a config file, when a save named a stale one.
+   * Null when the file is no longer there.
+   */
+  revision?: string | null;
 }
 
 /** The record isn't there, or the actor may not see it. */
@@ -144,8 +149,16 @@ export const failures = {
       message: message ?? `This needs approval under the rule ${rule}`,
       rule,
     }),
-  /** The change clashes with the record's current state. */
-  conflict: (message: string) => fail({ code: "conflict", message }),
+  /**
+   * The change clashes with the record's current state. `revision` is the
+   * config file's current git blob id when a save named a stale one.
+   */
+  conflict: (message: string, revision?: string | null) => {
+    if (revision === undefined) {
+      return fail({ code: "conflict", message });
+    }
+    return fail({ code: "conflict", message, revision });
+  },
   /** Another system is down or busy: try again later, with the same retry key. */
   unavailable: (message: string) => fail({ code: "unavailable", message }),
   /** There is no `object` with this `id` that the actor may see. */

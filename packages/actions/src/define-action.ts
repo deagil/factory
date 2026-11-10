@@ -222,10 +222,23 @@ export interface GitService {
   readonly diff: (from: string, to: string) => Promise<ConfigFileDiff[]>;
   /** Deletes `branch` from the remote, as discarding a draft does; gone is fine. */
   readonly remove: (branch: string) => Promise<void>;
-  /** Every config file at `ref`, with its content (P2.10). */
-  readonly files: (
-    ref: string
-  ) => Promise<{ readonly path: string; readonly content: string }[]>;
+  /** Every config file at `ref`, with its content and git blob id (P2.10). */
+  readonly files: (ref: string) => Promise<
+    {
+      readonly path: string;
+      readonly content: string;
+      /** The file's git blob id. It changes when the content does. */
+      readonly revision: string;
+    }[]
+  >;
+  /** One file at `ref`, or null when that path isn't there. */
+  readonly file: (
+    ref: string,
+    path: string
+  ) => Promise<{
+    readonly content: string;
+    readonly revision: string;
+  } | null>;
   /** The git blob id of `path` at `ref`, or null when it isn't there. */
   readonly blob: (ref: string, path: string) => Promise<string | null>;
   /** The commit `ref` names, or null when it doesn't exist. */
