@@ -336,8 +336,13 @@ describe("example CRM", () => {
     expect(new Set(statuses.map((response) => response.status))).toStrictEqual(
       new Set([404])
     );
+    const workflows = new Set(
+      (server.config.service.workflows ?? []).map((workflow) => workflow.key)
+    );
     expect(
-      (listed.result?.tools ?? []).filter((tool) => hidden.includes(tool.name))
+      (listed.result?.tools ?? []).filter(
+        (tool) => hidden.includes(tool.name) && !workflows.has(tool.name)
+      )
     ).toStrictEqual([]);
     expect(called.error ?? called.result?.isError).toBeTruthy();
     expect(listed.result?.tools?.length).toBeGreaterThan(0);

@@ -45,6 +45,8 @@ import type {
 import type { AnyObjectDefinition, ChoiceOptions } from "@workspace/objects";
 import {
   contextOf,
+  coreWorkflowActions,
+  coreWorkflows,
   validateWorkflow,
   workflowConfigType,
   workflowEntries,
@@ -185,6 +187,7 @@ export const defineSystem = (options: SystemOptions): System => {
   const steps = new Map<string, AnyActionDefinition>();
   for (const action of [
     ...stepActions(options.objects),
+    ...coreWorkflowActions,
     ...(options.stepActions ?? []),
   ]) {
     if (steps.has(action.name)) {
@@ -195,7 +198,7 @@ export const defineSystem = (options: SystemOptions): System => {
     steps.set(action.name, action);
   }
   const workflows = new Map<string, WorkflowDefinition>();
-  for (const workflow of options.workflows ?? []) {
+  for (const workflow of [...coreWorkflows, ...(options.workflows ?? [])]) {
     if (workflows.has(workflow.key)) {
       throw new Error(
         `The workflow "${workflow.key}" is defined twice. Keys must be unique.`

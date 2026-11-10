@@ -499,6 +499,38 @@ export const createGitConfigService = (options: GitConfigOptions) => {
         );
       }),
 
+    blob: (ref, file) =>
+      serial(async () => {
+        await fetch();
+        return objectAt(ref, file);
+      }),
+
+    show: (ref) =>
+      serial(async () => {
+        await fetch();
+        try {
+          const raw = await inRepo([
+            "log",
+            "-1",
+            "--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%B",
+            ref,
+          ]);
+          const [sha, name, email, at, message] = raw.split("\u001F");
+          if (
+            sha === undefined ||
+            name === undefined ||
+            email === undefined ||
+            at === undefined ||
+            message === undefined
+          ) {
+            return null;
+          }
+          return { sha, author: { name, email }, at, message };
+        } catch {
+          return null;
+        }
+      }),
+
     check: (ref) =>
       serial(async () => {
         await fetch();

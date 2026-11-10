@@ -26,14 +26,19 @@ describe("workflows in code (P2.16)", () => {
       objects: [organisation],
       workflows: [archive("organisation_archive")],
     });
-    expect(system.describe().workflows).toMatchObject([
-      {
-        key: "organisation_tidy",
-        source: "code",
-        problems: [],
-        segments: [{ steps: ["archive"], ends: null }],
-      },
+    const described = system.describe().workflows;
+    expect(described.map((workflow) => workflow.key)).toStrictEqual([
+      "workflow_list",
+      "workflow_get",
+      "organisation_tidy",
     ]);
+    expect(
+      described.find((workflow) => workflow.key === "organisation_tidy")
+    ).toMatchObject({
+      source: "code",
+      problems: [],
+      segments: [{ steps: ["archive"], ends: null }],
+    });
     expect(() =>
       defineSystem({
         name: "s",

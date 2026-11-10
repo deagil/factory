@@ -169,6 +169,7 @@ export const createServer = async (system: System, options: ServerOptions) => {
     clock,
     stepActions: system.stepActions,
     definitions: system.registry.list(),
+    ...(git ? { git } : {}),
     durable: {
       name: system.name,
       databaseUrl: options.databaseUrl,
