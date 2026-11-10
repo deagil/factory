@@ -29,6 +29,7 @@ import type {
   WorkflowFacts,
 } from "../lib/workflow-words.ts";
 import { WorkflowCanvas } from "./workflow-canvas.tsx";
+import { DescriptionField } from "./workflow-edit.tsx";
 import { EventStartsList } from "./workflow-events.tsx";
 import { StepPanel, WorkflowOutline } from "./workflow-outline.tsx";
 import { PathPanel } from "./workflow-path.tsx";
@@ -53,6 +54,8 @@ export interface WorkflowTabProps {
   path: string | undefined;
   /** Go to a step, a path, both or neither, in one move. */
   onPlace: (place: Place) => void;
+  /** In edit mode: take a new description. */
+  onDescription?: ((text: string) => void) | undefined;
   /** `list` when the viewer chose the outline over the canvas. */
   view: "list" | undefined;
   onView: (view: "list" | undefined) => void;
@@ -390,7 +393,16 @@ export const WorkflowTab = (props: WorkflowTabProps) => {
   }
   return (
     <>
-      <Description text={props.description} />
+      {props.onDescription ? (
+        <DescriptionField
+          // Undo and redo bring another value, which starts the field afresh.
+          key={props.description}
+          value={props.description}
+          onChange={props.onDescription}
+        />
+      ) : (
+        <Description text={props.description} />
+      )}
       <Summary findings={findings} onSelect={props.onSelect} />
       <Starts starts={props.starts} />
       <FactList title="What it takes" rows={props.facts.input} code={false} />
