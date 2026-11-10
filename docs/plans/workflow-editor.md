@@ -15,7 +15,7 @@
 ## Resume here
 
 - **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, the page reads in words (WE.05) and shows the outline (WE.06). Editing is not built yet.
-- **Next task:** WE.07, then WE.08 to WE.10, which need only WE.06. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Next task:** WE.08, then WE.09 and WE.10. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Open follow-up.** The CRM's sales role (Sarah) still grants dotted names such as `deal.moveStage` rather than `deal_move_stage`.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
@@ -164,7 +164,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.05.
   - **Done when:** tests cover the tree walk; in the browser `deal_move_stage` shows its `if` with the `fail` inside, the keyboard reaches every row, and at a 28rem pane nothing scrolls sideways.
 
-- [ ] **WE.07 Pauses, segments and who it acts as** [web]
+- [x] **WE.07 Pauses, segments and who it acts as** [web]
   - Segments from `check.segments`: a divider at each step that ends one, saying why in the check's own words and "only if this branch runs" when conditional; external steps sent after a commit marked so; a count in the header ("May pause in 2 places"). Never colour alone.
   - A panel on who can call it (roles from `role.list` that name it, or "Nothing can call it: an event starts it") and who it acts as: "Its steps run with full access. Each run records this workflow as the actor and the person who started it as the origin user." The no-ownership-check warning is shown here.
   - Adds a CRM workflow with a `wait` and `on_failure`, so there is one to look at.
@@ -349,7 +349,8 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.12 WE.13 · [#104](https://github.com/deagil/factory/pull/104) · `draft.save` takes a file revision and refuses a stale one, only the draft's owner may save into it, and a save by value keeps the comments and lines it didn't change. `draft.files` returns each revision, and `draft.mine` returns `headSha`.
 - 2026-11-10 · WE.04 · [#106](https://github.com/deagil/factory/pull/106) · Automation → Workflows lists every workflow for people who may call `workflow_list`, including what starts it, code or config, and whether their draft changes it. People who may only call workflows keep the Run forms. A workflow page shows its label, key, source and read-only state, a draft or live toggle, Workflow and File tabs, and Run when they may call it. The version, step and tab are in the URL. `@workspace/workflows` is a type-only import for the web app.
 - 2026-11-10 · WE.05 · [#108](https://github.com/deagil/factory/pull/108) · `lib/workflow-words.ts` phrases what starts a workflow, the nine condition operators, a value's source, a duration and a schedule (UTC, with the viewer's time beside it, or the five named fields). A record's own events read as "a deal is updated"; any other event reads by its name. The page shows what starts it, what it takes, what it gives back and how it can fail.
-- 2026-11-10 · WE.06 · `lib/workflow-tree.ts` walks the steps into rows with the check's own paths (`steps.1.then.0`, `on_failure.0`), and `components/workflow-outline.tsx` draws them as nested lists of buttons. A row is its id as a title and a sentence for what it does. `?step=` holds the id, or the path for a `fail` or `output` with none. The detail sits beside the outline from a 48rem pane and under the row below that. `WorkflowOutline` takes `notes` and `extra` so later tasks can add cuts, problems and links to a row and its detail.
+- 2026-11-10 · WE.06 · [#109](https://github.com/deagil/factory/pull/109) · `lib/workflow-tree.ts` walks the steps into rows with the check's own paths (`steps.1.then.0`, `on_failure.0`), and `components/workflow-outline.tsx` draws them as nested lists of buttons. A row is its id as a title and a sentence for what it does. `?step=` holds the id, or the path for a `fail` or `output` with none. The detail sits beside the outline from a 48rem pane and under the row below that. `WorkflowOutline` takes `notes` and `extra` so later tasks can add cuts, problems and links to a row and its detail.
+- 2026-11-10 · WE.07 · The outline shows a divider above each step that ends a segment, in the check's words, a mark on external steps sent after a commit, and "May pause in N places" above the steps. A panel says which roles can call the workflow (from `role.list`, when the viewer may read it), who it acts as, and any warning about its input. The CRM gains `deal_follow_up`, with a wait and failure steps. The outline's slots (`before`, `notes`, `extra`) are maps keyed by a step's path, and the Workflow tab is `components/workflow-view.tsx`.
 
 ## Answers
 

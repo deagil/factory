@@ -225,6 +225,7 @@ describe("workflow endpoints (P2.18)", () => {
       describedFor().then((keys) => keys.toSorted())
     ).resolves.toStrictEqual([
       "action_list",
+      "deal_follow_up",
       "deal_move_stage",
       "event_list",
       "workflow_get",

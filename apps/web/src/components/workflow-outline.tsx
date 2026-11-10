@@ -73,16 +73,21 @@ const saveCollapsed = (workflow: string, collapsed: ReadonlySet<string>) => {
   }
 };
 
+/** Something to show at a step, keyed by the step's path. */
+export type RowSlots = ReadonlyMap<string, ReactNode>;
+
 interface OutlineState {
   selected: TreeRow | undefined;
   collapsed: ReadonlySet<string>;
   onSelect: (row: TreeRow) => void;
   onToggle: (path: string) => void;
   onKey: (row: TreeRow, event: KeyboardEvent) => void;
-  /** What each step shows below its sentence, such as a cut or a problem. */
-  notes?: ((row: TreeRow) => ReactNode) | undefined;
+  /** What sits above a step, such as the commit before it. */
+  before?: RowSlots | undefined;
+  /** What each step shows below its sentence, such as a problem. */
+  notes?: RowSlots | undefined;
   /** What the detail shows below the step's inputs. */
-  extra?: ((row: TreeRow) => ReactNode) | undefined;
+  extra?: RowSlots | undefined;
 }
 
 const Facts = ({ title, rows }: { title: string; rows: FactRow[] }) =>
@@ -241,14 +246,15 @@ const RowButton = ({ row, state }: { row: TreeRow; state: OutlineState }) => {
 const InlineDetail = ({ row, state }: { row: TreeRow; state: OutlineState }) =>
   state.selected?.path === row.path ? (
     <div className="@3xl:hidden">
-      <StepDetailView row={row} extra={state.extra?.(row)} />
+      <StepDetailView row={row} extra={state.extra?.get(row.path)} />
     </div>
   ) : null;
 
 const Row = ({ row, state }: { row: TreeRow; state: OutlineState }) => (
   <li className="flex flex-col gap-1">
+    {state.before?.get(row.path)}
     <RowButton row={row} state={state} />
-    {state.notes?.(row)}
+    {state.notes?.get(row.path)}
     <InlineDetail row={row} state={state} />
     {row.groups.map((group) => (
       <Group key={group.path} group={group} state={state} />
@@ -310,6 +316,7 @@ export const WorkflowOutline = ({
   tree,
   selected,
   onSelect,
+  before,
   notes,
   extra,
 }: {
@@ -318,8 +325,9 @@ export const WorkflowOutline = ({
   /** The selected step's id or path, from the URL. */
   selected: string | undefined;
   onSelect: (address: string | undefined) => void;
-  notes?: (row: TreeRow) => ReactNode;
-  extra?: (row: TreeRow) => ReactNode;
+  before?: RowSlots;
+  notes?: RowSlots;
+  extra?: RowSlots;
 }) => {
   const list = useRef<HTMLDivElement>(null);
   const row = findRow(tree, selected);
@@ -327,6 +335,7 @@ export const WorkflowOutline = ({
   const state: OutlineState = {
     selected: row,
     collapsed,
+    before,
     notes,
     extra,
     onSelect: (next) =>
@@ -367,7 +376,7 @@ export const WorkflowOutline = ({
         </div>
         {row ? (
           <div className="hidden @3xl:block">
-            <StepDetailView row={row} extra={extra?.(row)} />
+            <StepDetailView row={row} extra={extra?.get(row.path)} />
           </div>
         ) : null}
       </div>

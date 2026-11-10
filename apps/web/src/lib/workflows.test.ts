@@ -181,6 +181,7 @@ describe(presentWorkflow, () => {
       source: "config",
       readOnly: false,
       starts: { text: "When deal stage changed", local: null },
+      startsWhen: { event: "deal_stage_changed" },
       facts: { input: [], output: [], errors: [] },
       tab: "workflow",
       missingText: null,
