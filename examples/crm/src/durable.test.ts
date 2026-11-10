@@ -1,4 +1,4 @@
-// Durable runs (P2.20): payment_make charges a fake bank, waits, captures
+// Durable runs: payment_make charges a fake bank, waits, captures
 // and records the payment. It survives a restart during its wait; a
 // temporary failure is tried again with the same retry key and charges
 // once; a declined capture runs payment_reverse; a reversal that fails too
@@ -203,7 +203,7 @@ const system = defineSystem({
   config: path.resolve(import.meta.dirname, "../config"),
 });
 
-describe("durable runs (P2.20)", { timeout: 30_000 }, () => {
+describe("durable runs", { timeout: 30_000 }, () => {
   let database: SystemDatabase;
   let server: Server;
   let seeded: Seeded;

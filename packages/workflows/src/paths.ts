@@ -1,4 +1,4 @@
-// Where a step is in a workflow (P2.20): its path through the step lists,
+// Where a step is in a workflow: its path through the step lists,
 // such as [3, "then", 1] for the second step of the fourth step's `then`.
 // A run that pauses saves where it got to as a path, and goes on from there.
 import type { OnFailure, Step, WorkflowDefinition } from "./schema.ts";

@@ -47,7 +47,7 @@ export interface NotFoundError {
 
 /**
  * Another system is down or busy for now: an external step that fails with
- * it is tried again with the same retry key (P2.20).
+ * it is tried again with the same retry key.
  */
 export interface UnavailableError {
   code: "unavailable";

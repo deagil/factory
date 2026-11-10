@@ -1,4 +1,4 @@
-// The durable engine (P2.20; decision 0046): DBOS Transact, on the system's
+// The durable engine (decision 0046): DBOS Transact, on the system's
 // own Postgres in the `dbos` schema. A run that may pause or reach another
 // system is one DBOS workflow, `factory_run`. Each segment, each attempt at
 // an external step and each wait is a DBOS step or sleep, so after a

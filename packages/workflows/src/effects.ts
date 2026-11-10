@@ -1,4 +1,4 @@
-// What a workflow may do that one transaction can't hold (P2.20): reach
+// What a workflow may do that one transaction can't hold: reach
 // another system, or pause. A workflow that does neither runs in one
 // transaction with no checkpoints; one that does runs durably, with DBOS.
 import type { AnyActionDefinition } from "@workspace/actions";
