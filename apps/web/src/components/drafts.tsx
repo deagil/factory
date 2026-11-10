@@ -15,6 +15,8 @@ export interface Draft {
     | "published"
     | "abandoned";
   baseSha: string;
+  /** The draft's latest commit; null before the first save. */
+  headSha: string | null;
   publishedSha: string | null;
   syncedSha: string | null;
   createdBy: { id: string; name: string };

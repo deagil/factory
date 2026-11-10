@@ -19,12 +19,16 @@ interface DraftFile {
   type: string;
   key: string;
   content: string;
+  /** The file's git blob id, absent for a role that isn't saved yet. */
+  revision?: string;
   value: unknown;
 }
 
 export interface Checked {
   draft: Draft;
   problems: ConfigProblem[];
+  /** The saved file's git blob id, or null when the save deletes it. */
+  revision: string | null;
 }
 
 const typeLabels: Record<string, string> = {
@@ -60,7 +64,11 @@ export const ConfigFiles = ({
   const [newRole, setNewRole] = useState("");
   const [created, setCreated] = useState<DraftFile | null>(null);
   const save = useMutation({
-    mutationFn: (input: { path: string; value: Record<string, unknown> }) =>
+    mutationFn: (input: {
+      path: string;
+      value: Record<string, unknown>;
+      revision?: string;
+    }) =>
       runAction<Checked>("draft.save", {
         ...(draftId ? { id: draftId } : {}),
         ...input,
@@ -155,7 +163,13 @@ export const ConfigFiles = ({
             description={described.data}
             saving={save.isPending}
             saveLabel={waiting ? "Save and withdraw request" : undefined}
-            onSave={(value) => save.mutate({ path: chosen.path, value })}
+            onSave={(value) =>
+              save.mutate({
+                path: chosen.path,
+                value,
+                ...(chosen.revision ? { revision: chosen.revision } : {}),
+              })
+            }
           />
         </div>
       ) : (

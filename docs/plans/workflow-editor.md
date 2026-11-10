@@ -197,12 +197,12 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.02.
   - **Done when:** over HTTP and MCP, a value whose step reads a later step returns that problem with its path and no commit is made; YAML with a syntax error returns the line.
 
-- [ ] **WE.12 Revisions on draft files** [API]
+- [x] **WE.12 Revisions on draft files** [API]
   - Rows 7 to 9: `draft_save` takes `revision` and returns the new one; `draft_files` returns each file's and can read one `path`; `drafts.head_sha` (a nullable column, an expand-only migration) is set on save and revert and returned by `draft_mine`. A save into a draft that isn't the caller's, their agent's or their person's is refused. Choice lists and roles send revisions too (`components/config-files.tsx`, `routes/_app/settings.choices.$list.tsx`).
   - **Needs:** nothing.
   - **Done when:** tests show a save with a stale revision is a `conflict` that changes nothing, a save without one still works, an agent can save into its person's draft by id, and a stranger can't.
 
-- [ ] **WE.13 Saves by value keep the file's comments** [API]
+- [x] **WE.13 Saves by value keep the file's comments** [API]
   - Today a save with `value` writes fresh YAML (`stringify` in `drafts.ts`), which drops comments and rewrites every line. The CRM's workflow files all open with comments. Instead, apply the value to the file's parsed document with the `yaml` package, which SYSTEM_DESIGN §9 chose for this: unchanged parts keep their text, list items are matched by `id` or `key` where they have one, and only a changed part is rewritten.
   - **Needs:** nothing.
   - **Done when:** a test changes one step's `with` in `deal_move_stage.yaml` by value and the commit's diff touches only that step and keeps the header comment; choice lists and roles keep theirs.
@@ -344,6 +344,7 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.00 · [#101](https://github.com/deagil/factory/pull/101) · Decisions 0053 to 0058 accepted. P2.23 split into P2.23a (the run inspector, reusing WE.06's outline) and P2.23b (the read-only workflow view, done by WE.04 to WE.10); P2.10f and P2.30 need P2.23a only. Step labels stay off the file until WE.10a looks again, after phase 1. The five value-building actions are WE.17a, straight after WE.17. Schedules stay UTC in the file and are shown with the viewer's local time beside them.
 - 2026-11-10 · WE.01 · [#105](https://github.com/deagil/factory/pull/105) · `workflow_list` and `workflow_get` are the core's first code workflows, one read-only step each (`packages/workflows/src/code.ts`). A draft or a sha is read through `ctx.git`, which steps now receive; a file's revision is its git blob id. `check` includes the scopes from WE.02. Without a config remote, those inputs are refused and a config workflow is not editable.
 - 2026-11-10 · WE.02 · [#102](https://github.com/deagil/factory/pull/102) · `validateWorkflow` returns `scopes`: per step path, the steps whose output it may read; each step's output JSON Schema once; input and event fields as `describeWorkflowField` describes them, so a choice field carries its list, options and columns. A catalog event with no field list is `eventSchema`. Not wired into `workflow_get` (WE.01). The workflow's own output is recorded at the path `output`.
+- 2026-11-10 · WE.12 WE.13 · [#104](https://github.com/deagil/factory/pull/104) · `draft.save` takes a file revision and refuses a stale one, only the draft's owner may save into it, and a save by value keeps the comments and lines it didn't change. `draft.files` returns each revision, and `draft.mine` returns `headSha`.
 
 ## Answers
 

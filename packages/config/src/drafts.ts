@@ -24,6 +24,7 @@ import type { DraftEntry } from "@workspace/objects";
 import { parse, stringify } from "yaml";
 import { z } from "zod";
 
+import { yamlWithValue } from "./apply-yaml.ts";
 import { configExtension } from "./read.ts";
 
 const problemSchema = z.object({
@@ -47,6 +48,8 @@ const draftSchema = z.object({
     "abandoned",
   ]),
   baseSha: z.string(),
+  /** The draft branch's latest commit; null until the first save or revert. */
+  headSha: z.string().nullable(),
   publishedSha: z.string().nullable(),
   syncedSha: z.string().nullable(),
   createdBy: z.object({ id: z.uuid(), name: z.string() }),
@@ -183,6 +186,28 @@ const openDraft = async (ctx: Ctx, id: string) => {
   return { draft, git: remote.git };
 };
 
+/**
+ * Who may save into a draft (decision 0055): its creator, the creator's
+ * agents, and the person an agent's draft belongs to.
+ */
+const maySave = async (ctx: Ctx, createdBy: string): Promise<boolean> => {
+  if (createdBy === ctx.actor.id) {
+    return true;
+  }
+  const creator = await ctx.identity.getActor(createdBy);
+  if (
+    !creator?.userId ||
+    ctx.actor.userId === null ||
+    creator.userId !== ctx.actor.userId
+  ) {
+    return false;
+  }
+  return (
+    (ctx.actor.kind === "agent" && creator.kind === "staff") ||
+    (ctx.actor.kind === "staff" && creator.kind === "agent")
+  );
+};
+
 /** The sign-offs the rules covering `files` ask of `ctx.actor`. */
 const signOffs = (ctx: Ctx, files: readonly string[]) =>
   signOffsFor(
@@ -201,6 +226,7 @@ const recheck = async (ctx: Ctx, git: GitService, draft: DraftEntry) => {
   const files = diff.map((each) => each.path);
   await ctx.drafts.update(draft.id, {
     files,
+    headSha: head,
     status: check.problems.length > 0 ? "invalid" : "valid",
     ...(draft.autoTitle ? { title: titleFor(files) } : {}),
   });
@@ -230,7 +256,7 @@ export const draftOpen = defineAction({
 export const draftMine = defineQuery({
   name: "draft.mine",
   description:
-    "Your working draft: the newest of your drafts that isn't published or abandoned, which draft.save without an id saves into. Null when you have none.",
+    "Your working draft: the newest of your drafts that isn't published or abandoned, which draft.save without an id saves into. Null when you have none. headSha is the draft's latest commit, or null before the first save.",
   input: z.strictObject({}),
   output: z.object({ draft: draftSchema.nullable() }),
   handler: async (ctx) => {
@@ -243,7 +269,7 @@ export const draftSave = defineAction({
   name: "draft.save",
   kind: "internal",
   description:
-    "Save one config file in a draft: its YAML as content, or its value as an object, which is written as YAML; content null deletes it. Without an id it saves into your working draft, opening one if you have none. Each save is one commit, and checks the draft's whole set of files against the running system. Saving a draft that waits for approval withdraws the request.",
+    "Save one config file in a draft: its YAML as content, or its value as an object, written onto the file so comments and unchanged lines stay. content null deletes it. revision is the git blob id you read; a stale one is a conflict and changes nothing. Without an id it saves into your working draft, opening one if you have none. Only the draft's creator, that person's agent, or the person an agent's draft belongs to can save into it. Each save is one commit, and checks the draft's whole set of files against the running system. Saving a draft that waits for approval withdraws the request.",
   input: z
     .strictObject({
       /** The draft; your working draft when left out. */
@@ -251,12 +277,17 @@ export const draftSave = defineAction({
       path: configFile,
       content: z.string().max(200_000).nullable().optional(),
       value: z.record(z.string(), z.unknown()).optional(),
+      /** The file's git blob id when you read it. Left out, the save replaces whatever is there. */
+      revision: z.string().min(1).optional(),
     })
     .refine(
       (input) => (input.content === undefined) !== (input.value === undefined),
       { message: "Give either content or value", path: ["content"] }
     ),
-  output: checkedSchema,
+  output: checkedSchema.extend({
+    /** The saved file's git blob id, or null when the save deletes it. */
+    revision: z.string().nullable(),
+  }),
   handler: async (ctx, input) => {
     let { id } = input;
     if (id === undefined) {
@@ -274,10 +305,31 @@ export const draftSave = defineAction({
       return opened;
     }
     const { draft, git } = opened;
-    const content =
-      input.value === undefined
-        ? (input.content ?? null)
-        : stringify(input.value, { lineWidth: 0 });
+    if (!(await maySave(ctx, draft.createdBy.id))) {
+      return ctx.forbidden(
+        "draft.save",
+        "Only the person who opened this draft, their agent, or the person an agent's draft belongs to can save into it."
+      );
+    }
+    const head = await git.head(draft.branch);
+    const current = await git.file(head, input.path);
+    if (
+      input.revision !== undefined &&
+      (current?.revision ?? null) !== input.revision
+    ) {
+      return ctx.conflict(
+        "This file changed since you read it. Read it again and retry.",
+        current?.revision ?? null
+      );
+    }
+    let content: string | null;
+    if (input.value === undefined) {
+      content = input.content ?? null;
+    } else if (current) {
+      content = yamlWithValue(current.content, input.value);
+    } else {
+      content = stringify(input.value, { lineWidth: 0 });
+    }
     const committed = await git.commit({
       branch: draft.branch,
       path: input.path,
@@ -292,7 +344,11 @@ export const draftSave = defineAction({
     }
     // What was approved has changed, so it needs approving again.
     await endRequest(ctx, draft);
-    return recheck(ctx, git, draft);
+    const saved = await git.file(committed.sha, input.path);
+    return {
+      ...(await recheck(ctx, git, draft)),
+      revision: saved?.revision ?? null,
+    };
   },
 });
 
@@ -553,8 +609,11 @@ export const draftGet = defineQuery({
 export const draftFiles = defineQuery({
   name: "draft.files",
   description:
-    "Every config file as a draft has it, with its YAML and its value, for editing it. Without an id, as your working draft has it, or as production has it when you have none; draftId says which.",
-  input: z.strictObject({ id: z.uuid().optional() }),
+    "Every config file as a draft has it, with its YAML, its value and its revision (the git blob id), for editing it. path reads one file. Without an id, as your working draft has it, or as production has it when you have none; draftId says which.",
+  input: z.strictObject({
+    id: z.uuid().optional(),
+    path: configFile.optional(),
+  }),
   output: z.object({
     /** The draft the files are from; null for production. */
     draftId: z.uuid().nullable(),
@@ -564,11 +623,13 @@ export const draftFiles = defineQuery({
         type: z.string(),
         key: z.string(),
         content: z.string(),
+        /** The file's git blob id. */
+        revision: z.string(),
         value: z.unknown(),
       })
     ),
   }),
-  handler: async (ctx, { id }) => {
+  handler: async (ctx, { id, path: filePath }) => {
     if (!ctx.git) {
       return ctx.invalid(noRemote);
     }
@@ -583,10 +644,16 @@ export const draftFiles = defineQuery({
     if (!at) {
       return ctx.invalid(noRemote);
     }
-    const files = await ctx.git.files(at);
+    let listed: { path: string; content: string; revision: string }[];
+    if (filePath) {
+      const one = await ctx.git.file(at, filePath);
+      listed = one ? [{ path: filePath, ...one }] : [];
+    } else {
+      listed = await ctx.git.files(at);
+    }
     return {
       draftId: draft?.id ?? null,
-      files: files
+      files: listed
         .filter((file) => configFile.safeParse(file.path).success)
         .map((file) => ({
           ...file,

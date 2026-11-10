@@ -382,7 +382,10 @@ export const draftStatuses = [
  * to main (`synced_sha`). A draft opened by a save has `auto_title`, written
  * from its files on each save. One waiting for approval has its parked
  * `draft.publish` run in `publish_run_id`, which the last approval resumes
- * (decision 0044); `publish_action_id` is phase 1's, unused since P2.12. Only the draft and approval actions write it.
+ * (decision 0044); `publish_action_id` is phase 1's, unused since P2.12.
+ * `head_sha` is the branch's latest commit, set on each save and revert, so a
+ * page can tell that the draft moved without reading the files (decision
+ * 0055). Only the draft and approval actions write it.
  */
 export const drafts = pgTable(
   "drafts",
@@ -397,6 +400,8 @@ export const drafts = pgTable(
       .default(sql`'{}'::text[]`),
     status: text("status", { enum: draftStatuses }).notNull(),
     baseSha: text("base_sha").notNull(),
+    /** The draft branch's latest commit; null until the first save. */
+    headSha: text("head_sha"),
     publishedSha: text("published_sha"),
     syncedSha: text("synced_sha"),
     publishActionId: uuid("publish_action_id").references(() => actionLog.id),

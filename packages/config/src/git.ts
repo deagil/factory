@@ -244,6 +244,27 @@ export const createGitConfigService = (options: GitConfigOptions) => {
     return blob ? await inRepo(["cat-file", "blob", blob]) : null;
   };
 
+  /** `ls-tree -z` lines: mode, type, blob id, then the path. */
+  const blobsAt = async (ref: string) => {
+    const listed = await inRepo(["ls-tree", "-r", "-z", ref, "--", configPath]);
+    const entries: { path: string; revision: string }[] = [];
+    for (const entry of listed.split("\0")) {
+      if (entry.length === 0) {
+        continue;
+      }
+      const tab = entry.indexOf("\t");
+      if (tab === -1) {
+        continue;
+      }
+      const revision = entry.slice(0, tab).split(" ").at(2);
+      const file = entry.slice(tab + 1);
+      if (revision && file.length > 0) {
+        entries.push({ path: file, revision });
+      }
+    }
+    return entries;
+  };
+
   /** The tree of `base` with `changes` applied. */
   const treeWith = (base: string, changes: readonly PathChange[]) =>
     withIndex(async (env) => {
@@ -481,22 +502,27 @@ export const createGitConfigService = (options: GitConfigOptions) => {
     files: (ref) =>
       serial(async () => {
         await fetch();
-        const listed = await inRepo([
-          "ls-tree",
-          "-r",
-          "--name-only",
-          "-z",
-          ref,
-          "--",
-          configPath,
-        ]);
-        const paths = listed.split("\0").filter((each) => each.length > 0);
+        const entries = await blobsAt(ref);
         return Promise.all(
-          paths.map(async (file) => ({
-            path: file,
-            content: (await contentAt(ref, file)) ?? "",
+          entries.map(async (entry) => ({
+            path: entry.path,
+            revision: entry.revision,
+            content: await inRepo(["cat-file", "blob", entry.revision]),
           }))
         );
+      }),
+
+    file: (ref, file) =>
+      serial(async () => {
+        await fetch();
+        const revision = await objectAt(ref, file);
+        if (!revision) {
+          return null;
+        }
+        return {
+          revision,
+          content: await inRepo(["cat-file", "blob", revision]),
+        };
       }),
 
     blob: (ref, file) =>

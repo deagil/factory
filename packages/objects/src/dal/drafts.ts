@@ -17,6 +17,8 @@ export interface DraftEntry {
   files: string[];
   status: (typeof draftStatuses)[number];
   baseSha: string;
+  /** The draft branch's latest commit; null until the first save. */
+  headSha: string | null;
   publishedSha: string | null;
   syncedSha: string | null;
   /** The parked draft.publish its last approval runs (decision 0044). */
@@ -34,6 +36,7 @@ const columns = {
   files: drafts.files,
   status: drafts.status,
   baseSha: drafts.baseSha,
+  headSha: drafts.headSha,
   publishedSha: drafts.publishedSha,
   syncedSha: drafts.syncedSha,
   publishRunId: drafts.publishRunId,
