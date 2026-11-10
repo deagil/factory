@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { defineAction, stepActions } from "@workspace/actions";
+import {
+  defineAction,
+  describeWorkflowField,
+  stepActions,
+} from "@workspace/actions";
 import {
   choiceConfigType,
   roleConfigType,
@@ -13,10 +17,12 @@ import { defineChoiceList, defineObject, f } from "@workspace/objects/define";
 import { afterAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { workflowConfigType } from "./config-type.ts";
+import { contextOf, workflowConfigType } from "./config-type.ts";
 import { defineWorkflow } from "./define-workflow.ts";
 import type { WorkflowInput } from "./define-workflow.ts";
-import type { Step as WorkflowStep } from "./schema.ts";
+import { fieldOf } from "./fields.ts";
+import type { Step as WorkflowStep, WorkflowDefinition } from "./schema.ts";
+import { jsonOf } from "./shapes.ts";
 import { validateWorkflow } from "./validate.ts";
 
 const dealStages = defineChoiceList({
@@ -416,6 +422,260 @@ describe("workflow definitions (P2.16)", () => {
       "deal_update writes, so a read_only workflow can't run it.",
       'Step "load" may not have run by here: it comes later, or in a branch that may not run.',
     ]);
+  });
+
+  const moveStage = () => {
+    write("choices/deal_stages.yaml", stages);
+    write("workflows/deal_move_stage.yaml", dealMoveStage);
+    const { files } = validateConfig(dir, types, catalog);
+    const workflow = files.find((file) => file.key === "deal_move_stage")
+      ?.value as WorkflowDefinition;
+    return { files, workflow };
+  };
+
+  it("says which steps deal_move_stage's update may read", () => {
+    const { files, workflow } = moveStage();
+    const { scopes } = validateWorkflow(workflow, contextOf(catalog, files));
+    expect(scopes.steps).toStrictEqual({
+      "steps.0": [],
+      "steps.1": ["load"],
+      "steps.1.then.0": ["load"],
+      "steps.2": ["load"],
+      "steps.3": ["load", "update"],
+      output: ["load", "update"],
+    });
+    const load = catalog.stepActions?.get("deal_get");
+    expect({
+      ids: Object.keys(scopes.outputs),
+      load: scopes.outputs.load,
+    }).toStrictEqual({
+      ids: ["load", "update"],
+      load: jsonOf(load?.output ?? z.object({}), "output"),
+    });
+  });
+
+  it("describes deal_move_stage's input the way system.describe describes a field", () => {
+    const { files, workflow } = moveStage();
+    const { scopes } = validateWorkflow(workflow, contextOf(catalog, files));
+    const input = scopes.input ?? [];
+    const stage = input.find((field) => field.key === "stage");
+    expect(scopes.event).toBeNull();
+    expect(scopes.eventSchema).toBeNull();
+    expect(input.map((field) => field.key)).toStrictEqual([
+      "deal",
+      "stage",
+      "reason",
+    ]);
+    expect(input[0]).toStrictEqual(
+      describeWorkflowField(
+        "Deal",
+        "deal",
+        fieldOf({ type: "ref", object: "deal" }),
+        undefined
+      )
+    );
+    expect({
+      stage,
+      reason: input.find((field) => field.key === "reason"),
+    }).toMatchObject({
+      stage: {
+        key: "stage",
+        label: "Stage",
+        type: "choice",
+        required: true,
+        read: true,
+        write: true,
+        target: null,
+        list: "deal_stages",
+        options: [
+          {
+            key: "proposal",
+            label: "Proposal",
+            description: null,
+            archived: false,
+            columns: { category: "open" },
+          },
+          {
+            key: "won",
+            label: "Won",
+            description: null,
+            archived: false,
+            columns: { category: "won" },
+          },
+          {
+            key: "lost",
+            label: "Lost",
+            description: null,
+            archived: false,
+            columns: { category: "lost" },
+          },
+        ],
+        optionColumns: {
+          type: "object",
+          properties: {
+            category: { enum: ["open", "won", "lost"] },
+          },
+        },
+      },
+      reason: { type: "text", required: false, list: null, options: null },
+    });
+  });
+
+  it("describes the event that starts a workflow, with its choice columns", () => {
+    const { files } = moveStage();
+    const listener = defineWorkflow({
+      key: "deal_won_task",
+      description: "Thank the customer when a deal is won.",
+      starts_when: { event: "deal_stage_changed" },
+      steps: [
+        {
+          id: "load",
+          action: "deal_get",
+          with: { id: { from: "event.deal" } },
+        },
+      ],
+    });
+    const { scopes } = validateWorkflow(listener, contextOf(catalog, files));
+    const to = scopes.event?.find((field) => field.key === "to");
+    expect(scopes.input).toBeNull();
+    expect(scopes.eventSchema).toBeNull();
+    expect(scopes.steps["steps.0"]).toStrictEqual([]);
+    expect(scopes.event?.map((field) => field.key)).toStrictEqual([
+      "deal",
+      "from",
+      "to",
+    ]);
+    expect({
+      type: to?.type,
+      list: to?.list,
+      won: to?.options?.find((option) => option.key === "won")?.columns,
+    }).toStrictEqual({
+      type: "choice",
+      list: "deal_stages",
+      won: { category: "won" },
+    });
+  });
+
+  it("hides a step that only a branch runs, and limits on_failure to what its owner could read", () => {
+    const workflow = defineWorkflow({
+      key: "deal_branch",
+      description: "A branch and a failure path.",
+      starts_when: "called",
+      input: { deal: { type: "ref", object: "deal" } },
+      steps: [
+        {
+          id: "load",
+          action: "deal_get",
+          with: { id: { from: "input.deal" } },
+        },
+        {
+          id: "update",
+          action: "deal_update",
+          with: { id: { from: "input.deal" } },
+          on_failure: [
+            {
+              id: "undo",
+              action: "deal_get",
+              with: { id: { from: "input.deal" } },
+            },
+          ],
+        },
+        {
+          id: "gate",
+          if: [{ field: "input.deal", empty: false }],
+          // oxlint-disable-next-line unicorn/no-thenable -- a step's branch
+          then: [
+            {
+              id: "inside",
+              action: "deal_get",
+              with: { id: { from: "input.deal" } },
+            },
+          ],
+          else: [
+            {
+              id: "other",
+              action: "deal_get",
+              with: { id: { from: "input.deal" } },
+            },
+          ],
+        },
+        {
+          id: "after",
+          action: "deal_get",
+          with: { id: { from: "input.deal" } },
+        },
+      ],
+    });
+    const { scopes } = validateWorkflow(workflow, { catalog });
+    expect({
+      update: scopes.steps["steps.1"],
+      undo: scopes.steps["steps.1.on_failure.0"],
+      inside: scopes.steps["steps.2.then.0"],
+      other: scopes.steps["steps.2.else.0"],
+      after: scopes.steps["steps.3"],
+    }).toStrictEqual({
+      update: ["load"],
+      undo: ["load"],
+      inside: ["load", "update"],
+      other: ["load", "update"],
+      after: ["load", "update"],
+    });
+    expect(scopes.outputs.inside).toStrictEqual(scopes.outputs.load);
+    expect(scopes.outputs).not.toHaveProperty("gate");
+  });
+
+  it("gives the workflow's own on_failure no step output", () => {
+    const workflow = defineWorkflow({
+      key: "deal_recover",
+      description: "Recover without assuming a step ran.",
+      starts_when: "called",
+      input: { deal: { type: "ref", object: "deal" } },
+      attention_role: "admin",
+      on_failure: [
+        {
+          id: "note",
+          action: "deal_get",
+          with: { id: { from: "input.deal" } },
+        },
+      ],
+      steps: [
+        {
+          id: "load",
+          action: "deal_get",
+          with: { id: { from: "input.deal" } },
+        },
+        { id: "pause", wait: { for: "1d" } },
+      ],
+    });
+    const { scopes } = validateWorkflow(workflow, { catalog });
+    expect(scopes.steps["steps.1"]).toStrictEqual(["load"]);
+    expect(scopes.steps["on_failure.0"]).toStrictEqual([]);
+  });
+
+  it("describes a catalog event by its payload schema", () => {
+    const payload = z.object({ id: z.uuid() });
+    const workflow = defineWorkflow({
+      key: "on_created",
+      description: "When a deal is created.",
+      starts_when: { event: "deal_created" },
+      steps: [
+        {
+          id: "load",
+          action: "deal_get",
+          with: { id: { from: "event.id" } },
+        },
+      ],
+    });
+    const { scopes } = validateWorkflow(workflow, {
+      catalog: {
+        ...catalog,
+        events: new Set(["deal_created"]),
+        eventPayloads: new Map([["deal_created", payload]]),
+      },
+    });
+    expect(scopes.input).toBeNull();
+    expect(scopes.event).toBeNull();
+    expect(scopes.eventSchema).toStrictEqual(jsonOf(payload, "output"));
   });
 
   it("refuses a definition whose shape is wrong, saying where", () => {

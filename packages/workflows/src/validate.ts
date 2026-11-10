@@ -6,14 +6,23 @@
 // out. It also works out the segments: where a run may commit and go on
 // later (decision 0046). Problems carry a path into the file, so config
 // gives them a line.
-import { actionErrorCodes } from "@workspace/actions";
-import type { AnyActionDefinition } from "@workspace/actions";
+import { actionErrorCodes, describeWorkflowField } from "@workspace/actions";
+import type {
+  AnyActionDefinition,
+  SystemDescription,
+} from "@workspace/actions";
 import type { ConfigCatalog, ConfigPath } from "@workspace/config";
-import { choiceOptionShape } from "@workspace/objects";
+import {
+  choiceOptionShape,
+  defineChoiceList,
+  f,
+  reservedChoiceColumns,
+} from "@workspace/objects";
+import type { ChoiceColumns, ChoiceOptions } from "@workspace/objects";
 import { z } from "zod";
 
-import { fieldOf, schemaOf } from "./fields.ts";
-import type { FieldSpecs } from "./fields.ts";
+import { fieldOf, labelFromKey, schemaOf } from "./fields.ts";
+import type { FieldSpec, FieldSpecs } from "./fields.ts";
 import { operatorOf } from "./schema.ts";
 import type {
   Condition,
@@ -55,12 +64,47 @@ export interface Segment {
   readonly ends: SegmentEnd | null;
 }
 
+/**
+ * One input or event field, in the shape `system.describe` gives a field:
+ * its type, and for a choice its list, options and columns.
+ */
+export type ScopeField = SystemDescription["objects"][number]["fields"][number];
+
+/**
+ * What a step may read. The editor's data picker and this check are the
+ * same rule: a step sees only the steps that have run on every path to it.
+ */
+export interface WorkflowScopes {
+  /**
+   * Step ids whose output each step may read, keyed by the step's path
+   * (`steps.2`, `steps.1.then.0`, `steps.1.on_failure.0`). The workflow's
+   * own output, when it has one, is `output`.
+   */
+  readonly steps: Readonly<Record<string, readonly string[]>>;
+  /** Each step's output as JSON Schema, keyed by step id. A step with none is left out. */
+  readonly outputs: Readonly<Record<string, Json>>;
+  /** The called workflow's input. Null when an event or a schedule starts it. */
+  readonly input: readonly ScopeField[] | null;
+  /**
+   * The starting event's fields. Null when the workflow isn't started by an
+   * event, or the event is a payload schema rather than a field list.
+   */
+  readonly event: readonly ScopeField[] | null;
+  /**
+   * The starting event's payload as JSON Schema, when it has no field list
+   * (an event the system declares). Null otherwise.
+   */
+  readonly eventSchema: Json | null;
+}
+
 export interface WorkflowCheck {
   /** What must be fixed before it can publish. */
   readonly problems: readonly WorkflowProblem[];
   /** What's allowed but worth a look, such as no ownership check. */
   readonly warnings: readonly WorkflowProblem[];
   readonly segments: readonly Segment[];
+  /** What each step may read, and the shapes of those reads. */
+  readonly scopes: WorkflowScopes;
 }
 
 export interface WorkflowContext {
@@ -69,6 +113,8 @@ export interface WorkflowContext {
   readonly workflows?: ReadonlyMap<string, WorkflowDefinition>;
   /** Each choice list's option keys, from config, when they're known. */
   readonly choiceKeys?: ReadonlyMap<string, readonly string[]>;
+  /** Loaded choice options, so a choice field can name them. */
+  readonly choices?: ChoiceOptions | undefined;
 }
 
 const listed = (names: Iterable<string>) => {
@@ -290,6 +336,8 @@ export class WorkflowChecker {
   };
   private readonly read: Set<string>;
   private readonly ids = new Set<string>();
+  /** Step path to the step ids readable there, in the order they ran. */
+  private readonly reads: Record<string, readonly string[]> = {};
 
   private readonly workflow: WorkflowDefinition;
   private readonly context: WorkflowContext;
@@ -302,6 +350,100 @@ export class WorkflowChecker {
 
   private problem(path: ConfigPath, message: string) {
     this.problems.push({ path, message });
+  }
+
+  /** Records the steps whose output a step at `path` may read. */
+  private note(path: ConfigPath, ran: ReadonlyMap<string, Json | null>) {
+    this.reads[path.join(".")] = [...ran].flatMap(([id, output]) =>
+      output === null ? [] : [id]
+    );
+  }
+
+  /** A choice list's own columns, from the list code defined. */
+  private choiceColumns(list: string): ChoiceColumns {
+    const reserved = new Set<string>(reservedChoiceColumns);
+    const columns: ChoiceColumns = {};
+    for (const [name, schema] of Object.entries(
+      this.choiceOption(list).shape
+    )) {
+      if (!reserved.has(name)) {
+        columns[name] = schema;
+      }
+    }
+    return columns;
+  }
+
+  /**
+   * The object field a spec describes. A choice uses the list's columns, so
+   * its description can name them; `fieldOf` only knows the list's key.
+   */
+  private fieldFor(spec: FieldSpec) {
+    if (spec.type !== "choice") {
+      return fieldOf(spec);
+    }
+    const columns = this.choiceColumns(spec.list);
+    const keys = this.context.catalog.choiceLists.find(
+      (each) => each.key === spec.list
+    )?.keys;
+    const [first, ...rest] = keys ?? [];
+    const list =
+      first === undefined
+        ? defineChoiceList({ key: spec.list, columns })
+        : defineChoiceList({
+            key: spec.list,
+            keys: [first, ...rest],
+            columns,
+          });
+    return f.choice(list, {
+      required: !spec.optional,
+      label: spec.label,
+      description: spec.description,
+    });
+  }
+
+  /** `specs` as `system.describe` describes fields. */
+  private described(specs: FieldSpecs): ScopeField[] {
+    return Object.entries(specs).map(([key, spec]) =>
+      describeWorkflowField(
+        spec.label ?? labelFromKey(key),
+        key,
+        this.fieldFor(spec),
+        this.context.choices
+      )
+    );
+  }
+
+  /** A step's output schema, or null when the step gives nothing back. */
+  private outputSchema(step: Step): Json | null {
+    if ("action" in step) {
+      const action = this.action(step.action);
+      return action ? jsonOf(action.output, "output") : {};
+    }
+    if ("run" in step) {
+      const child = this.other(step.run);
+      const outputs = Object.keys(child?.output ?? {});
+      return {
+        type: "object",
+        properties: Object.fromEntries(outputs.map((key) => [key, {}])),
+      };
+    }
+    return null;
+  }
+
+  /** Every step's output schema, once, in file order. */
+  private outputSchemas(): Record<string, Json> {
+    const outputs: Record<string, Json> = {};
+    for (const [step] of allSteps(this.workflow)) {
+      const id = stepIdOf(step);
+      if (!id || Object.hasOwn(outputs, id)) {
+        continue;
+      }
+      const schema = this.outputSchema(step);
+      if (schema) {
+        outputs[id] = schema;
+      }
+    }
+    return outputs;
   }
 
   // -- Names --------------------------------------------------------------
@@ -628,6 +770,7 @@ export class WorkflowChecker {
     mode: Mode,
     scope: Scope
   ): boolean {
+    this.note(path, scope.ran);
     const id = stepIdOf(step);
     if (id && !mode.recovering) {
       this.current.steps.push(id);
@@ -701,7 +844,7 @@ export class WorkflowChecker {
         [...path, "action"],
         `There is no action "${step.action}". fx describe lists the step actions.`
       );
-      flow.ran.set(step.id, {});
+      flow.ran.set(step.id, this.outputSchema(step));
       return;
     }
     const { name } = action;
@@ -753,7 +896,7 @@ export class WorkflowChecker {
       flow.wroteInSegment ||= !action.readOnly;
     }
     this.recovery(step.on_failure, path, scope);
-    flow.ran.set(step.id, jsonOf(action.output, "output"));
+    flow.ran.set(step.id, this.outputSchema(step));
   }
 
   private ifStep(
@@ -859,11 +1002,7 @@ export class WorkflowChecker {
       this.problem([...path, "run"], `There is no workflow "${step.run}".`);
     }
     this.recovery(step.on_failure, path, scope);
-    const outputs = Object.keys(child?.output ?? {});
-    flow.ran.set(step.id, {
-      type: "object",
-      properties: Object.fromEntries(outputs.map((key) => [key, {}])),
-    });
+    flow.ran.set(step.id, this.outputSchema(step));
   }
 
   private emitStep(
@@ -1046,6 +1185,9 @@ export class WorkflowChecker {
       recovering: false,
     };
     this.steps(workflow.steps, ["steps"], flow, mode, scope);
+    if (workflow.output) {
+      this.note(["output"], flow.ran);
+    }
     this.outputs(workflow.output ?? {}, ["output"], {
       ...scope,
       ran: flow.ran,
@@ -1064,17 +1206,27 @@ export class WorkflowChecker {
       );
     }
     this.ownership();
+    const eventFields = scope.event?.specs;
     return {
       problems: this.problems,
       warnings: this.warnings,
       segments: this.segments,
+      scopes: {
+        steps: this.reads,
+        outputs: this.outputSchemas(),
+        input: scope.input ? this.described(scope.input) : null,
+        event: eventFields ? this.described(eventFields) : null,
+        eventSchema:
+          scope.event && !eventFields ? (scope.event.node ?? {}) : null,
+      },
     };
   }
 }
 
 /**
  * Checks `workflow` against the system in `context`: what must be fixed,
- * what's worth a look, and where its runs may commit and go on later.
+ * what's worth a look, where its runs may commit and go on later, and
+ * what each step may read.
  */
 export const validateWorkflow = (
   workflow: WorkflowDefinition,

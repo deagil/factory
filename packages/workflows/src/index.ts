@@ -33,11 +33,13 @@ export { defineWorkflow } from "./define-workflow.ts";
 export type { WorkflowInput } from "./define-workflow.ts";
 export { validateWorkflow } from "./validate.ts";
 export type {
+  ScopeField,
   Segment,
   SegmentEnd,
   WorkflowCheck,
   WorkflowContext,
   WorkflowProblem,
+  WorkflowScopes,
 } from "./validate.ts";
 export { createRunner, maxDepth, startsOn } from "./run.ts";
 export type {
