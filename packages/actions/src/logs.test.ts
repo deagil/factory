@@ -9,7 +9,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { AnyActionDefinition, AnyDefinition } from "./define-action.ts";
 import { generateDefinitions } from "./generated.ts";
-import { auditLogList, eventLogList, runGet, runList } from "./logs.ts";
+import {
+  auditLogGet,
+  auditLogList,
+  eventLogGet,
+  eventLogList,
+  runGet,
+  runList,
+} from "./logs.ts";
 import { rolePermissions } from "./permissions.ts";
 import type { Role } from "./permissions.ts";
 import { createPipeline } from "./pipeline.ts";
@@ -207,5 +214,42 @@ describe("log queries", () => {
     expect(output?.entries.map((entry) => entry.type)).toStrictEqual([
       "organisation_updated",
     ]);
+  });
+
+  it("gets one change and one event, and needs their permissions", async () => {
+    const listed = await query<{
+      entries: { id: string; after: object; recordId: string }[];
+    }>(auditLogList, { field: "name", recordId: acmeId }, admin);
+    const changeId = listed.output?.entries[0]?.id ?? "";
+    const got = await query<{
+      change: { after: object; recordId: string };
+    }>(auditLogGet, { id: changeId }, admin);
+    expect(got.output?.change).toMatchObject({
+      recordId: acmeId,
+      after: { name: "Acme Ltd" },
+    });
+    const missing = await query(
+      auditLogGet,
+      { id: "00000000-0000-4000-8000-000000000000" },
+      admin
+    );
+    expect(missing.code).toBe("not_found");
+    const refused = await query(auditLogGet, { id: changeId }, sam);
+    expect(refused.code).toBe("permission");
+
+    const events = await query<{ entries: { id: string; type: string }[] }>(
+      eventLogList,
+      { typePrefix: "organisation_upd" },
+      admin
+    );
+    const eventId = events.output?.entries[0]?.id ?? "";
+    const event = await query<{ event: { type: string } }>(
+      eventLogGet,
+      { id: eventId },
+      admin
+    );
+    expect(event.output?.event.type).toBe("organisation_updated");
+    const refusedEvent = await query(eventLogGet, { id: eventId }, sam);
+    expect(refusedEvent.code).toBe("permission");
   });
 });

@@ -1,7 +1,6 @@
 // The shell owns the page row. Screens portal their title and actions into
 // it, and any extra panel (an action form) into the top of the page body.
-// Above the title is the breadcrumb: the current section, then the pages
-// the screen says lead to it.
+// Above the title is the breadcrumb: the pages the screen says lead to it.
 import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -14,8 +13,6 @@ interface PageSlots {
   title: HTMLElement | null;
   actions: HTMLElement | null;
   supplement: HTMLElement | null;
-  /** The label of the section the current route is in. */
-  section: string | null;
 }
 
 const PageSlotsContext = createContext<PageSlots | null>(null);
@@ -25,12 +22,11 @@ export const PageSlotsProvider = ({
   title,
   actions,
   supplement,
-  section,
   children,
 }: PageSlots & { children: ReactNode }) => {
   const value = useMemo(
-    () => ({ leading, title, actions, supplement, section }),
-    [actions, leading, section, supplement, title]
+    () => ({ leading, title, actions, supplement }),
+    [actions, leading, supplement, title]
   );
   return (
     <PageSlotsContext.Provider value={value}>
@@ -49,8 +45,8 @@ export const PageHeader = ({
   trail = noTrail,
   actions,
 }: {
-  title: string;
-  /** Pages between the section and this one, outermost first. */
+  title: ReactNode;
+  /** Pages above this one, outermost first. */
   trail?: Crumb[];
   actions?: ReactNode;
 }) => {
@@ -58,15 +54,14 @@ export const PageHeader = ({
   if (!slots?.title) {
     return null;
   }
-  const crumbs =
-    slots.section || trail.length > 0 ? (
-      <PageBreadcrumb section={slots.section} trail={trail} />
-    ) : null;
+  const crumbs = trail.length > 0 ? <PageBreadcrumb trail={trail} /> : null;
   return (
     <>
       {crumbs && slots.leading ? createPortal(crumbs, slots.leading) : null}
       {createPortal(
-        <h1 className="min-w-0 truncate text-xl font-medium">{title}</h1>,
+        <h1 className="flex min-w-0 items-center gap-2 truncate text-xl font-medium">
+          {title}
+        </h1>,
         slots.title
       )}
       {actions && slots.actions ? createPortal(actions, slots.actions) : null}

@@ -6,8 +6,9 @@ import {
   formFields,
   fromFormValues,
   humanise,
+  toFormValues,
 } from "./forms.ts";
-import type { ActionDescription } from "./forms.ts";
+import type { ActionDescription, FormField } from "./forms.ts";
 import type { ObjectDescription } from "./records.ts";
 
 const contact = {
@@ -79,6 +80,49 @@ describe("forms from action inputs", () => {
     ).toStrictEqual({
       active: false,
     });
+  });
+
+  it("edits money in major units, with the currency's decimal places", () => {
+    const value = {
+      key: "value",
+      label: "Value",
+      type: "money",
+      target: null,
+      required: false,
+      options: null,
+      list: null,
+    } satisfies FormField;
+    const record = { value: { amount: 1_200_000, currency: "GBP" } };
+    expect(toFormValues([value], record)).toStrictEqual({ value: "12000.00" });
+    expect(
+      fromFormValues([value], { value: "12000.00" }, record)
+    ).toStrictEqual({});
+    expect(fromFormValues([value], { value: "120.5" })).toStrictEqual({
+      value: { amount: 12_050, currency: "GBP" },
+    });
+    expect(
+      toFormValues([value], { value: { amount: 5000, currency: "JPY" } })
+    ).toStrictEqual({ value: "5000" });
+    expect(
+      fromFormValues(
+        [value],
+        { value: "5000" },
+        { value: { amount: 5000, currency: "JPY" } }
+      )
+    ).toStrictEqual({});
+  });
+
+  it("shows a url without its http prefix and sends the typed text", () => {
+    const website = {
+      key: "website",
+      type: "url",
+    } as unknown as FormField;
+    expect(
+      toFormValues([website], { website: "https://acme.example/path" })
+    ).toStrictEqual({ website: "acme.example/path" });
+    expect(
+      fromFormValues([website], { website: "acme.example" })
+    ).toStrictEqual({ website: "acme.example" });
   });
 
   it("finds the hand-written actions and names them", () => {

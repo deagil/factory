@@ -1,6 +1,6 @@
 // A workflow's `input` and its declared events' payloads use the same field
 // types as objects (P2.16, decision 0048): `{ type: ref, object: deal }`,
-// `{ type: choice, list: deal_stages }`, `{ type: text, optional: true }`.
+// `{ type: choice, list: deal_stages }`, `{ type: email }`.
 // Each becomes the object field of that type, so a workflow's input checks
 // values exactly as a record's fields do. Fields are required unless
 // `optional: true`, as a function's parameters are.
@@ -26,6 +26,16 @@ const common = {
 export const fieldSpecSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("text"),
+    max_length: z.int().positive().optional(),
+    ...common,
+  }),
+  z.strictObject({
+    type: z.literal("email"),
+    max_length: z.int().positive().optional(),
+    ...common,
+  }),
+  z.strictObject({
+    type: z.literal("url"),
     max_length: z.int().positive().optional(),
     ...common,
   }),
@@ -62,6 +72,12 @@ export const fieldOf = (spec: FieldSpec): AnyField => {
   switch (spec.type) {
     case "text": {
       return f.text({ ...options, maxLength: spec.max_length });
+    }
+    case "email": {
+      return f.email({ ...options, maxLength: spec.max_length });
+    }
+    case "url": {
+      return f.url({ ...options, maxLength: spec.max_length });
     }
     case "number": {
       return f.number({

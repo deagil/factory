@@ -1,30 +1,66 @@
 // A form for one action, with a control per field its input takes (P1.21).
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import { Switch } from "@workspace/ui/components/switch";
+import { LinkIcon, Mail } from "lucide-react";
 import { useState } from "react";
 
 import { ApiCallError, objectApi, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
-import { canEditConfig } from "../lib/choice-lists.ts";
 import type { FormField, FormValues } from "../lib/forms.ts";
-import { findObject, titleOf } from "../lib/records.ts";
+import {
+  currencySymbol,
+  findObject,
+  isMoney,
+  minorDigits,
+  titleOf,
+} from "../lib/records.ts";
 import type { ListPage } from "../lib/records.ts";
 
 const selectClass =
-  "h-8 w-full rounded-2xl border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring";
+  "h-8 w-full rounded-2xl border border-input bg-muted px-2 text-sm shadow-[inset_0_1px_2px_rgb(0_0_0/0.06)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:shadow-[inset_0_1px_2px_rgb(0_0_0/0.35)] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40";
+
+interface FieldIssue {
+  path: (string | number)[];
+  message: string;
+}
+
+/** The field key an issue names, when it names one. */
+const issueField = (issue: FieldIssue) =>
+  typeof issue.path[0] === "string" ? issue.path[0] : undefined;
+
+const issuesOf = (error: Error | null): FieldIssue[] => {
+  if (!(error instanceof ApiCallError) || !("issues" in error.error)) {
+    return [];
+  }
+  const { issues } = error.error;
+  return Array.isArray(issues) ? (issues as FieldIssue[]) : [];
+};
+
+/** `aria-invalid` and a description that includes the field's error. */
+const invalidProps = (invalid: boolean, id: string, extra?: string) => {
+  const describedBy = [extra, invalid ? `${id}-error` : undefined]
+    .filter((item) => item !== undefined && item !== "")
+    .join(" ");
+  return {
+    "aria-invalid": invalid || undefined,
+    "aria-describedby": describedBy === "" ? undefined : describedBy,
+  };
+};
 
 /** A select of the target's records, or a plain id input if it has no list. */
 const RefSelect = ({
   field,
   value,
+  invalid,
   onChange,
   description,
 }: {
   field: FormField;
   value: string;
+  invalid: boolean;
   onChange: (value: string) => void;
   description: SystemDescription | undefined;
 }) => {
@@ -61,6 +97,7 @@ const RefSelect = ({
         value={value}
         placeholder="Id"
         onChange={(event) => onChange(event.target.value)}
+        {...invalidProps(invalid, field.key)}
       />
     );
   }
@@ -83,6 +120,7 @@ const RefSelect = ({
       value={value}
       required={field.required}
       onChange={(event) => onChange(event.target.value)}
+      {...invalidProps(invalid, field.key)}
     >
       <option value="">{options.isPending ? "Loading…" : "None"}</option>
       {options.data?.map((record) => (
@@ -98,14 +136,13 @@ const RefSelect = ({
 const ChoiceSelect = ({
   field,
   value,
+  invalid,
   onChange,
-  canManage,
 }: {
   field: FormField;
   value: string;
+  invalid: boolean;
   onChange: (value: string) => void;
-  /** Whether to link to the list's page, for people who can edit it. */
-  canManage: boolean;
 }) => {
   const options = (field.options ?? []).filter(
     (option) => !option.archived || option.key === value
@@ -119,7 +156,11 @@ const ChoiceSelect = ({
         className={selectClass}
         value={value}
         required={field.required}
-        aria-describedby={hint ? `${field.key}-hint` : undefined}
+        {...invalidProps(
+          invalid,
+          field.key,
+          hint ? `${field.key}-hint` : undefined
+        )}
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="">{field.required ? "Choose…" : "None"}</option>
@@ -138,41 +179,201 @@ const ChoiceSelect = ({
           {hint}
         </p>
       )}
-      {canManage && field.list ? (
-        <Link
-          to="/settings/choices/$list"
-          params={{ list: field.list }}
-          className="w-fit text-xs text-muted-foreground hover:text-foreground hover:underline"
-        >
-          Manage options
-        </Link>
-      ) : null}
     </>
   );
 };
 
 const inputTypes: Record<string, string> = {
   number: "number",
-  money: "number",
   date: "date",
 };
+
+/** Major units, as text, so the currency's decimal places stay visible. */
+const MoneyInput = ({
+  field,
+  value,
+  currency,
+  invalid,
+  onChange,
+}: {
+  field: FormField;
+  value: string;
+  currency: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
+}) => {
+  const digits = minorDigits(currency);
+  const showDecimals = (event: React.FocusEvent<HTMLInputElement>) => {
+    const text = event.target.value.trim();
+    if (text === "") {
+      return;
+    }
+    const major = Number(text);
+    if (!Number.isFinite(major)) {
+      return;
+    }
+    const shown = major.toFixed(digits);
+    if (shown !== event.target.value) {
+      onChange(shown);
+    }
+  };
+  return (
+    <div className="relative">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground"
+      >
+        {currencySymbol(currency)}
+      </span>
+      <Input
+        id={field.key}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        spellCheck={false}
+        className="pl-8 tabular-nums"
+        value={value}
+        required={field.required}
+        placeholder={(0).toFixed(digits)}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={showDecimals}
+        {...invalidProps(invalid, field.key)}
+      />
+    </div>
+  );
+};
+
+/** An address, with an envelope in the same slot as a money field's symbol. */
+const EmailInput = ({
+  field,
+  value,
+  invalid,
+  onChange,
+}: {
+  field: FormField;
+  value: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
+}) => (
+  <div className="relative">
+    <Mail
+      aria-hidden
+      className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+    />
+    <Input
+      id={field.key}
+      type="email"
+      inputMode="email"
+      autoComplete="email"
+      spellCheck={false}
+      className="pl-9"
+      value={value}
+      required={field.required}
+      placeholder="name@example.com"
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={(event) => {
+        const shown = event.target.value.trim();
+        if (shown !== event.target.value) {
+          onChange(shown);
+        }
+      }}
+      {...invalidProps(invalid, field.key)}
+    />
+  </div>
+);
+
+/** An address, with a link mark in the same slot as an email field's envelope. */
+const UrlInput = ({
+  field,
+  value,
+  invalid,
+  onChange,
+}: {
+  field: FormField;
+  value: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
+}) => (
+  <div className="relative">
+    <LinkIcon
+      aria-hidden
+      className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+    />
+    <Input
+      id={field.key}
+      type="text"
+      inputMode="url"
+      autoComplete="url"
+      spellCheck={false}
+      className="pl-9"
+      value={value}
+      required={field.required}
+      placeholder="example.com"
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={(event) => {
+        const shown = event.target.value.trim().replace(/^https?:\/\//iu, "");
+        if (shown !== event.target.value) {
+          onChange(shown);
+        }
+      }}
+      {...invalidProps(invalid, field.key)}
+    />
+  </div>
+);
 
 const FieldControl = ({
   field,
   value,
+  currency,
+  invalid,
   onChange,
   description,
 }: {
   field: FormField;
   value: string | boolean;
+  /** The money field's currency. Other types ignore it. */
+  currency: string;
+  invalid: boolean;
   onChange: (value: string) => void;
   description: SystemDescription | undefined;
 }) => {
+  if (field.type === "money") {
+    return (
+      <MoneyInput
+        field={field}
+        value={String(value ?? "")}
+        currency={currency}
+        invalid={invalid}
+        onChange={onChange}
+      />
+    );
+  }
+  if (field.type === "email") {
+    return (
+      <EmailInput
+        field={field}
+        value={String(value ?? "")}
+        invalid={invalid}
+        onChange={onChange}
+      />
+    );
+  }
+  if (field.type === "url") {
+    return (
+      <UrlInput
+        field={field}
+        value={String(value ?? "")}
+        invalid={invalid}
+        onChange={onChange}
+      />
+    );
+  }
   if (field.type === "ref") {
     return (
       <RefSelect
         field={field}
         value={String(value ?? "")}
+        invalid={invalid}
         onChange={onChange}
         description={description}
       />
@@ -183,8 +384,8 @@ const FieldControl = ({
       <ChoiceSelect
         field={field}
         value={String(value ?? "")}
+        invalid={invalid}
         onChange={onChange}
-        canManage={canEditConfig(description)}
       />
     );
   }
@@ -192,16 +393,23 @@ const FieldControl = ({
     <Input
       id={field.key}
       type={inputTypes[field.type] ?? "text"}
-      step={field.type === "money" ? "0.01" : undefined}
       value={String(value ?? "")}
       required={field.required}
       onChange={(event) => onChange(event.target.value)}
+      {...invalidProps(invalid, field.key)}
     />
   );
 };
 
 /** What went wrong, with each invalid field's message. */
-export const ErrorMessage = ({ error }: { error: Error | null }) => {
+export const ErrorMessage = ({
+  error,
+  reported,
+}: {
+  error: Error | null;
+  /** Field keys whose messages are shown on the control, so the list skips them. */
+  reported?: ReadonlySet<string>;
+}) => {
   if (!error) {
     return null;
   }
@@ -216,10 +424,10 @@ export const ErrorMessage = ({ error }: { error: Error | null }) => {
       </div>
     );
   }
-  const issues =
-    error instanceof ApiCallError && "issues" in error.error
-      ? (error.error.issues as { path: (string | number)[]; message: string }[])
-      : [];
+  const issues = issuesOf(error).filter((issue) => {
+    const key = issueField(issue);
+    return key === undefined || !reported?.has(key);
+  });
   return (
     <div role="alert" className="text-sm text-destructive">
       <p>{error.message}</p>
@@ -246,9 +454,18 @@ export const DryRunResult = ({ output }: { output: unknown }) => (
   </div>
 );
 
+const currencyOf = (
+  field: FormField,
+  record: Record<string, unknown> | undefined
+) => {
+  const value = record?.[field.key];
+  return isMoney(value) ? value.currency : "GBP";
+};
+
 export const RecordForm = ({
   fields,
   initial,
+  record,
   description,
   submitLabel,
   pending,
@@ -259,6 +476,8 @@ export const RecordForm = ({
 }: {
   fields: FormField[];
   initial: FormValues;
+  /** The record being edited, so a money field keeps its currency. */
+  record?: Record<string, unknown>;
   description: SystemDescription | undefined;
   submitLabel: string;
   pending: boolean;
@@ -269,46 +488,83 @@ export const RecordForm = ({
   onCancel?: () => void;
 }) => {
   const [values, setValues] = useState(initial);
-  const set = (key: string, value: string | boolean) =>
+  const [dismissed, setDismissed] = useState<{
+    error: Error | null;
+    keys: ReadonlySet<string>;
+  }>({ error: null, keys: new Set() });
+  const dismissedKeys =
+    dismissed.error === error ? dismissed.keys : new Set<string>();
+  const set = (key: string, value: string | boolean) => {
     setValues((previous) => ({ ...previous, [key]: value }));
+    setDismissed((current) => ({
+      error,
+      keys: new Set([...(current.error === error ? current.keys : []), key]),
+    }));
+  };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     onSubmit(values);
   };
 
+  const fieldIssues = issuesOf(error);
+  const issues = new Map(
+    fieldIssues.flatMap((issue) => {
+      const key = issueField(issue);
+      return key === undefined || dismissedKeys.has(key)
+        ? []
+        : [[key, issue.message] as const];
+    })
+  );
+  const everyIssueCleared =
+    fieldIssues.length > 0 &&
+    fieldIssues.every((issue) => {
+      const key = issueField(issue);
+      return key !== undefined && dismissedKeys.has(key);
+    });
+
   return (
     <form onSubmit={submit} className="flex max-w-lg flex-col gap-4">
       {fields.map((field) => {
         const value = values[field.key];
-        if (field.type === "boolean") {
-          return (
-            <label key={field.key} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={value === true}
-                onChange={(event) => set(field.key, event.target.checked)}
-              />
-              {field.label}
-            </label>
-          );
-        }
+        const message = issues.get(field.key);
         return (
           <div key={field.key} className="flex flex-col gap-1.5">
             <Label htmlFor={field.key}>
               {field.label}
               {field.required && " *"}
             </Label>
-            <FieldControl
-              field={field}
-              value={value ?? ""}
-              onChange={(next) => set(field.key, next)}
-              description={description}
-            />
+            {field.type === "boolean" ? (
+              <Switch
+                id={field.key}
+                checked={value === true}
+                onCheckedChange={(checked) => set(field.key, checked)}
+                {...invalidProps(message !== undefined, field.key)}
+              />
+            ) : (
+              <FieldControl
+                field={field}
+                value={value ?? ""}
+                currency={currencyOf(field, record)}
+                invalid={message !== undefined}
+                onChange={(next) => set(field.key, next)}
+                description={description}
+              />
+            )}
+            {message !== undefined && (
+              <p id={`${field.key}-error`} className="text-xs text-destructive">
+                {message}
+              </p>
+            )}
           </div>
         );
       })}
-      <ErrorMessage error={error} />
+      {everyIssueCleared ? null : (
+        <ErrorMessage
+          error={error}
+          reported={new Set([...issues.keys(), ...dismissedKeys])}
+        />
+      )}
       {dryRun ? <DryRunResult output={dryRun.output} /> : null}
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

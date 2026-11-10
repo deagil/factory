@@ -11,6 +11,41 @@ import type { ReactNode } from "react";
 
 import type { SystemDescription } from "../lib/api.ts";
 import { findObject, titleOf } from "../lib/records.ts";
+import { RecordTitle } from "./record-title.tsx";
+
+/** Whether `description` says the caller may run the query `name`. */
+export const canQuery = (
+  description: SystemDescription | undefined,
+  name: string
+) => description?.queries.some((query) => query.name === name) ?? false;
+
+/** One labelled value on a log entry. */
+export const DetailRow = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) => (
+  <div className="grid grid-cols-[8rem_1fr] gap-3 py-1.5 text-sm">
+    <dt className="text-muted-foreground">{label}</dt>
+    <dd className="min-w-0 break-words">{children}</dd>
+  </div>
+);
+
+/** A titled block on a log entry. */
+export const DetailSection = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) => (
+  <section className="flex flex-col gap-2">
+    <h2 className="text-sm font-medium">{title}</h2>
+    {children}
+  </section>
+);
 
 export const when = (at: string) =>
   new Date(at).toLocaleString("en-GB", {
@@ -115,21 +150,23 @@ export const RecordLink = ({
   description: SystemDescription | undefined;
 }) => {
   const found = findObject(description, object);
-  const title = titleOf({ id: recordId, ...values }, found);
+  const record = { id: recordId, ...values };
+  const named = titleOf(record, found);
   const label =
-    title === recordId
+    named === "" || named === recordId
       ? `${found?.label ?? object} …${recordId.slice(-6)}`
-      : title;
+      : named;
+  const title = <RecordTitle record={record} object={found} title={label} />;
   return found ? (
     <Link
       to="/o/$object/$id"
       params={{ object, id: recordId }}
       className="font-medium hover:underline"
     >
-      {label}
+      {title}
     </Link>
   ) : (
-    <span>{label}</span>
+    <span>{title}</span>
   );
 };
 

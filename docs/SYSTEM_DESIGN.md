@@ -206,7 +206,7 @@ export const deal = defineObject({
 
 - `defineObject` returns a real Drizzle table, so drizzle-kit, migrations and typed queries work as normal.
 - It also generates the object's **endpoints** and its **record actions** (section 4.2), with no opt-in.
-- The **field types library** (about 12 types to start) gives each type its column, Zod rule, form input, list display and filters.
+- The **field types library** (about 12 types to start) gives each type its column, Zod rule, form input, list display and filters. A **computed** field has no column: it is calculated on read from other fields on the same record, by one of a closed set of operations (`concat`, `coalesce`, `add`, `subtract`, `multiply`), and create and update never take it. One field may be the **display** field, which is the record's name wherever a reference shows it; it may also name an image field to show as an avatar beside that name. Image fields are not built yet.
 - The **data access layer** is the only way to read records: list, get, filter, sort, search, and follow relations. It applies the caller's role rules (rows and readable fields), adds custom fields, and hides archived records unless asked.
 - **Repositories** are the only way to write. They are only called from inside internal actions (see 4.2), and apply the caller's writable fields and rows at an endpoint.
 
@@ -497,7 +497,7 @@ output:
 3. **Regression:** every workflow's cases rerun in CI whenever a workflow, action, object or the core changes.
 4. **Two people:** the author and a different person with the approver role. Developer-written workflows reach `main` through `fx ship` and a PR, whose review is the second person.
 
-**Visibility.** Activity → Runs shows each run's steps as a diagram, with segments, inputs, outputs, branches, errors and retries. Each workflow has a read-only visual view showing where it may pause, and each object a "What happens when…" view of the workflows its events start. Every record's history shows the runs that touched it.
+**Visibility.** Activity → Workflow runs shows each run's steps as a diagram, with segments, inputs, outputs, branches, errors and retries. Each workflow has a read-only visual view showing where it may pause, and each object a "What happens when…" view of the workflows its events start. Every record's history shows the runs that touched it.
 
 **Connects to.** Endpoints (workflows are served as endpoints), actions (every step that does something), events (triggers and `emit`), config (definitions and drafts), roles and approvals, and the web surface.
 
@@ -542,18 +542,18 @@ All surfaces are generated from the same registry of objects, published workflow
 | CLI (later) | Developers and scripts | The same endpoints |
 | SDK | Developers of external systems | Generated from the OpenAPI spec |
 
-The web app has no data access of its own: every screen calls the HTTP API as the signed-in user (decision 0032). Its header holds navigation by section, with breadcrumbs below, and the sidebar is kept for the in-app agent (decision 0033). Each section and item appears only when `system_describe` says the caller can use what it needs, and forms follow each field's read and write for the caller:
+The web app has no data access of its own: every screen calls the HTTP API as the signed-in user (decision 0032). Its header holds navigation by section, with breadcrumbs below, and the sidebar is kept for the in-app agent (decisions 0033 and 0049). Each section and item appears only when `system_describe` says the caller can use what it needs, and forms follow each field's read and write for the caller:
 
 | Section | What it has |
 | --- | --- |
-| Data | A list, record and create screen per object; archive and restore; each record's history; buttons for the workflows that take the record |
-| Inbox | Approvals: each run waiting at a step or draft, what it would do, who asked, and Approve and Reject; runs needing attention for the caller's roles |
-| Activity | Runs (each run's steps, segments, inputs, outputs and errors), every change across records, the event log, and later config history |
-| Access | Users (invite, roles, disable), agents, integrations and their keys, and roles |
+| Data | Objects (a list of the objects the caller can see, then each object's list, record and create screen, archive and restore, history, and buttons for the workflows that take the record) and Choices (choice lists edited in place) |
+| Automation | Workflows the caller can run, the actions those steps call, and the events those actions can emit |
+| Activity | The logs: the audit log (every field change), workflow runs (each run's steps, segments, inputs, outputs and errors), and the event log, and later config history. A row opens that log entry. A record named in the entry still opens the record |
+| Access | Users (invite, roles, disable), agents, integrations and their keys, roles, and policies (the approval rules) |
 | Config | Drafts: edit choice lists and roles into your working draft, review a draft's changes in plain English, publish (or request approval), withdraw and discard. The header's draft pill shows your unpublished edits. Settings pages edit config in place and replace this section (decision 0044) |
-| Settings | Choice lists edited in place, reference (the system as `system_describe` gives it to you) and API & MCP |
+| Settings | Reference (the system as `system_describe` gives it to you) and API & MCP |
 
-The account menu has My agents, where staff connect an MCP client with a key of their own.
+The account menu has Approvals, when you can sign things off (each run or draft waiting for you, with Approve and Reject), and My agents, where staff connect an MCP client with a key of their own.
 
 Local development adds a dev bar above the app, and production builds leave it out. It is for working on the factory, never for configuring a system. Its menus are:
 

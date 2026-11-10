@@ -17,6 +17,7 @@ import {
   when,
 } from "../../components/activity.tsx";
 import type { PageSearch } from "../../components/activity.tsx";
+import { opensItem } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { runQuery } from "../../lib/api.ts";
 
@@ -56,7 +57,7 @@ const EventsScreen = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Events" />
+      <PageHeader title="Event log" />
       <div className="flex flex-wrap items-center gap-3">
         <TextFilter
           key={search.type ?? ""}
@@ -74,7 +75,16 @@ const EventsScreen = () => {
       <ErrorText error={page.error} />
       <ol className="flex flex-col gap-3">
         {page.data?.entries.map((entry) => (
-          <li key={entry.id} className="rounded-2xl border p-3 text-sm">
+          <li
+            key={entry.id}
+            {...opensItem(() =>
+              navigate({
+                to: "/activity/events/$id",
+                params: { id: entry.id },
+              })
+            )}
+            className="cursor-pointer rounded-2xl border p-3 text-sm outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
+          >
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="font-mono text-xs font-medium">
                 {entry.type}
@@ -114,7 +124,7 @@ const EventsScreen = () => {
   );
 };
 
-export const Route = createFileRoute("/_app/activity/events")({
+export const Route = createFileRoute("/_app/activity/events/")({
   staticData: { section: "activity" },
   validateSearch: (search: Record<string, unknown>): EventsSearch => ({
     type: text(search.type),

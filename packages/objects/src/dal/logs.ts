@@ -480,5 +480,25 @@ export const createLogReader = (executor: Executor) => {
     return rows.flatMap((row) => (row.role ? [row.role] : []));
   };
 
-  return { runList, runGet, changes, events, attentionRoles };
+  /** One `audit_log` row, or null. */
+  const changeGet = async (id: string): Promise<ChangeEntry | null> => {
+    const [row] = await changesWhere(eq(auditLog.id, id), 1);
+    return row ?? null;
+  };
+
+  /** One `event_log` row, or null. */
+  const eventGet = async (id: string): Promise<EventEntry | null> => {
+    const [row] = await eventsWhere(eq(eventLog.id, id), 1);
+    return row ?? null;
+  };
+
+  return {
+    runList,
+    runGet,
+    changes,
+    events,
+    attentionRoles,
+    changeGet,
+    eventGet,
+  };
 };

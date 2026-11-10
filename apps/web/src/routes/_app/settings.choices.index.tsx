@@ -1,21 +1,23 @@
 // Settings → Choice lists (P2.10c): every list, the fields that use it and
 // how many live options it has, marked when your working draft changes it.
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { ErrorText } from "../../components/activity.tsx";
 import { ListUses, useChoiceLists } from "../../components/choice-lists.tsx";
 import { OptionBadge } from "../../components/config-editors.tsx";
+import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { canEditConfig, listLabel, optionsOf } from "../../lib/choice-lists.ts";
 
 const cell = "px-3 py-2 align-middle";
 
 const ChoiceListsScreen = () => {
+  const navigate = useNavigate();
   const { described, files, lists } = useChoiceLists();
   if (described.data && !canEditConfig(described.data)) {
     return (
       <>
-        <PageHeader title="Choice lists" />
+        <PageHeader title="Choices" />
         <p className="text-sm text-muted-foreground">
           Your roles don’t let you change config.
         </p>
@@ -24,7 +26,7 @@ const ChoiceListsScreen = () => {
   }
   return (
     <div className="flex max-w-4xl flex-col gap-4">
-      <PageHeader title="Choice lists" />
+      <PageHeader title="Choices" />
       <p className="text-sm text-muted-foreground">
         The options people pick from in choice fields. Edits go into your own
         draft and aren’t live until you publish them from the header.
@@ -45,7 +47,15 @@ const ChoiceListsScreen = () => {
             </thead>
             <tbody>
               {lists.map(({ file, edited, live }) => (
-                <tr key={file.path} className="border-b last:border-0">
+                <OpenRow
+                  key={file.path}
+                  onOpen={() =>
+                    navigate({
+                      to: "/settings/choices/$list",
+                      params: { list: file.key },
+                    })
+                  }
+                >
                   <td className={cell}>
                     <span className="flex items-center gap-2">
                       <Link
@@ -67,7 +77,7 @@ const ChoiceListsScreen = () => {
                         .length
                     }
                   </td>
-                </tr>
+                </OpenRow>
               ))}
             </tbody>
           </table>
@@ -78,6 +88,6 @@ const ChoiceListsScreen = () => {
 };
 
 export const Route = createFileRoute("/_app/settings/choices/")({
-  staticData: { section: "settings" },
+  staticData: { section: "data" },
   component: ChoiceListsScreen,
 });

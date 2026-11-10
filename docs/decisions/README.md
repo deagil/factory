@@ -17,7 +17,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0011 | [Who actions run as](0011-who-actions-run-as.md) | Superseded by [0045](0045-object-endpoints-and-workflows.md) |
 | 0012 | [Ultracite for linting and formatting](0012-ultracite-for-lint-and-format.md) | Accepted |
 | 0013 | [Marking a migration as the contract step](0013-contract-step-marker.md) | Accepted |
-| 0014 | [How field types store and filter values](0014-field-types.md) | Accepted |
+| 0014 | [How field types store and filter values](0014-field-types.md) | Accepted; amended by [0052](0052-computed-and-display-fields.md) |
 | 0015 | [defineObject's tables, records and registry](0015-define-object-tables-and-records.md) | Accepted |
 | 0016 | [What the schema check compares](0016-schema-check.md) | Accepted |
 | 0017 | [How the data access layer lists, pages and follows refs](0017-data-access-layer.md) | Accepted |
@@ -36,7 +36,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0030 | [Contract tests across surfaces](0030-contract-tests-across-surfaces.md) | Accepted |
 | 0031 | [`defineSystem`, `createServer` and running a system](0031-define-system-and-create-server.md) | Accepted |
 | 0032 | [How the web app reaches the API](0032-web-app-reaches-the-api.md) | Accepted |
-| 0033 | [Web navigation by section, and what the dev bar is for](0033-web-navigation-and-dev-bar.md) | Accepted |
+| 0033 | [Web navigation by section, and what the dev bar is for](0033-web-navigation-and-dev-bar.md) | Accepted; amended by [0049](0049-navigation-lists-categories.md) and [0051](0051-breadcrumb-omits-the-section.md) |
 | 0034 | [Inviting people, setting roles, and disabling actors](0034-inviting-and-disabling-people.md) | Accepted |
 | 0035 | [Restoring archived records, and archiving in the audit log](0035-restore-and-audited-archiving.md) | Accepted |
 | 0036 | [System migrations](0036-system-migrations.md) | Accepted |
@@ -52,6 +52,10 @@ One file per settled decision. To change a decision, add a new record that super
 | 0046 | [Runs, segments and errors](0046-runs-segments-and-errors.md) | Accepted |
 | 0047 | [One snake_case name on every surface](0047-snake-case-names.md) | Accepted |
 | 0048 | [The workflow file and its validation](0048-workflow-file-format.md) | Accepted |
+| 0049 | [Navigation lists categories, then the things in them](0049-navigation-lists-categories.md) | Accepted; amended by [0050](0050-approvals-in-the-account-menu.md) and [0051](0051-breadcrumb-omits-the-section.md) |
+| 0050 | [Approvals live in the account menu](0050-approvals-in-the-account-menu.md) | Accepted |
+| 0051 | [The breadcrumb omits the section](0051-breadcrumb-omits-the-section.md) | Accepted |
+| 0052 | [Computed fields, and the display field](0052-computed-and-display-fields.md) | Accepted |
 
 ## Template
 

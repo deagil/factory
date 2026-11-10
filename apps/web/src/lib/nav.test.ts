@@ -1,27 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { navFrom } from "./nav.ts";
+import { accountPages, navFrom } from "./nav.ts";
 
 const described = (
   objects: object[],
   queries: string[] = [],
-  actions: string[] = []
+  actions: string[] = [],
+  extra: { events?: object[]; workflows?: object[] } = {}
 ) =>
   ({
     objects,
     actions: actions.map((name) => ({ name })),
     queries: queries.map((name) => ({ name })),
-    events: [],
-    workflows: [],
+    events: extra.events ?? [],
+    workflows: extra.workflows ?? [],
   }) as never;
 
-const settingsPages = (actions: string[]) =>
-  navFrom(described([], [], actions))
-    .find((section) => section.key === "settings")
+const pages = (key: string, description: ReturnType<typeof described>) =>
+  navFrom(description)
+    .find((section) => section.key === key)
     ?.pages.map((page) => page.key);
 
 describe(navFrom, () => {
-  it("puts the objects in Data, in plural, with their descriptions", () => {
+  it("puts Objects in Data when the caller can see any", () => {
     const nav = navFrom(
       described([
         { name: "contact", label: "Contact", description: "People we know." },
@@ -34,19 +35,40 @@ describe(navFrom, () => {
         label: "Data",
         pages: [
           {
-            key: "object:contact",
-            label: "Contacts",
-            description: "People we know.",
-            link: { to: "/o/$object", params: { object: "contact" } },
-          },
-          {
-            key: "object:company",
-            label: "Companies",
-            description: "Every company in the system.",
-            link: { to: "/o/$object", params: { object: "company" } },
+            key: "data:objects",
+            label: "Objects",
+            description: "The kinds of record this system keeps.",
+            link: { to: "/data/objects" },
           },
         ],
       },
+    ]);
+  });
+
+  it("puts Choices in Data for people who can change config", () => {
+    expect(pages("data", described([]))).toBeUndefined();
+    expect(pages("data", described([], [], ["draft.save"]))).toStrictEqual([
+      "data:choices",
+    ]);
+    expect(pages("settings", described([], [], ["draft.save"]))).toStrictEqual([
+      "settings:reference",
+      "settings:api",
+    ]);
+  });
+
+  it("groups workflows, actions and events under Automation", () => {
+    expect(
+      pages(
+        "automation",
+        described([], [], ["contact_create"], {
+          events: [{ type: "contact.created" }],
+          workflows: [{}],
+        })
+      )
+    ).toStrictEqual([
+      "automation:workflows",
+      "automation:actions",
+      "automation:events",
     ]);
   });
 
@@ -55,6 +77,10 @@ describe(navFrom, () => {
     expect(nav.map((section) => section.key)).toStrictEqual([
       "activity",
       "settings",
+    ]);
+    expect(nav[0]?.pages.map((page) => page.label)).toStrictEqual([
+      "Workflow runs",
+      "Event log",
     ]);
     expect(nav[0]?.pages.map((page) => page.link)).toStrictEqual([
       { to: "/activity/runs" },
@@ -65,42 +91,45 @@ describe(navFrom, () => {
   it("shows Access pages only to those who manage access", () => {
     const own = navFrom(described([], ["actor.list", "actor.get"]));
     const admin = navFrom(
-      described([], ["role.list"], ["user.invite", "actor.setRoles"])
+      described(
+        [],
+        ["role.list", "draft.files"],
+        ["user.invite", "actor.setRoles"]
+      )
     );
     expect(own.map((section) => section.key)).toStrictEqual(["settings"]);
-    expect(admin[0]?.pages.map((page) => page.label)).toStrictEqual([
-      "Users",
-      "Agents",
-      "Roles",
-    ]);
+    expect(
+      admin
+        .find((section) => section.key === "access")
+        ?.pages.map((page) => page.label)
+    ).toStrictEqual(["Users", "Agents", "Roles", "Policies"]);
   });
 
-  it("puts approvals in Inbox and drafts in Config", () => {
-    const nav = navFrom(described([], ["approval.list", "draft.list"]));
+  it("puts approvals in the account menu and drafts in Config", () => {
+    const description = described([], ["approval.list", "draft.list"]);
     expect(
-      nav.map((section) => [section.key, section.pages[0]?.link])
+      navFrom(description).map((section) => [
+        section.key,
+        section.pages[0]?.link,
+      ])
     ).toStrictEqual([
-      ["inbox", { to: "/inbox/approvals" }],
       ["config", { to: "/config/drafts" }],
       ["settings", { to: "/settings/reference" }],
     ]);
+    expect(accountPages(description)).toStrictEqual([
+      {
+        key: "account:approvals",
+        label: "Approvals",
+        description: "Runs and drafts waiting for you to sign them off.",
+        link: { to: "/inbox/approvals" },
+      },
+    ]);
+    expect(accountPages(described([]))).toStrictEqual([]);
   });
 
   it("leaves out a section with no pages, and always has Settings", () => {
     expect(navFrom(described([])).map((section) => section.key)).toStrictEqual([
       "settings",
-    ]);
-  });
-
-  it("shows Choice lists in Settings only to those who can change config", () => {
-    expect(settingsPages([])).toStrictEqual([
-      "settings:reference",
-      "settings:api",
-    ]);
-    expect(settingsPages(["draft.save"])).toStrictEqual([
-      "settings:choices",
-      "settings:reference",
-      "settings:api",
     ]);
   });
 });

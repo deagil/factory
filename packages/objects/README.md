@@ -8,11 +8,19 @@ defineObject, the field types library, the data access layer (the only way to re
 import { f } from "@workspace/objects";
 
 f.text({ required: true, maxLength: 200 });
+f.email(); // trimmed, then checked as an address; 320 characters
+f.url(); // http or https; a missing scheme is stored as https
 f.number({ integer: true, min: 0 });
 f.money({ currency: "GBP" }); // { amount: 1234, currency: "GBP" } is £12.34
 f.date(); // "2026-11-06"
 f.boolean();
 f.ref("organisation"); // or f.ref("actor")
+f.computed({
+  type: "text",
+  using: "concat",
+  fields: ["firstName", "lastName"],
+  displayField: true, // the one field a reference shows; avatar names an image field
+});
 ```
 
 Each field gives its column builders, an input and an output Zod schema, a plain display string and its filter operators.

@@ -27,7 +27,7 @@ declare module "@tanstack/react-router" {
     router: ReturnType<typeof getRouter>;
   }
   interface StaticDataRouteOption {
-    /** The navigation section a screen belongs to, for the breadcrumb. */
+    /** The navigation section a screen belongs to, so the header can mark it. */
     section?: SectionKey;
   }
 }

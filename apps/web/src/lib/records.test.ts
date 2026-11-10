@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  avatarSrc,
   columnsOf,
   displayValue,
   filterText,
@@ -62,7 +63,7 @@ describe("record helpers", () => {
     expect(filterText(name, "isNull", true)).toBe("");
     expect(
       filterText(value, "gte", { amount: 1_500_000, currency: "GBP" })
-    ).toBe("15000");
+    ).toBe("15000.00");
     expect(filterText(value, "eq", { amount: 1234, currency: "GBP" })).toBe(
       "12.34"
     );
@@ -105,7 +106,34 @@ describe("record helpers", () => {
     expect(displayValue(stage, { stage: "lost" }, {}, undefined)).toBe("Lost");
   });
 
+  it("shows a url without its http prefix", () => {
+    const website = {
+      key: "website",
+      type: "url",
+    } as unknown as ObjectDescription["fields"][number];
+    expect(
+      displayValue(website, { website: "https://acme.example" }, {}, undefined)
+    ).toBe("acme.example");
+  });
+
   it("names a record by its first text field", () => {
     expect(titleOf({ id: "x", name: "Acme" }, organisation)).toBe("Acme");
+  });
+
+  it("names a record by its display field, and reads an avatar url", () => {
+    const person = {
+      fields: [
+        { key: "firstName", type: "text" },
+        { key: "fullName", type: "computed", display: true, avatar: "photo" },
+      ],
+    } as unknown as ObjectDescription;
+    expect(
+      titleOf({ id: "x", firstName: "Ada", fullName: "Ada Lovelace" }, person)
+    ).toBe("Ada Lovelace");
+    expect(avatarSrc({ photo: "https://people.example/ada.png" }, person)).toBe(
+      "https://people.example/ada.png"
+    );
+    expect(avatarSrc({ photo: "/ada.png" }, person)).toBe("/ada.png");
+    expect(avatarSrc({ photo: "ada.png" }, person)).toBeNull();
   });
 });

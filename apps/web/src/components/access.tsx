@@ -1,7 +1,7 @@
 // Pieces the Access screens share (P1b.06): actor lists, role pickers, a
 // form built from an action's input schema, and a key shown once.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { useState } from "react";
@@ -11,6 +11,7 @@ import type { SystemDescription } from "../lib/api.ts";
 import { findAction, humanise } from "../lib/forms.ts";
 import type { Role } from "../lib/roles.ts";
 import { ErrorText, when } from "./activity.tsx";
+import { OpenRow } from "./open-row.tsx";
 import { PageHeader } from "./page-header.tsx";
 
 export interface ActorEntry {
@@ -343,65 +344,70 @@ export const ActorTable = ({
   actors: ActorEntry[];
   roles: Role[] | undefined;
   showPerson: "email" | "owner" | false;
-}) => (
-  <div className="overflow-x-auto rounded-2xl border">
-    <table className="w-full text-left text-sm">
-      <thead className="border-b bg-muted/50">
-        <tr>
-          <th className="px-3 py-2 font-medium">Name</th>
-          {showPerson === "email" && (
-            <th className="px-3 py-2 font-medium">Email</th>
-          )}
-          {showPerson === "owner" && (
-            <th className="px-3 py-2 font-medium">For</th>
-          )}
-          <th className="px-3 py-2 font-medium">Roles</th>
-          <th className="px-3 py-2 font-medium">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {actors.map((actor) => (
-          <tr
-            key={actor.id}
-            className="border-b last:border-0 hover:bg-muted/30"
-          >
-            <td className="px-3 py-2">
-              <Link
-                to="/access/actors/$id"
-                params={{ id: actor.id }}
-                className="font-medium hover:underline"
-              >
-                {actor.name}
-              </Link>
-            </td>
+}) => {
+  const navigate = useNavigate();
+  return (
+    <div className="overflow-x-auto rounded-2xl border">
+      <table className="w-full text-left text-sm">
+        <thead className="border-b bg-muted/50">
+          <tr>
+            <th className="px-3 py-2 font-medium">Name</th>
             {showPerson === "email" && (
-              <td className="px-3 py-2">{actor.user?.email}</td>
+              <th className="px-3 py-2 font-medium">Email</th>
             )}
             {showPerson === "owner" && (
-              <td className="px-3 py-2">{actor.user?.name}</td>
+              <th className="px-3 py-2 font-medium">For</th>
             )}
-            <td className="px-3 py-2">
-              <RoleBadges keys={actor.roles} roles={roles} />
-            </td>
-            <td className="px-3 py-2">
-              <StatusText status={actor.status} />
-            </td>
+            <th className="px-3 py-2 font-medium">Roles</th>
+            <th className="px-3 py-2 font-medium">Status</th>
           </tr>
-        ))}
-        {actors.length === 0 && (
-          <tr>
-            <td
-              colSpan={4}
-              className="px-3 py-6 text-center text-muted-foreground"
+        </thead>
+        <tbody>
+          {actors.map((actor) => (
+            <OpenRow
+              key={actor.id}
+              onOpen={() =>
+                navigate({ to: "/access/actors/$id", params: { id: actor.id } })
+              }
             >
-              None yet.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-);
+              <td className="px-3 py-2">
+                <Link
+                  to="/access/actors/$id"
+                  params={{ id: actor.id }}
+                  className="font-medium hover:underline"
+                >
+                  {actor.name}
+                </Link>
+              </td>
+              {showPerson === "email" && (
+                <td className="px-3 py-2">{actor.user?.email}</td>
+              )}
+              {showPerson === "owner" && (
+                <td className="px-3 py-2">{actor.user?.name}</td>
+              )}
+              <td className="px-3 py-2">
+                <RoleBadges keys={actor.roles} roles={roles} />
+              </td>
+              <td className="px-3 py-2">
+                <StatusText status={actor.status} />
+              </td>
+            </OpenRow>
+          ))}
+          {actors.length === 0 && (
+            <tr>
+              <td
+                colSpan={4}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                None yet.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 /** Actors of one kind, every page of them (lists here are short). */
 export const useActors = (kind: ActorEntry["kind"]) =>

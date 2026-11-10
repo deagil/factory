@@ -20,7 +20,7 @@ import { runAction } from "../../lib/api.ts";
 import { canEditConfig, listLabel, optionsOf } from "../../lib/choice-lists.ts";
 
 const trail = [
-  { label: "Choice lists", link: { to: "/settings/choices" } },
+  { label: "Choices", link: { to: "/settings/choices" } },
 ] as const;
 
 const ChoiceListScreen = () => {
@@ -119,6 +119,6 @@ const ChoiceListScreen = () => {
 };
 
 export const Route = createFileRoute("/_app/settings/choices/$list")({
-  staticData: { section: "settings" },
+  staticData: { section: "data" },
   component: ChoiceListScreen,
 });

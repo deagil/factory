@@ -61,7 +61,15 @@ export const housekeepingFilters: Record<string, Filterable> = {
 /** Housekeeping columns a list can sort on. Their values are timestamps. */
 export const timestampSortKeys = ["createdAt", "updatedAt"] as const;
 
-const sortableKinds = new Set(["text", "number", "money", "date", "boolean"]);
+const sortableKinds = new Set([
+  "text",
+  "email",
+  "url",
+  "number",
+  "money",
+  "date",
+  "boolean",
+]);
 
 /** The keys an object's lists can sort on: some fields, and the timestamps. */
 export const sortKeysOf = (object: AnyObjectDefinition): string[] => [
@@ -110,7 +118,9 @@ const isIntegerNumber = (field: AnyField): boolean =>
 const cursorValueSchema = (field: AnyField): z.ZodType => {
   let value: z.ZodType;
   switch (field.kind) {
-    case "text": {
+    case "text":
+    case "email":
+    case "url": {
       value = z.string();
       break;
     }

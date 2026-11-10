@@ -1,7 +1,7 @@
-// The header's navigation (decision 0033): the system's sections, each
-// opening a panel of its pages with a line about each, and the account
-// menu. Phones get one menu with every section in it.
-import { Link } from "@tanstack/react-router";
+// The header's navigation (decisions 0033 and 0049): the system's sections,
+// each opening a panel of its categories with a line about each, and the
+// account menu. Phones get one menu with every section in it.
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -31,7 +31,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import { Menu } from "lucide-react";
 import { Fragment } from "react";
 
-import type { NavLink, NavSection, SectionKey } from "../lib/nav.ts";
+import type { NavLink, NavPage, NavSection, SectionKey } from "../lib/nav.ts";
 
 /** A hover has to settle this long before a panel opens. */
 const OPEN_DELAY_MS = 200;
@@ -129,44 +129,59 @@ const initialsOf = (name: string) =>
 export const AccountMenu = ({
   name,
   email,
+  pages,
   onSignOut,
 }: {
   name: string;
   email: string;
+  /** Yours, such as approvals waiting for you. Empty until the system loads. */
+  pages: NavPage[];
   onSignOut: () => void;
-}) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      render={
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Account"
-          title={email}
-          className="rounded-full"
-        />
-      }
-    >
-      <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-        {initialsOf(name) || "?"}
-      </span>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="min-w-56">
-      <DropdownMenuGroup>
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="text-sm text-foreground">{name}</span>
-          <span className="truncate">{email}</span>
-        </DropdownMenuLabel>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem render={<Link to="/account/agents" />}>
-        My agents
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={onSignOut}>Sign out</DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-);
+}) => {
+  const here = useRouterState({
+    select: (state) =>
+      state.location.pathname.startsWith("/account") ||
+      state.location.pathname.startsWith("/inbox/approvals"),
+  });
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Account"
+            title={email}
+            className={cn("rounded-full", here && "bg-muted")}
+          />
+        }
+      >
+        <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+          {initialsOf(name) || "?"}
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="text-sm text-foreground">{name}</span>
+            <span className="truncate">{email}</span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        {pages.map((page) => (
+          <DropdownMenuItem key={page.key} render={<Link {...page.link} />}>
+            {page.label}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuItem render={<Link to="/account/agents" />}>
+          My agents
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onSignOut}>Sign out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 /** A step on the way to the current page. */
 export interface Crumb {
@@ -174,20 +189,13 @@ export interface Crumb {
   link: NavLink;
 }
 
-/** The section, then the pages above this one. The title is the last step. */
-export const PageBreadcrumb = ({
-  section,
-  trail,
-}: {
-  section: string | null;
-  trail: Crumb[];
-}) => (
+/** The pages above this one. The title is the last step. */
+export const PageBreadcrumb = ({ trail }: { trail: Crumb[] }) => (
   <Breadcrumb>
     <BreadcrumbList className="gap-1.5 sm:gap-1.5">
-      {section ? <BreadcrumbItem>{section}</BreadcrumbItem> : null}
       {trail.map((crumb, index) => (
         <Fragment key={crumb.label}>
-          {section || index > 0 ? <BreadcrumbSeparator /> : null}
+          {index > 0 ? <BreadcrumbSeparator /> : null}
           <BreadcrumbItem>
             <BreadcrumbLink render={<Link {...crumb.link} />}>
               {crumb.label}
