@@ -301,6 +301,7 @@ const WorkflowScreen = () => {
     step?: string;
     v?: string;
     view?: "list";
+    path?: string | undefined;
   }) => {
     void navigate({ search: (previous) => ({ ...previous, ...next }) });
   };
@@ -375,7 +376,9 @@ const WorkflowScreen = () => {
           roles={roles.data}
           next={whatNext}
           selected={search.step}
-          onSelect={(step) => setSearch({ step })}
+          onSelect={(step) => setSearch({ step, path: undefined })}
+          path={search.path}
+          onPlace={setSearch}
           view={search.view}
           onView={(view) => setSearch({ view })}
         />

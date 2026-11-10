@@ -5,14 +5,23 @@ import "@xyflow/react/dist/style.css";
 import { Button } from "@workspace/ui/components/button";
 import {
   Background,
+  BaseEdge,
+  EdgeLabelRenderer,
   Handle,
   MarkerType,
   Panel,
   Position,
   ReactFlow,
+  getSmoothStepPath,
   useReactFlow,
 } from "@xyflow/react";
-import type { Edge, Node, NodeProps, ReactFlowInstance } from "@xyflow/react";
+import type {
+  Edge,
+  EdgeProps,
+  Node,
+  NodeProps,
+  ReactFlowInstance,
+} from "@xyflow/react";
 import {
   CircleAlert,
   CircleDashed,
@@ -32,6 +41,7 @@ import { countWords, findingsByRow } from "../lib/workflow-problems.ts";
 import type { Finding } from "../lib/workflow-problems.ts";
 import type { Cut } from "../lib/workflow-segments.ts";
 import {
+  insidePath,
   kindWords,
   rowName,
   rowTitle,
@@ -45,6 +55,10 @@ interface ChartData extends Record<string, unknown> {
   /** The words on a start or end marker. */
   text: string;
   pressed: boolean;
+  /** The step is inside the path that is open beside the canvas. */
+  inPath: boolean;
+  /** Open a path with no steps, from its marker. */
+  onPath: (path: string) => void;
   /** "1 problem, 2 warnings", or null. */
   found: string | null;
   cut: Cut | undefined;
@@ -115,7 +129,7 @@ const StepNode = ({ row, data }: { row: TreeRow; data: ChartData }) => {
         data.pressed
           ? "border-foreground bg-muted"
           : "bg-background hover:bg-muted/60"
-      }`}
+      } ${data.inPath ? "border-foreground" : ""}`}
     >
       <CutMark cut={data.cut} />
       <span className="flex min-w-0 items-center gap-2">
@@ -159,14 +173,28 @@ const Marker = ({ data }: { data: ChartData }) => {
     );
   }
   const Icon = markerIcons[node.kind];
+  if (node.kind === "empty") {
+    return (
+      <button
+        type="button"
+        aria-pressed={data.pressed}
+        aria-label="A path with no steps. Open it."
+        onClick={() => data.onPath(node.id)}
+        className={`nopan flex size-full cursor-pointer items-center justify-center gap-1.5 rounded-full border border-dashed px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+          data.pressed
+            ? "border-foreground bg-muted"
+            : "text-muted-foreground hover:bg-muted/60"
+        }`}
+      >
+        <Icon aria-hidden className="size-3.5 shrink-0" />
+        {data.text}
+      </button>
+    );
+  }
   return (
     <span
       title={data.text}
-      className={`flex size-full items-center justify-center gap-1.5 rounded-full border px-3 text-xs ${
-        node.kind === "empty"
-          ? "border-dashed text-muted-foreground"
-          : "bg-muted font-medium"
-      }`}
+      className="flex size-full items-center justify-center gap-1.5 rounded-full border bg-muted px-3 text-xs font-medium"
     >
       <Icon aria-hidden className="size-3.5 shrink-0" />
       <span className="truncate">{data.text}</span>
@@ -189,6 +217,54 @@ const nodeTypes = { chart: ChartNodeView };
 
 const lineColour = "var(--muted-foreground)";
 
+interface PathData extends Record<string, unknown> {
+  label: string;
+  /** "Then, the path from Check reason": what a screen reader hears. */
+  name: string;
+  pressed: boolean;
+  onOpen: () => void;
+}
+
+type PathEdge = Edge<PathData, "path">;
+
+/** A line into a path, whose label opens that path beside the canvas. */
+const PathEdgeView = (props: EdgeProps<PathEdge>) => {
+  const [line, x, y] = getSmoothStepPath(props);
+  const { data } = props;
+  return (
+    <>
+      <BaseEdge
+        id={props.id}
+        path={line}
+        style={props.style}
+        {...(props.markerEnd ? { markerEnd: props.markerEnd } : {})}
+      />
+      {data ? (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            aria-pressed={data.pressed}
+            aria-label={data.name}
+            onClick={() => data.onOpen()}
+            style={{
+              transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+            }}
+            className={`nodrag nopan pointer-events-auto absolute cursor-pointer rounded-md border px-1.5 text-xs/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+              data.pressed
+                ? "border-foreground bg-foreground text-background"
+                : "bg-background hover:bg-muted"
+            }`}
+          >
+            {data.label}
+          </button>
+        </EdgeLabelRenderer>
+      ) : null}
+    </>
+  );
+};
+
+const edgeTypes = { path: PathEdgeView };
+
 const edgeOf = (edge: LayoutEdge): Edge => ({
   id: edge.id,
   source: edge.from,
@@ -200,15 +276,6 @@ const edgeOf = (edge: LayoutEdge): Edge => ({
   selectable: false,
   markerEnd: { type: MarkerType.ArrowClosed, color: lineColour },
   style: { stroke: lineColour },
-  ...(edge.label
-    ? {
-        label: edge.label,
-        labelStyle: { fill: "var(--foreground)", fontSize: 12 },
-        labelBgStyle: { fill: "var(--background)" },
-        labelBgPadding: [6, 3] as [number, number],
-        labelBgBorderRadius: 6,
-      }
-    : {}),
 });
 
 const ZoomButtons = () => {
@@ -261,6 +328,9 @@ export interface WorkflowCanvasProps {
   /** By step id: the steps that end a segment, and those sent after one. */
   cuts: ReadonlyMap<string, Cut>;
   queued: ReadonlySet<string>;
+  /** The path open beside the canvas, such as `steps.1.then`. */
+  path: string | undefined;
+  onPath: (path: string | undefined) => void;
   /** What starts the workflow, and what it gives back, in words. */
   startText: string;
   endText: string;
@@ -295,7 +365,12 @@ const useChart = (props: WorkflowCanvasProps) => {
       data: {
         node,
         text: markerText(node, props),
-        pressed: selected !== undefined && selected.path === node.id,
+        pressed:
+          node.kind === "empty"
+            ? props.path === node.id
+            : selected !== undefined && selected.path === node.id,
+        inPath: node.kind === "step" && insidePath(node.row, props.path),
+        onPath: (path) => props.onPath(props.path === path ? undefined : path),
         found: countWords(byRow.get(node.id) ?? []),
         cut: cuts.get(id),
         queued: queued.has(id),
@@ -304,7 +379,27 @@ const useChart = (props: WorkflowCanvasProps) => {
       },
     };
   });
-  const edges = useMemo(() => layout.edges.map(edgeOf), [layout]);
+  const titles = new Map(
+    layout.nodes.flatMap((node): [string, string][] =>
+      node.kind === "step" ? [[node.id, rowTitle(node.row)]] : []
+    )
+  );
+  const edges = layout.edges.map((edge): Edge => {
+    const { label, opens } = edge;
+    return label === null || opens === null
+      ? edgeOf(edge)
+      : {
+          ...edgeOf(edge),
+          type: "path",
+          data: {
+            label,
+            name: `${label}, the path from ${titles.get(edge.from) ?? "the step"}. Open it.`,
+            pressed: props.path === opens,
+            onOpen: () =>
+              props.onPath(props.path === opens ? undefined : opens),
+          } satisfies PathData,
+        };
+  });
   return { layout, nodes, edges };
 };
 
@@ -329,6 +424,7 @@ export const WorkflowCanvas = (props: WorkflowCanvasProps) => {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ maxZoom: 1, padding: 0.08 }}
         minZoom={0.3}

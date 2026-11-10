@@ -59,6 +59,8 @@ export interface WorkflowPageSearch {
   v?: string;
   /** A version that could not be read, so the page shows live instead. */
   was?: string;
+  /** The path open beside the canvas, such as `steps.1.then`. */
+  path?: string;
   /** The steps as the outline. The canvas is the default, so it is left out. */
   view?: "list";
 }
@@ -210,6 +212,7 @@ export const workflowPageSearch = (
     ...(step ? { step } : {}),
     ...(v ? { v } : {}),
     ...(was !== undefined && commitSha.test(was) ? { was } : {}),
+    ...(text(search.path) ? { path: text(search.path) } : {}),
     ...(search.view === "list" ? { view: "list" } : {}),
   };
 };
