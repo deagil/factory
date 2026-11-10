@@ -138,10 +138,12 @@ export type {
 } from "./permissions.ts";
 export {
   allGranted,
+  describeAction,
   describeFor,
   describeOutput,
   describeQuery,
   describeWorkflowField,
+  jsonSchemaOf,
 } from "./describe.ts";
 export { historyEntrySchema, historyQuery } from "./history.ts";
 export {

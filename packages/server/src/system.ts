@@ -59,6 +59,10 @@ import type {
   WorkflowProblem,
 } from "@workspace/workflows";
 
+import {
+  actionEventStepActions,
+  actionEventWorkflows,
+} from "./action-event-workflows.ts";
 import { catalogOf } from "./catalog.ts";
 import { configValidateQuery } from "./config.ts";
 
@@ -185,10 +189,18 @@ export const defineSystem = (options: SystemOptions): System => {
     }),
   ]);
   const steps = new Map<string, AnyActionDefinition>();
+  const workflows = new Map<string, WorkflowDefinition>();
+  const listing = actionEventStepActions({
+    objects: options.objects,
+    steps,
+    definitions: () => registry.list(),
+    codeWorkflows: workflows,
+  });
   for (const action of [
     ...stepActions(options.objects),
     ...coreWorkflowActions,
     ...(options.stepActions ?? []),
+    ...listing,
   ]) {
     if (steps.has(action.name)) {
       throw new Error(
@@ -197,8 +209,11 @@ export const defineSystem = (options: SystemOptions): System => {
     }
     steps.set(action.name, action);
   }
-  const workflows = new Map<string, WorkflowDefinition>();
-  for (const workflow of [...coreWorkflows, ...(options.workflows ?? [])]) {
+  for (const workflow of [
+    ...coreWorkflows,
+    ...actionEventWorkflows,
+    ...(options.workflows ?? []),
+  ]) {
     if (workflows.has(workflow.key)) {
       throw new Error(
         `The workflow "${workflow.key}" is defined twice. Keys must be unique.`

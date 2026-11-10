@@ -152,6 +152,12 @@ const toJson = (schema: z.ZodType, io: "input" | "output" = "output") => {
   return rest;
 };
 
+/** A schema as JSON Schema, the same shape `describeAction` gives. */
+export const jsonSchemaOf = (
+  schema: z.ZodType,
+  io: "input" | "output" = "output"
+) => toJson(schema, io);
+
 const builtInColumns = new Set(["key", "label", "description", "archived"]);
 
 /** A choice field's options, or null when `field` isn't a choice. */
@@ -236,7 +242,8 @@ const describeDefinition = (definition: AnyDefinition) => ({
   output: toJson(definition.output),
 });
 
-const describeAction = (action: AnyActionDefinition) => ({
+/** One action as `system.describe` shows it, camelCase keys included. */
+export const describeAction = (action: AnyActionDefinition) => ({
   ...describeDefinition(action),
   kind: action.kind,
   emits: Object.keys(action.emits),

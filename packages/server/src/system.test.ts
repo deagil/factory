@@ -30,6 +30,8 @@ describe("workflows in code (P2.16)", () => {
     expect(described.map((workflow) => workflow.key)).toStrictEqual([
       "workflow_list",
       "workflow_get",
+      "action_list",
+      "event_list",
       "organisation_tidy",
     ]);
     expect(

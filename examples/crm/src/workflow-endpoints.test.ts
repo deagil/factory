@@ -224,7 +224,9 @@ describe("workflow endpoints (P2.18)", () => {
     await expect(
       describedFor().then((keys) => keys.toSorted())
     ).resolves.toStrictEqual([
+      "action_list",
       "deal_move_stage",
+      "event_list",
       "workflow_get",
       "workflow_list",
     ]);
