@@ -128,7 +128,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
 
 ### Phase 1: view and understand
 
-- [ ] **WE.01 `workflow_list` and `workflow_get`** [API]
+- [x] **WE.01 `workflow_list` and `workflow_get`** [API]
   - Two read-only code workflows in the core, each one step running a read-only internal action, as rows 1 and 2 above. Live reads come from the config the call pinned (`ctx.config.workflows`, which already holds every definition); a draft or a sha is read with `ctx.git`, and without a config remote those inputs are refused with the message drafts already give. `revision` is the file's git blob id. A code workflow has `source: code`, `editable: false` and no revision.
   - `check` here has problems, warnings and segments; scopes come with WE.02. The CRM's admin and manager roles are granted both.
   - **Needs:** nothing (P2.18 is done).
@@ -342,6 +342,7 @@ These hold for every web task; a task isn't done if it breaks one.
 
 - 2026-11-10 · plan · Written from Dylan's brief for the visual workflow editor. Decisions 0053 to 0058 proposed.
 - 2026-11-10 · WE.00 · [#101](https://github.com/deagil/factory/pull/101) · Decisions 0053 to 0058 accepted. P2.23 split into P2.23a (the run inspector, reusing WE.06's outline) and P2.23b (the read-only workflow view, done by WE.04 to WE.10); P2.10f and P2.30 need P2.23a only. Step labels stay off the file until WE.10a looks again, after phase 1. The five value-building actions are WE.17a, straight after WE.17. Schedules stay UTC in the file and are shown with the viewer's local time beside them.
+- 2026-11-10 · WE.01 · [#105](https://github.com/deagil/factory/pull/105) · `workflow_list` and `workflow_get` are the core's first code workflows, one read-only step each (`packages/workflows/src/code.ts`). A draft or a sha is read through `ctx.git`, which steps now receive; a file's revision is its git blob id. `check` includes the scopes from WE.02. Without a config remote, those inputs are refused and a config workflow is not editable.
 - 2026-11-10 · WE.02 · [#102](https://github.com/deagil/factory/pull/102) · `validateWorkflow` returns `scopes`: per step path, the steps whose output it may read; each step's output JSON Schema once; input and event fields as `describeWorkflowField` describes them, so a choice field carries its list, options and columns. A catalog event with no field list is `eventSchema`. Not wired into `workflow_get` (WE.01). The workflow's own output is recorded at the path `output`.
 
 ## Answers
