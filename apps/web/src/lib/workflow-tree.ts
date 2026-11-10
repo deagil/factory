@@ -13,6 +13,7 @@ import {
   conditionsWords,
   durationWords,
   listOf,
+  pathParts,
   plain,
   sourceWords,
   titleOf,
@@ -144,6 +145,17 @@ export const walkSteps = (steps: readonly Step[], base: string): TreeRow[] =>
     };
   });
 
+const pathsOf = (values: readonly Source[]) =>
+  values.flatMap((source) => ("from" in source ? [source.from] : []));
+
+const unique = (names: readonly (string | null)[]) => [
+  ...new Set(names.filter((name): name is string => name !== null)),
+];
+
+/** The ids of the steps these values read. */
+const stepsRead = (values: readonly Source[]) =>
+  unique(pathsOf(values).map((path) => pathParts(path).step));
+
 export interface WorkflowTree {
   rows: TreeRow[];
   /** The workflow's own failure steps, for a step with none of its own. */
@@ -151,6 +163,8 @@ export interface WorkflowTree {
   /** The workflow leaves a failure as it is: `on_failure: leave`. */
   leaves: boolean;
   attentionRole: string | null;
+  /** The steps the workflow's own output reads. */
+  outputReads: string[];
 }
 
 const ownFailure = (definition: WorkflowDefinition): TreeGroup | null => {
@@ -172,6 +186,7 @@ export const workflowTree = (
   onFailure: definition ? ownFailure(definition) : null,
   leaves: definition?.on_failure === "leave",
   attentionRole: definition?.attention_role ?? null,
+  outputReads: stepsRead(Object.values(definition?.output ?? {})),
 });
 
 const below = (row: TreeRow): TreeRow[] => [
@@ -283,9 +298,14 @@ export const rowName = (row: TreeRow): string =>
 // ---------------------------------------------------------------------------
 // A step's detail
 
+/** One input: its name, where it comes from, and the step it reads, if any. */
+export interface DetailRow extends FactRow {
+  reads: string | null;
+}
+
 export interface StepDetail {
   /** Each input, and where its value comes from. */
-  inputs: FactRow[];
+  inputs: DetailRow[];
   /** Conditions, for an `if` or an approval that asks only sometimes. */
   conditions: string[];
   /** Other settings, such as an approval's roles or a failure's message. */
@@ -294,10 +314,11 @@ export interface StepDetail {
 
 const sources = (
   values: Readonly<Record<string, Source>> | undefined
-): FactRow[] =>
+): DetailRow[] =>
   Object.entries(values ?? {}).map(([name, source]) => ({
     name,
     words: sourceWords(source),
+    reads: "from" in source ? pathParts(source.from).step : null,
   }));
 
 const withOf = (step: Step) => {
@@ -348,6 +369,34 @@ export const stepDetail = (step: Step): StepDetail => ({
     words === undefined ? [] : [{ name, words }]
   ),
 });
+
+// ---------------------------------------------------------------------------
+// What reads what
+
+const valuesOf = (step: Step): Source[] => [
+  ...Object.values(withOf(step) ?? {}),
+  ...("wait" in step && "until" in step.wait ? [step.wait.until] : []),
+];
+
+/** The ids of the steps this step reads, in its inputs and its conditions. */
+export const stepReads = (step: Step): string[] =>
+  unique(
+    [
+      ...pathsOf(valuesOf(step)),
+      ...conditionsOf(step).map((condition) => condition.field),
+    ].map((path) => pathParts(path).step)
+  );
+
+/** For each step id, the rows that read its output. */
+export const readersOf = (tree: WorkflowTree): Map<string, TreeRow[]> => {
+  const readers = new Map<string, TreeRow[]>();
+  for (const row of allRows(tree)) {
+    for (const id of stepReads(row.step)) {
+      readers.set(id, [...(readers.get(id) ?? []), row]);
+    }
+  }
+  return readers;
+};
 
 // ---------------------------------------------------------------------------
 // Collapsed branches, kept per workflow

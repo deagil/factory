@@ -2,10 +2,12 @@
 // takes, its steps with the places it commits, what it gives back, how it
 // can fail, who can call it and who it acts as.
 import type { WorkflowCheck } from "@workspace/workflows";
-import { Scissors, Send, TriangleAlert } from "lucide-react";
+import { CircleAlert, Scissors, Send, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Role } from "../lib/roles.ts";
+import { countWords, findingsOf } from "../lib/workflow-problems.ts";
+import type { Finding } from "../lib/workflow-problems.ts";
 import {
   actsAsWords,
   callersWords,
@@ -15,7 +17,7 @@ import {
   queuedOf,
 } from "../lib/workflow-segments.ts";
 import type { Cut } from "../lib/workflow-segments.ts";
-import { allRows } from "../lib/workflow-tree.ts";
+import { allRows, rowTitle } from "../lib/workflow-tree.ts";
 import type { WorkflowTree } from "../lib/workflow-tree.ts";
 import { titleOf } from "../lib/workflow-words.ts";
 import type {
@@ -136,6 +138,71 @@ const Warnings = ({ check }: { check: WorkflowCheck | undefined }) => (
   </>
 );
 
+const where = (finding: Finding) =>
+  [finding.row ? rowTitle(finding.row) : null, finding.field]
+    .filter((part) => part !== null)
+    .join(", ");
+
+const SummaryLine = ({
+  finding,
+  onSelect,
+}: {
+  finding: Finding;
+  onSelect: (step: string) => void;
+}) => {
+  const Icon = finding.kind === "problem" ? CircleAlert : TriangleAlert;
+  const { row } = finding;
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <Icon aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <span className="min-w-0 break-words">
+        <span className="font-medium">
+          {finding.kind === "problem" ? "Problem" : "Warning"}
+        </span>
+        {row ? (
+          <>
+            {" at "}
+            <button
+              type="button"
+              className="rounded-sm underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              onClick={() => onSelect(row.address)}
+            >
+              {where(finding)}
+            </button>
+          </>
+        ) : (
+          ` in ${where(finding)}`
+        )}
+        : {finding.message}
+      </span>
+    </li>
+  );
+};
+
+/** Every problem and warning, with a link to the step each is on. */
+const Summary = ({
+  findings,
+  onSelect,
+}: {
+  findings: Finding[];
+  onSelect: (step: string) => void;
+}) => {
+  const words = countWords(findings);
+  return words ? (
+    <Section title={`What the check found: ${words}`}>
+      <ul className="flex flex-col gap-1">
+        {findings.map((finding) => (
+          <SummaryLine
+            key={`${finding.row?.path}:${finding.field}:${finding.message}`}
+            finding={finding}
+            onSelect={onSelect}
+          />
+        ))}
+      </ul>
+    </Section>
+  ) : null;
+};
+
 const Access = ({
   workflow,
   startsWhen,
@@ -152,6 +219,7 @@ const Access = ({
 );
 
 export const WorkflowTab = (props: WorkflowTabProps) => {
+  const findings = findingsOf(props.tree, props.check);
   const cuts = cutsOf(props.check);
   const queued = queuedOf(props.check);
   const rows = allRows(props.tree).filter((row) => row.id !== null);
@@ -173,6 +241,7 @@ export const WorkflowTab = (props: WorkflowTabProps) => {
   return (
     <>
       <Description text={props.description} />
+      <Summary findings={findings} onSelect={props.onSelect} />
       <Starts starts={props.starts} />
       <FactList title="What it takes" rows={props.facts.input} code={false} />
       <Pauses count={cuts.size} />
@@ -181,6 +250,7 @@ export const WorkflowTab = (props: WorkflowTabProps) => {
         tree={props.tree}
         selected={props.selected}
         onSelect={props.onSelect}
+        findings={findings}
         before={before}
         notes={notes}
       />
