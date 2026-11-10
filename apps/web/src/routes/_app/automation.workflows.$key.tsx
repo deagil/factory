@@ -20,6 +20,12 @@ import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
 import type { WorkflowDescription } from "../../lib/forms.ts";
+import { titleOf } from "../../lib/workflow-words.ts";
+import type {
+  FactRow,
+  StartWords,
+  WorkflowFacts,
+} from "../../lib/workflow-words.ts";
 import {
   canReadWorkflows,
   draftChangesWorkflow,
@@ -172,6 +178,7 @@ const WorkflowTabs = ({
   tab,
   description,
   starts,
+  facts,
   steps,
   selected,
   content,
@@ -179,8 +186,9 @@ const WorkflowTabs = ({
   onSelect,
 }: {
   tab: "workflow" | "file";
+  facts: WorkflowFacts;
   description: string;
-  starts: string;
+  starts: StartWords;
   steps: readonly Step[];
   selected: string | undefined;
   content: string | null;
@@ -202,9 +210,10 @@ const WorkflowTabs = ({
         <TabsTrigger value="file">File</TabsTrigger>
       </TabsList>
       <TabsContent value="workflow" className="flex flex-col gap-4">
-        <WorkflowFacts
+        <WorkflowFactsView
           description={description}
           starts={starts}
+          facts={facts}
           steps={steps}
           selected={selected}
           known={known}
@@ -218,16 +227,55 @@ const WorkflowTabs = ({
   );
 };
 
-const WorkflowFacts = ({
+const FactList = ({
+  title,
+  rows,
+  code,
+}: {
+  title: string;
+  rows: FactRow[];
+  code: boolean;
+}) =>
+  rows.length === 0 ? null : (
+    <section className="flex flex-col gap-1">
+      <h2 className="text-sm font-medium">{title}</h2>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        {rows.map((row) => (
+          <div key={row.name} className="contents">
+            <dt className={code ? "font-mono text-xs/5" : undefined}>
+              {code ? row.name : titleOf(row.name)}
+            </dt>
+            <dd className="text-muted-foreground">{row.words}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+
+const Starts = ({ starts }: { starts: StartWords }) => (
+  <section className="flex flex-col gap-1">
+    <h2 className="text-sm font-medium">What starts it</h2>
+    <p className="text-sm">
+      {starts.text}
+      {starts.local ? (
+        <span className="text-muted-foreground"> ({starts.local})</span>
+      ) : null}
+    </p>
+  </section>
+);
+
+const WorkflowFactsView = ({
   description,
   starts,
+  facts,
   steps,
   selected,
   known,
   onSelect,
 }: {
   description: string;
-  starts: string;
+  starts: StartWords;
+  facts: WorkflowFacts;
   steps: readonly Step[];
   selected: string | undefined;
   known: boolean;
@@ -235,9 +283,12 @@ const WorkflowFacts = ({
 }) => (
   <>
     <Description text={description} />
-    <p className="text-sm">{starts}</p>
+    <Starts starts={starts} />
+    <FactList title="What it takes" rows={facts.input} code={false} />
     <StepList steps={steps} selected={selected} onSelect={onSelect} />
     <SelectedStep selected={selected} known={known} />
+    <FactList title="What it gives back" rows={facts.output} code={false} />
+    <FactList title="How it can fail" rows={facts.errors} code />
   </>
 );
 
@@ -392,6 +443,7 @@ const WorkflowScreen = () => {
         tab={present.tab}
         description={present.description}
         starts={present.starts}
+        facts={present.facts}
         steps={present.steps}
         selected={search.step}
         content={present.content}

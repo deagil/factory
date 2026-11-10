@@ -31,16 +31,16 @@ describe(whatStarts, () => {
   it("names a call, an event, a conditioned event and a schedule", () => {
     expect(whatStarts("called")).toBe("When someone runs it");
     expect(whatStarts({ event: "deal_stage_changed" })).toBe(
-      "When deal_stage_changed"
+      "When deal stage changed"
     );
     expect(
       whatStarts({
         event: "deal_updated",
         when: [{ field: "event.after.owner", empty: false }],
       })
-    ).toBe("When deal_updated, if conditions hold");
+    ).toBe("When a deal is updated, if the after's owner is not empty");
     expect(whatStarts({ schedule: "0 9 * * 1-5" })).toBe(
-      "On the schedule 0 9 * * 1-5"
+      "Every weekday at 09:00 UTC"
     );
     expect(whatStarts(null)).toBe("Unknown start");
   });
@@ -182,7 +182,8 @@ describe(presentWorkflow, () => {
       description: "Thank the customer.",
       source: "config",
       readOnly: false,
-      starts: "When deal_stage_changed",
+      starts: { text: "When deal stage changed", local: null },
+      facts: { input: [], output: [], errors: [] },
       tab: "workflow",
       missingText: null,
       content: null,

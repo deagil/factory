@@ -6,6 +6,8 @@ import type {
   WorkflowDefinition,
 } from "@workspace/workflows";
 
+import { startWords, workflowFacts } from "./workflow-words.ts";
+
 /** The read-only workflow that lists every workflow. */
 export const workflowListKey = "workflow_list";
 
@@ -65,9 +67,6 @@ const commitSha = /^[0-9a-f]{40}$/u;
 const text = (value: unknown) =>
   typeof value === "string" && value !== "" ? value : undefined;
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /** The caller may read workflow definitions, not only call them. */
 export const canReadWorkflows = (
   workflows: readonly { key: string }[] | undefined
@@ -85,21 +84,8 @@ export const readsAreReady = (
   draft: unknown
 ) => described && (!readsDrafts || draft !== undefined);
 
-/** A short line for the list. Fuller sentences come with the outline. */
-export const whatStarts = (starts: unknown): string => {
-  if (starts === "called") {
-    return "When someone runs it";
-  }
-  if (isRecord(starts) && typeof starts.event === "string") {
-    return Array.isArray(starts.when) && starts.when.length > 0
-      ? `When ${starts.event}, if conditions hold`
-      : `When ${starts.event}`;
-  }
-  if (isRecord(starts) && typeof starts.schedule === "string") {
-    return `On the schedule ${starts.schedule}`;
-  }
-  return "Unknown start";
-};
+/** What starts a workflow, as one line for the list. */
+export const whatStarts = (starts: unknown): string => startWords(starts).text;
 
 export const sourceLabel = (source: "code" | "config") => {
   switch (source) {
@@ -294,7 +280,7 @@ const whyOf = (view: WorkflowView | undefined) => view?.why ?? null;
 const startsOf = (
   definition: WorkflowDefinition | null,
   item: WorkflowListItem | undefined
-) => whatStarts(definition?.starts_when ?? item?.starts_when);
+) => startWords(definition?.starts_when ?? item?.starts_when);
 
 const stepsOf = (definition: WorkflowDefinition | null) =>
   definition?.steps ?? [];
@@ -331,6 +317,7 @@ export const presentWorkflow = (input: {
     why,
     reason: readOnlyReason(why),
     starts: startsOf(definition, input.item),
+    facts: workflowFacts(definition),
     steps: stepsOf(definition),
     content: contentOf(input.view),
     tab: tabOf(input.search.tab),
