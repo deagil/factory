@@ -497,7 +497,7 @@ output:
 3. **Regression:** every workflow's cases rerun in CI whenever a workflow, action, object or the core changes.
 4. **Two people:** the author and a different person with the approver role. Developer-written workflows reach `main` through `fx ship` and a PR, whose review is the second person.
 
-**Visibility.** Activity → Workflow runs shows each run's steps as a diagram, with segments, inputs, outputs, branches, errors and retries. Each workflow has a read-only visual view showing where it may pause, and each object a "What happens when…" view of the workflows its events start. Every record's history shows the runs that touched it.
+**Visibility.** Activity → Workflow runs shows each run's steps as a diagram, with segments, inputs, outputs, branches, errors and retries. Each workflow has a read-only visual view showing where it may pause, and each object a "What happens when…" view of the workflows its events start. Every record's history shows the runs that touched it. The workflow view, and editing in it, are planned in [plans/workflow-editor.md](plans/workflow-editor.md) (proposed).
 
 **Connects to.** Endpoints (workflows are served as endpoints), actions (every step that does something), events (triggers and `emit`), config (definitions and drafts), roles and approvals, and the web surface.
 

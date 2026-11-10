@@ -56,6 +56,12 @@ One file per settled decision. To change a decision, add a new record that super
 | 0050 | [Approvals live in the account menu](0050-approvals-in-the-account-menu.md) | Accepted |
 | 0051 | [The breadcrumb omits the section](0051-breadcrumb-omits-the-section.md) | Accepted |
 | 0052 | [Computed fields, and the display field](0052-computed-and-display-fields.md) | Accepted |
+| 0053 | [The workflow editor is an outline of steps](0053-workflow-editor-outline.md) | Proposed |
+| 0054 | [Reading workflows over the API](0054-reading-workflows-over-the-api.md) | Proposed |
+| 0055 | [Config files are saved whole, with a revision](0055-saving-config-files-with-a-revision.md) | Proposed |
+| 0056 | [Step forms come from schemas](0056-step-forms-from-schemas.md) | Proposed |
+| 0057 | [Test runs of draft workflows](0057-test-runs-of-draft-workflows.md) | Proposed |
+| 0058 | [Page context and links for the in-app agent](0058-page-context-and-links-for-the-agent.md) | Proposed |
 
 ## Template
 

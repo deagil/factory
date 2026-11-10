@@ -10,6 +10,7 @@ One plan file per phase, with tasks to tick off. The phase goals are in the [REA
 | 2. Config over git | [phase-2.md](phase-2.md) | In progress |
 | 3. CRM, hosted |  |  |
 | 4. Breadth |  |  |
+| The workflow editor (beside phases 2 to 4) | [workflow-editor.md](workflow-editor.md) | Proposed |
 
 ## How to use a plan
 
