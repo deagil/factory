@@ -21,7 +21,7 @@ import {
 } from "../lib/workflow-segments.ts";
 import type { Cut } from "../lib/workflow-segments.ts";
 import { allRows, findRow, pathView, rowTitle } from "../lib/workflow-tree.ts";
-import type { WorkflowTree } from "../lib/workflow-tree.ts";
+import type { TreeRow, WorkflowTree } from "../lib/workflow-tree.ts";
 import { listOf, titleOf } from "../lib/workflow-words.ts";
 import type {
   FactRow,
@@ -35,7 +35,8 @@ import { StepPanel, WorkflowOutline } from "./workflow-outline.tsx";
 import { PathPanel } from "./workflow-path.tsx";
 import type { Place } from "./workflow-path.tsx";
 import { AddStep, StepCommands, useStepEdit } from "./workflow-step-edit.tsx";
-import type { StepEditing } from "./workflow-step-edit.tsx";
+import type { StepEdit, StepEditing } from "./workflow-step-edit.tsx";
+import { StepValues } from "./workflow-value.tsx";
 
 export interface WorkflowTabProps {
   workflow: string;
@@ -296,6 +297,46 @@ const endWords = (facts: WorkflowFacts) =>
     ? "Ends"
     : `Gives back ${listOf(facts.output.map((row) => titleOf(row.name).toLowerCase()))}`;
 
+/** Edit mode's tools above the steps: what was said, add, and the selected step. */
+const EditTools = ({
+  edit,
+  row,
+  editing,
+  scopes,
+  canvas,
+}: {
+  edit: StepEdit;
+  row: TreeRow | undefined;
+  editing: StepEditing | undefined;
+  scopes: WorkflowCheck["scopes"] | undefined;
+  canvas: boolean;
+}) => {
+  const shown = edit.adding ? undefined : row;
+  return (
+    <>
+      <p aria-live="polite" className="text-sm text-muted-foreground">
+        {edit.said}
+      </p>
+      <AddStep edit={edit} />
+      {shown ? <StepCommands row={shown} edit={edit} /> : null}
+      {shown && editing ? (
+        <StepValues row={shown} editing={editing} scopes={scopes} />
+      ) : null}
+      {!row && !edit.adding && !canvas ? (
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => edit.startAdding({ list: "steps", index: 0 })}
+          >
+            Add a step at the start
+          </Button>
+        </div>
+      ) : null}
+    </>
+  );
+};
+
 /** The steps: a flowchart when the pane is wide, the outline otherwise. */
 const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
   const { pane, wide } = useWide();
@@ -326,28 +367,13 @@ const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
         </div>
       ) : null}
       {stepEdit.active ? (
-        <>
-          <p aria-live="polite" className="text-sm text-muted-foreground">
-            {stepEdit.said}
-          </p>
-          <AddStep edit={stepEdit} />
-          {row && !stepEdit.adding ? (
-            <StepCommands row={row} edit={stepEdit} />
-          ) : null}
-          {!row && !stepEdit.adding && !canvas ? (
-            <div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  stepEdit.startAdding({ list: "steps", index: 0 })
-                }
-              >
-                Add a step at the start
-              </Button>
-            </div>
-          ) : null}
-        </>
+        <EditTools
+          edit={stepEdit}
+          row={row}
+          editing={props.editing}
+          scopes={props.check?.scopes}
+          canvas={canvas}
+        />
       ) : null}
       {canvas ? (
         <div

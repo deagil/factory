@@ -13,7 +13,9 @@ import {
   newStep,
   removeStep,
   renameStep,
+  setStepValue,
   stepAt,
+  stepValues,
   uniqueId,
 } from "./workflow-steps.ts";
 
@@ -182,5 +184,25 @@ describe("a new step", () => {
       // oxlint-disable-next-line unicorn/no-thenable -- a step's branch, not a promise
       then: [],
     });
+  });
+});
+
+describe("a step's values", () => {
+  it("sets one to a path or a fixed value, wherever the step is", () => {
+    const next = setStepValue(start, "steps.1.then.0", "title", {
+      value: "Call back",
+    });
+    const moved = setStepValue(next, "steps.0", "id", {
+      from: "input.other",
+    });
+    const given = (path: string) => {
+      const step = stepAt(moved, path);
+      return step ? stepValues(step) : undefined;
+    };
+    expect(given("steps.1.then.0")).toStrictEqual({
+      title: { value: "Call back" },
+    });
+    expect(given("steps.0")).toStrictEqual({ id: { from: "input.other" } });
+    expect(setStepValue(start, "steps.9", "id", { value: 1 })).toBe(start);
   });
 });
