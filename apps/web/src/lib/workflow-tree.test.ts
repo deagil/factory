@@ -6,6 +6,7 @@ import {
   findRow,
   groupsAround,
   outlineMove,
+  pathView,
   readCollapsed,
   rowName,
   stepDetail,
@@ -180,5 +181,53 @@ describe(outlineMove, () => {
       "steps.1.then",
     ]);
     expect([...readCollapsed("not json")]).toStrictEqual([]);
+  });
+});
+
+describe("one path on its own", () => {
+  it("names the path, its steps and the condition's other path", () => {
+    const view = pathView(tree, "steps.1.else");
+    expect(view?.label).toBe("Otherwise");
+    expect(view?.owner.id).toBe("check_reason");
+    expect(view?.rows.map((row) => row.id)).toStrictEqual(["pause"]);
+    expect(view?.other).toStrictEqual({ path: "steps.1.then", label: "Then" });
+    expect(view?.after).toBe("Joins the main path again at Update.");
+  });
+
+  it("says when a path stops the run, and that failure steps go nowhere", () => {
+    expect(pathView(tree, "steps.1.then")?.after).toBe(
+      "The run stops at the end of this path."
+    );
+    const failure = pathView(tree, "steps.2.on_failure");
+    expect(failure?.other).toBeNull();
+    expect(failure?.after).toBe(
+      "The run has failed. Nothing follows these steps."
+    );
+  });
+
+  it("joins after the outer condition when the inner one is last", () => {
+    const nested = workflowTree({
+      ...moveStage,
+      steps: [
+        {
+          id: "outer",
+          if: [{ field: "input.reason", empty: true }],
+          // oxlint-disable-next-line unicorn/no-thenable -- a step's branch, not a promise
+          then: [
+            {
+              id: "inner",
+              if: [{ field: "input.reason", empty: true }],
+              // oxlint-disable-next-line unicorn/no-thenable -- a step's branch, not a promise
+              then: [{ id: "note", action: "task_create" }],
+            },
+          ],
+        },
+        { id: "last", action: "deal_update" },
+      ],
+    });
+    expect(pathView(nested, "steps.0.then.0.then")?.joins?.id).toBe("last");
+    expect(pathView(nested, "steps.0.then.0.else")?.rows).toStrictEqual([]);
+    expect(pathView(nested, "steps.1.else")).toBeUndefined();
+    expect(pathView(nested, "steps.9.then")).toBeUndefined();
   });
 });

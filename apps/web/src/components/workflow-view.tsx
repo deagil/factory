@@ -20,7 +20,7 @@ import {
   queuedOf,
 } from "../lib/workflow-segments.ts";
 import type { Cut } from "../lib/workflow-segments.ts";
-import { allRows, findRow, rowTitle } from "../lib/workflow-tree.ts";
+import { allRows, findRow, pathView, rowTitle } from "../lib/workflow-tree.ts";
 import type { WorkflowTree } from "../lib/workflow-tree.ts";
 import { listOf, titleOf } from "../lib/workflow-words.ts";
 import type {
@@ -31,6 +31,8 @@ import type {
 import { WorkflowCanvas } from "./workflow-canvas.tsx";
 import { EventStartsList } from "./workflow-events.tsx";
 import { StepPanel, WorkflowOutline } from "./workflow-outline.tsx";
+import { PathPanel } from "./workflow-path.tsx";
+import type { Place } from "./workflow-path.tsx";
 
 export interface WorkflowTabProps {
   workflow: string;
@@ -47,6 +49,10 @@ export interface WorkflowTabProps {
   next: EventStarts[];
   selected: string | undefined;
   onSelect: (step: string | undefined) => void;
+  /** The path open beside the canvas, such as `steps.1.then`. */
+  path: string | undefined;
+  /** Go to a step, a path, both or neither, in one move. */
+  onPlace: (place: Place) => void;
   /** `list` when the viewer chose the outline over the canvas. */
   view: "list" | undefined;
   onView: (view: "list" | undefined) => void;
@@ -239,9 +245,12 @@ const useWide = () => {
     if (!element) {
       return;
     }
-    const observer = new ResizeObserver(([entry]) => {
-      setWide((entry?.contentRect.width ?? 0) >= canvasFloor);
-    });
+    const measure = () => {
+      setWide(element.getBoundingClientRect().width >= canvasFloor);
+    };
+    // Measured once here too: a page in the background gets no resize calls.
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
@@ -288,6 +297,8 @@ const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
   const rows = allRows(props.tree).filter((row) => row.id !== null);
   const row = findRow(props.tree, props.selected);
   const canvas = wide && props.view !== "list";
+  const open = pathView(props.tree, props.path);
+  const inPath = open?.rows.some((each) => each.path === row?.path) ?? false;
   return (
     <div ref={pane} className="flex flex-col gap-2">
       {wide ? (
@@ -299,20 +310,41 @@ const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
       {canvas ? (
         <div
           className={
-            row ? "grid grid-cols-[minmax(0,1fr)_20rem] gap-4" : undefined
+            row || open
+              ? "grid grid-cols-[minmax(0,1fr)_20rem] gap-4"
+              : undefined
           }
         >
           <WorkflowCanvas
             tree={props.tree}
             selected={row}
-            onSelect={props.onSelect}
+            onSelect={(step) =>
+              props.onPlace({
+                step,
+                path:
+                  open?.rows.some((each) => each.address === step) === true
+                    ? open.path
+                    : undefined,
+              })
+            }
+            path={open?.path}
+            onPath={(path) => props.onPlace({ path, step: undefined })}
             findings={props.findings}
             cuts={cuts}
             queued={queued}
             startText={props.starts.text}
             endText={endWords(props.facts)}
           />
-          {row ? (
+          {open ? (
+            <PathPanel
+              tree={props.tree}
+              view={open}
+              selected={inPath ? row : undefined}
+              findings={props.findings}
+              onPlace={props.onPlace}
+            />
+          ) : null}
+          {row && !open ? (
             <StepPanel
               tree={props.tree}
               row={row}

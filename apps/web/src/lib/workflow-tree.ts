@@ -478,3 +478,109 @@ export const outlineMove = (input: {
   }
   return firstGroup(row) ? sideways(row, input.key, input.collapsed) : null;
 };
+
+// ---------------------------------------------------------------------------
+// One path of a condition, or a step's failure steps, on its own
+
+export interface PathView {
+  /** `steps.1.then`: what the URL holds for this path. */
+  path: string;
+  /** "Then", "Otherwise" or "If it fails". */
+  label: string;
+  /** The step the path hangs off. */
+  owner: TreeRow;
+  rows: TreeRow[];
+  /** The condition's other path, to step across to. */
+  other: { path: string; label: string } | null;
+  /** The step the run goes on to after this path, if there is one. */
+  joins: TreeRow | null;
+  /** What happens after the last step, as a sentence. */
+  after: string;
+}
+
+const pathLabels: Record<GroupKind, string> = {
+  // oxlint-disable-next-line unicorn/no-thenable -- a step's branch, not a promise
+  then: "Then",
+  else: "Otherwise",
+  on_failure: "If it fails",
+};
+
+const isGroupKind = (name: string | undefined): name is GroupKind =>
+  name === "then" || name === "else" || name === "on_failure";
+
+/** A path split into the step that owns it and which of its paths it is. */
+const pathOwner = (path: string) => {
+  const parts = path.split(".");
+  const kind = parts.at(-1);
+  return isGroupKind(kind)
+    ? { kind, owner: parts.slice(0, -1).join(".") }
+    : null;
+};
+
+/** The step a run reaches after `row` and everything inside it. */
+const stepAfter = (tree: WorkflowTree, row: TreeRow): TreeRow | null => {
+  const parent = row.path.split(".").slice(0, -1).join(".");
+  const next = allRows(tree).find(
+    (each) => each.path === `${parent}.${row.place}`
+  );
+  if (next) {
+    return next;
+  }
+  const around = pathOwner(parent);
+  const owner =
+    around && around.kind !== "on_failure"
+      ? findRow(tree, around.owner)
+      : undefined;
+  return owner ? stepAfter(tree, owner) : null;
+};
+
+const afterWords = (input: {
+  kind: GroupKind;
+  rows: readonly TreeRow[];
+  joins: TreeRow | null;
+}) => {
+  if (input.rows.at(-1)?.ends) {
+    return "The run stops at the end of this path.";
+  }
+  if (input.kind === "on_failure") {
+    return "The run has failed. Nothing follows these steps.";
+  }
+  return input.joins
+    ? `Joins the main path again at ${rowTitle(input.joins)}.`
+    : "The workflow ends after this path.";
+};
+
+/** The path the URL names, or undefined when no step has such a path. */
+export const pathView = (
+  tree: WorkflowTree,
+  path: string | undefined
+): PathView | undefined => {
+  const named = path === undefined ? null : pathOwner(path);
+  const owner = named ? findRow(tree, named.owner) : undefined;
+  if (!named || !owner || path === undefined) {
+    return undefined;
+  }
+  const group = owner.groups.find((each) => each.kind === named.kind);
+  const branch = named.kind !== "on_failure";
+  if (!group && !(branch && owner.kind === "if")) {
+    return undefined;
+  }
+  const rows = group?.rows ?? [];
+  const otherKind = named.kind === "then" ? "else" : "then";
+  const joins = branch ? stepAfter(tree, owner) : null;
+  return {
+    path,
+    label: pathLabels[named.kind],
+    owner,
+    rows,
+    other: branch
+      ? { path: `${owner.path}.${otherKind}`, label: pathLabels[otherKind] }
+      : null,
+    joins,
+    after: afterWords({ kind: named.kind, rows, joins }),
+  };
+};
+
+/** Whether a step sits anywhere inside a path. */
+export const insidePath = (row: TreeRow, path: string | undefined) =>
+  path !== undefined && row.path.startsWith(`${path}.`);

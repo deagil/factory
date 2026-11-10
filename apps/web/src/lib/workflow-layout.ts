@@ -36,6 +36,8 @@ export interface LayoutEdge {
   label: string | null;
   /** A line out of the side of a step, to its failure steps. */
   side: boolean;
+  /** The path this line leads into, such as `steps.1.then`. */
+  opens: string | null;
 }
 
 export interface Layout {
@@ -61,9 +63,15 @@ interface Block {
 const edge = (
   from: string,
   to: string,
-  label: string | null = null,
-  side = false
-): LayoutEdge => ({ id: `${from}>${to}`, from, to, label, side });
+  path: { label: string; opens: string; side: boolean } | null = null
+): LayoutEdge => ({
+  id: `${from}>${to}`,
+  from,
+  to,
+  label: path?.label ?? null,
+  side: path?.side ?? false,
+  opens: path?.opens ?? null,
+});
 
 const moved = (block: Block, x: number, y: number): LayoutNode[] =>
   block.nodes.map((node) => ({ ...node, x: node.x + x, y: node.y + y }));
@@ -131,6 +139,7 @@ const lanesOf = (row: TreeRow) => {
     const group = groupOf(row, kind);
     return {
       label: kind === "then" ? "Then" : "Otherwise",
+      opens: `${row.path}.${kind}`,
       block: pathBlock(group?.rows ?? [], `${row.path}.${kind}`),
     };
   });
@@ -176,7 +185,11 @@ const rowBlock = (row: TreeRow): Block => {
   if (side) {
     block.nodes.push(...moved(side, sideLeft, 0));
     block.edges.push(
-      edge(row.path, side.entry, "If it fails", true),
+      edge(row.path, side.entry, {
+        label: "If it fails",
+        opens: failure?.path ?? "",
+        side: true,
+      }),
       ...side.edges
     );
   }
@@ -188,9 +201,9 @@ const rowBlock = (row: TreeRow): Block => {
       ...moved(second.block, first.block.width + across, lanesTop)
     );
     block.edges.push(
-      edge(row.path, first.block.entry, first.label),
+      edge(row.path, first.block.entry, { ...first, side: false }),
       ...first.block.edges,
-      edge(row.path, second.block.entry, second.label),
+      edge(row.path, second.block.entry, { ...second, side: false }),
       ...second.block.edges
     );
     block.exits = [...first.block.exits, ...second.block.exits];
