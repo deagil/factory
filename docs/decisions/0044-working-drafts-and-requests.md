@@ -1,6 +1,6 @@
 # 0044. Working drafts, and requests that publish when approved
 
-- **Status:** Accepted; checked against [0045](0045-object-endpoints-and-workflows.md)
+- **Status:** Accepted; amended by [0055](0055-saving-config-files-with-a-revision.md); checked against [0045](0045-object-endpoints-and-workflows.md)
 - **Date:** 2026-11-08
 - **Amends:** [0041](0041-drafts-over-git.md), whose drafts were opened by hand and couldn't be undone or thrown away, and [0042](0042-approval-rules.md), whose drafts were submitted, approved and then published by hand, and whose requests couldn't be withdrawn.
 

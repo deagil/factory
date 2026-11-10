@@ -36,7 +36,7 @@ One file per settled decision. To change a decision, add a new record that super
 | 0030 | [Contract tests across surfaces](0030-contract-tests-across-surfaces.md) | Accepted |
 | 0031 | [`defineSystem`, `createServer` and running a system](0031-define-system-and-create-server.md) | Accepted |
 | 0032 | [How the web app reaches the API](0032-web-app-reaches-the-api.md) | Accepted |
-| 0033 | [Web navigation by section, and what the dev bar is for](0033-web-navigation-and-dev-bar.md) | Accepted; amended by [0049](0049-navigation-lists-categories.md) and [0051](0051-breadcrumb-omits-the-section.md) |
+| 0033 | [Web navigation by section, and what the dev bar is for](0033-web-navigation-and-dev-bar.md) | Accepted; amended by [0049](0049-navigation-lists-categories.md), [0051](0051-breadcrumb-omits-the-section.md) and [0058](0058-page-context-and-links-for-the-agent.md) |
 | 0034 | [Inviting people, setting roles, and disabling actors](0034-inviting-and-disabling-people.md) | Accepted |
 | 0035 | [Restoring archived records, and archiving in the audit log](0035-restore-and-audited-archiving.md) | Accepted |
 | 0036 | [System migrations](0036-system-migrations.md) | Accepted |
@@ -44,10 +44,10 @@ One file per settled decision. To change a decision, add a new record that super
 | 0038 | [The config loader](0038-config-loader.md) | Accepted |
 | 0039 | [Choice fields](0039-choice-fields.md) | Accepted |
 | 0040 | [Choice lists define their columns](0040-choice-lists-define-their-columns.md) | Accepted |
-| 0041 | [Drafts over git](0041-drafts-over-git.md) | Accepted |
+| 0041 | [Drafts over git](0041-drafts-over-git.md) | Accepted; amended by [0044](0044-working-drafts-and-requests.md) and [0055](0055-saving-config-files-with-a-revision.md) |
 | 0042 | [Approval rules](0042-approval-rules.md) | Accepted |
 | 0043 | [Approval limits](0043-approval-limits.md) | Accepted |
-| 0044 | [Working drafts, and requests that publish when approved](0044-working-drafts-and-requests.md) | Accepted |
+| 0044 | [Working drafts, and requests that publish when approved](0044-working-drafts-and-requests.md) | Accepted; amended by [0055](0055-saving-config-files-with-a-revision.md) |
 | 0045 | [Object endpoints and workflows](0045-object-endpoints-and-workflows.md) | Accepted |
 | 0046 | [Runs, segments and errors](0046-runs-segments-and-errors.md) | Accepted |
 | 0047 | [One snake_case name on every surface](0047-snake-case-names.md) | Accepted |
@@ -56,6 +56,12 @@ One file per settled decision. To change a decision, add a new record that super
 | 0050 | [Approvals live in the account menu](0050-approvals-in-the-account-menu.md) | Accepted |
 | 0051 | [The breadcrumb omits the section](0051-breadcrumb-omits-the-section.md) | Accepted |
 | 0052 | [Computed fields, and the display field](0052-computed-and-display-fields.md) | Accepted |
+| 0053 | [The workflow editor is an outline of steps](0053-workflow-editor-outline.md) | Accepted |
+| 0054 | [Reading workflows over the API](0054-reading-workflows-over-the-api.md) | Accepted |
+| 0055 | [Config files are saved whole, with a revision](0055-saving-config-files-with-a-revision.md) | Accepted |
+| 0056 | [Step forms come from schemas](0056-step-forms-from-schemas.md) | Accepted |
+| 0057 | [Test runs of draft workflows](0057-test-runs-of-draft-workflows.md) | Accepted |
+| 0058 | [Page context and links for the in-app agent](0058-page-context-and-links-for-the-agent.md) | Accepted |
 
 ## Template
 

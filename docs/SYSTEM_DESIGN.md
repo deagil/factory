@@ -364,9 +364,9 @@ exempt: [finance] # optional: who skips it; the approver role by default
 
 Whoever asked for approval, or the person their agent acts for, can withdraw the request, and `approval_check` says beforehand whether a workflow run or a draft needs sign-off and from whom (decision 0044).
 
-In the web surface, a pill in the header shows the caller's unpublished edits, or that they wait for approval, with Undo, Publish (or "Request approval from …") and Discard; Config → Drafts edits choice lists and roles as forms and shows a draft's changes in plain English ("Adds the option “Negotiation”", "Can now archive deal"); a save sends the file's value and the server writes the YAML (`draft_save` with `value`, read back with `draft_files`). Other types are edited as YAML through the API for now.
+In the web surface, a pill in the header shows the caller's unpublished edits, or that they wait for approval, with Undo, Publish (or "Request approval from …") and Discard; Config → Drafts edits choice lists and roles as forms and shows a draft's changes in plain English ("Adds the option “Negotiation”", "Can now archive deal"); a save sends the whole file and the revision it was read at (`draft_save` with `value`, read back with `draft_files`). A stale revision is a conflict and changes nothing. A save by value keeps the comments and lines it did not change (decision 0055). Workflows are edited on their own page, into the same draft. Other types are edited as YAML through the API for now.
 
-The config service uses plain git (clone, branch, commit, push, fetch) against any remote, so it is not tied to GitHub. Publishing refuses a draft whose files production changed since it began, and the copy to main is skipped, not forced, when main changed them (decision 0041).
+The config service uses plain git (clone, branch, commit, push, fetch) against any remote, so it is not tied to GitHub. Publishing refuses a draft whose files production changed since it began. `draft_rebase` moves the draft onto the current live config; where both sides changed a file, the person picks theirs or live for the whole file, and nothing is merged inside it (decisions 0041 and 0055). The copy to main is skipped, not forced, when main changed a file.
 
 **Connects to.** Objects (choice and field definitions), roles, approval rules, workflows (and their publish gate), comms templates, pages, and the web surface's config editors.
 
@@ -484,7 +484,7 @@ output:
 - **Records can change between segments,** so a later segment re-reads what it relies on with the ready-made expected-state check.
 - **What a caller gets:** the endpoint waits until the run finishes or reaches its first pause. Finished: the output. Still going: `202` with `Location: /runs/{id}`. A run waiting for approval is that pending resource, not an error.
 - **Approval is a step.** `wait_for_approval` takes an approver role, a number of approvals, requester and exempt roles, and conditions (decision 0043). It asks in the inbox; the last approval resumes the run, a rejection runs its `on_failure` steps, and the requester can withdraw it, which cancels the run.
-- **The dispatcher** (`@workspace/events`) reads new `event_log` rows, oldest first, and starts one run per event and matching workflow, exactly once, with the event's origin user and the run that emitted it as `parent_run_id`. A unique index on runs (`endpoint`, `event_id`) is what makes it once, however many dispatchers read the event. Each run is one deeper than the event, and the runner fails a run past depth 8 with a message saying workflows may be running each other in a loop, which ends the chain. A schedule starts its workflow once for each minute its cron fields match, in UTC (`runs.scheduled_for` is unique per workflow). The server dispatches every `dispatchMs`; tests call `dispatcher.drain()`.
+- **The dispatcher** (`@workspace/events`) reads new `event_log` rows, oldest first, and starts one run per event and matching workflow, exactly once, with the event's origin user and the run that emitted it as `parent_run_id`. A unique index on runs (`endpoint`, `event_id`) is what makes it once, however many dispatchers read the event. Each run is one deeper than the event, and the runner fails a run past depth 8 with a message saying workflows may be running each other in a loop, which ends the chain. A schedule starts its workflow once for each minute its cron fields match, in UTC (`runs.scheduled_for` is unique per workflow). The editor shows that UTC time with the viewer's local time beside it, and the file stays in UTC. The server dispatches every `dispatchMs`; tests call `dispatcher.drain()`.
 - **Pinning.** A run uses the definition from the config commit it started under.
 - **The trace.** The engine is the only writer of `runs` and `run_steps`. It inserts a run, and each step that changes data, as it starts, since `audit_log` points at them; the other steps and the events are written once as the segment's transaction ends, to save round trips. After a rollback it writes the runs and steps again, failed, so a failed run keeps its trace and none of its changes or events. A workflow's actor is an automation actor named for its key.
 
@@ -497,7 +497,9 @@ output:
 3. **Regression:** every workflow's cases rerun in CI whenever a workflow, action, object or the core changes.
 4. **Two people:** the author and a different person with the approver role. Developer-written workflows reach `main` through `fx ship` and a PR, whose review is the second person.
 
-**Visibility.** Activity → Workflow runs shows each run's steps as a diagram, with segments, inputs, outputs, branches, errors and retries. Each workflow has a read-only visual view showing where it may pause, and each object a "What happens when…" view of the workflows its events start. Every record's history shows the runs that touched it.
+**Visibility.** The workflow editor is a vertical outline of the steps, in the file's order (decisions 0053 to 0058; [plans/workflow-editor.md](plans/workflow-editor.md)). `then`, `else` and `on_failure` are groups indented under the step that owns them. A row is a sentence: what the step does, and where its values come from. Selecting a row opens that step. A segment cut is a divider on the step that ends the segment. The same outline draws a run under Activity → Workflow runs, with that run's segments, inputs, outputs, branches, errors and retries. The editor does not draw run data; it links to Activity. Each object has a "What happens when…" view of the workflows its events start, and a record's history links to the runs that touched it.
+
+A person changes a workflow by editing their working draft and saving the whole file with the revision they read. A stale revision is refused. A step that runs an action gets its form from that action's input schema; an input the form has no control for is a JSON box. A value built from parts is one of five internal actions (join text, the first value that is present, add, subtract, multiply), the same closed set as a computed field, not a template in the file. Who may read a workflow, and who may test a draft of one, is a role grant by name. The in-app agent uses those same operations. The page tells it what is open, and its edits are ordinary saves.
 
 **Connects to.** Endpoints (workflows are served as endpoints), actions (every step that does something), events (triggers and `emit`), config (definitions and drafts), roles and approvals, and the web surface.
 
@@ -538,7 +540,7 @@ All surfaces are generated from the same registry of objects, published workflow
 | --- | --- | --- |
 | HTTP API + OpenAPI | The web surface, external systems | Object endpoints and workflow endpoints, with their schemas and declared errors |
 | MCP server | In-app and external agents | One tool per endpoint, named exactly as the endpoint, plus config and introspection tools |
-| Web | Staff | Generated list and record screens per object, workflow buttons and forms from each workflow's `input`, config editors, the approvals inbox, the run inspector, record timelines |
+| Web | Staff | Generated list and record screens per object, the workflow editor (an outline of each workflow, edited in the caller's draft), workflow buttons and forms from each workflow's `input`, config editors, the approvals inbox, the run inspector (the same outline, for one run), record timelines |
 | CLI (later) | Developers and scripts | The same endpoints |
 | SDK | Developers of external systems | Generated from the OpenAPI spec |
 
@@ -547,7 +549,7 @@ The web app has no data access of its own: every screen calls the HTTP API as th
 | Section | What it has |
 | --- | --- |
 | Data | Objects (a list of the objects the caller can see, then each object's list, record and create screen, archive and restore, history, and buttons for the workflows that take the record) and Choices (choice lists edited in place) |
-| Automation | Workflows the caller can run, the actions those steps call, and the events those actions can emit |
+| Automation | Workflows: every workflow the caller may read, as an outline they can change in their draft; people who may only run a workflow keep its Run form. Also the actions a step can run, and the events that start workflows |
 | Activity | The logs: the audit log (every field change), workflow runs (each run's steps, segments, inputs, outputs and errors), and the event log, and later config history. A row opens that log entry. A record named in the entry still opens the record |
 | Access | Users (invite, roles, disable), agents, integrations and their keys, roles, and policies (the approval rules) |
 | Config | Drafts: edit choice lists and roles into your working draft, review a draft's changes in plain English, publish (or request approval), withdraw and discard. The header's draft pill shows your unpublished edits. Settings pages edit config in place and replace this section (decision 0044) |
@@ -560,7 +562,7 @@ Local development adds a dev bar above the app, and production builds leave it o
 - **Factory:** the change, branch and database.
 - **Session:** sign in as any user from the server's dev outbox.
 - **API:** recent calls, dry runs, added latency and forced errors.
-- **Inspect:** TanStack devtools and the raw description.
+- **Inspect:** TanStack devtools, the raw description, and the page context: what the screen has open, as plain data, so the in-app agent can be checked before its harness exists (decision 0058).
 - **Design:** animation speed.
 
 The page builder (phase 4) adds staff-composed pages from blocks over the same endpoints. The pages are config files.
@@ -771,6 +773,7 @@ A time-boxed trial in phase 2 (P2.29) rebuilds the runner, one object endpoint, 
 | **Config** | Staff-editable definitions kept as files in git: choices, fields, roles, approvals, workflows, templates, pages, flags. |
 | **Config loader** | Loads config from git into the running system and swaps it in without a deploy. |
 | **Draft** | A staff edit of one or more config files, validated, approved if needed, then published together. |
+| **Revision** | An opaque string on a config file that changes when its content does (its git blob id). A save sends the revision the file was read at, and a stale one is refused as a conflict. |
 | **Dispatcher** | Starts one run per matching event and workflow. |
 | **Module** | An optional package of objects, actions, workflows and config types, such as comms or payments. |
 | **System** | One client's system: a client repo with `defineSystem`, deployed as its own instance. |
