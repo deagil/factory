@@ -220,20 +220,26 @@ describe("reading workflows", () => {
       value: { key: "ping_flow" },
       check: { problems: [], segments: [{ steps: ["ping"] }] },
     });
-    expect(late.check.problems).toHaveLength(1);
-    expect(late.check.problems[0]?.path.slice(0, 2)).toStrictEqual([
-      "steps",
-      1,
-    ]);
-    expect(late.check.problems[0]?.line).toBeGreaterThan(1);
-    expect(late.content).toContain("key: late_flow");
+    expect({
+      count: late.check.problems.length,
+      at: late.check.problems[0]?.path.slice(0, 2),
+      hasLine: (late.check.problems[0]?.line ?? 0) > 1,
+      keptKey: late.content.includes("key: late_flow"),
+    }).toStrictEqual({
+      count: 1,
+      at: ["steps", 1],
+      hasLine: true,
+      keptKey: true,
+    });
     expect(broken).toMatchObject({
       value: null,
       check: { problems: [{ path: [], line: expect.any(Number) }] },
     });
     expect(wrongKey.check.problems).toMatchObject([{ path: ["key"], line: 1 }]);
-    expect(isActionFailure(both) && both.error.code).toBe("validation");
-    expect(isActionFailure(code) && code.error.code).toBe("validation");
+    expect([
+      isActionFailure(both) && both.error.code,
+      isActionFailure(code) && code.error.code,
+    ]).toStrictEqual(["validation", "validation"]);
   });
 
   it(
