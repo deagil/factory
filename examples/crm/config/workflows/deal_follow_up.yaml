@@ -1,0 +1,37 @@
+# Follow a deal up: a task now, and another three days later if the deal
+# is still open. The wait cuts the run in two, so the first task is
+# committed before it. If the second task can't be added after that, the
+# failure steps leave a note for whoever looks after the deal.
+key: deal_follow_up
+label: Follow up
+description: Add a task to follow a deal up now, and another three days later.
+starts_when: called
+input:
+  deal: { type: ref, object: deal }
+attention_role: manager
+steps:
+  - id: owns
+    action: record_belongs_to_caller
+    with:
+      object: { value: deal }
+      id: { from: input.deal }
+  - id: first
+    action: task_create
+    with:
+      title: { value: Follow up }
+      deal: { from: input.deal }
+  - id: pause
+    wait: { for: 3d }
+  - id: second
+    action: task_create
+    with:
+      title: { value: Follow up again }
+      deal: { from: input.deal }
+    on_failure:
+      - id: note
+        action: task_create
+        with:
+          title: { value: The second follow-up could not be added }
+          deal: { from: input.deal }
+output:
+  task: { from: steps.first.output.record }

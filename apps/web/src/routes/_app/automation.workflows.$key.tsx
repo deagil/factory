@@ -11,26 +11,22 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
+import { useRoles } from "../../components/access.tsx";
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { WorkflowForm } from "../../components/workflow-form.tsx";
-import { WorkflowOutline } from "../../components/workflow-outline.tsx";
+import { WorkflowTab } from "../../components/workflow-view.tsx";
 import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
 import type { WorkflowDescription } from "../../lib/forms.ts";
-import type { WorkflowTree } from "../../lib/workflow-tree.ts";
-import { titleOf } from "../../lib/workflow-words.ts";
-import type {
-  FactRow,
-  StartWords,
-  WorkflowFacts,
-} from "../../lib/workflow-words.ts";
 import {
   canReadWorkflows,
   draftChangesWorkflow,
   mayReadDrafts,
+  mayReadRoles,
   presentWorkflow,
   readsAreReady,
   showsReadOnly,
@@ -139,26 +135,14 @@ const VersionToggle = ({
 
 const WorkflowTabs = ({
   tab,
-  description,
-  starts,
-  facts,
-  tree,
-  workflow,
-  selected,
   content,
   onTab,
-  onSelect,
+  children,
 }: {
   tab: "workflow" | "file";
-  facts: WorkflowFacts;
-  description: string;
-  starts: StartWords;
-  tree: WorkflowTree;
-  workflow: string;
-  selected: string | undefined;
   content: string | null;
   onTab: (tab: "file" | undefined) => void;
-  onSelect: (step: string | undefined) => void;
+  children: ReactNode;
 }) => (
   <Tabs
     value={tab}
@@ -173,93 +157,13 @@ const WorkflowTabs = ({
       <TabsTrigger value="file">File</TabsTrigger>
     </TabsList>
     <TabsContent value="workflow" className="flex flex-col gap-4">
-      <WorkflowFactsView
-        description={description}
-        starts={starts}
-        facts={facts}
-        tree={tree}
-        workflow={workflow}
-        selected={selected}
-        onSelect={onSelect}
-      />
+      {children}
     </TabsContent>
     <TabsContent value="file">
       <FileText content={content} />
     </TabsContent>
   </Tabs>
 );
-
-const FactList = ({
-  title,
-  rows,
-  code,
-}: {
-  title: string;
-  rows: FactRow[];
-  code: boolean;
-}) =>
-  rows.length === 0 ? null : (
-    <section className="flex flex-col gap-1">
-      <h2 className="text-sm font-medium">{title}</h2>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        {rows.map((row) => (
-          <div key={row.name} className="contents">
-            <dt className={code ? "font-mono text-xs/5" : undefined}>
-              {code ? row.name : titleOf(row.name)}
-            </dt>
-            <dd className="text-muted-foreground">{row.words}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-
-const Starts = ({ starts }: { starts: StartWords }) => (
-  <section className="flex flex-col gap-1">
-    <h2 className="text-sm font-medium">What starts it</h2>
-    <p className="text-sm">
-      {starts.text}
-      {starts.local ? (
-        <span className="text-muted-foreground"> ({starts.local})</span>
-      ) : null}
-    </p>
-  </section>
-);
-
-const WorkflowFactsView = ({
-  description,
-  starts,
-  facts,
-  tree,
-  workflow,
-  selected,
-  onSelect,
-}: {
-  description: string;
-  starts: StartWords;
-  facts: WorkflowFacts;
-  tree: WorkflowTree;
-  workflow: string;
-  selected: string | undefined;
-  onSelect: (step: string | undefined) => void;
-}) => (
-  <>
-    <Description text={description} />
-    <Starts starts={starts} />
-    <FactList title="What it takes" rows={facts.input} code={false} />
-    <WorkflowOutline
-      workflow={workflow}
-      tree={tree}
-      selected={selected}
-      onSelect={onSelect}
-    />
-    <FactList title="What it gives back" rows={facts.output} code={false} />
-    <FactList title="How it can fail" rows={facts.errors} code />
-  </>
-);
-
-const Description = ({ text }: { text: string }) =>
-  text === "" ? null : <p className="text-sm">{text}</p>;
 
 const FileText = ({ content }: { content: string | null }) =>
   content === null ? null : (
@@ -347,6 +251,7 @@ const WorkflowScreen = () => {
     missing,
   });
   const callable = callableOf(described.data, key);
+  const roles = useRoles(mayReadRoles(described.data?.queries));
   const setSearch = (next: { tab?: "file"; step?: string; v?: string }) => {
     void navigate({ search: (previous) => ({ ...previous, ...next }) });
   };
@@ -390,16 +295,22 @@ const WorkflowScreen = () => {
       <Loading show={got.isLoading} />
       <WorkflowTabs
         tab={present.tab}
-        description={present.description}
-        starts={present.starts}
-        facts={present.facts}
-        tree={present.tree}
-        workflow={key}
-        selected={search.step}
         content={present.content}
         onTab={(tab) => setSearch({ tab })}
-        onSelect={(step) => setSearch({ step })}
-      />
+      >
+        <WorkflowTab
+          workflow={key}
+          description={present.description}
+          starts={present.starts}
+          startsWhen={present.startsWhen}
+          facts={present.facts}
+          tree={present.tree}
+          check={got.data?.check}
+          roles={roles.data}
+          selected={search.step}
+          onSelect={(step) => setSearch({ step })}
+        />
+      </WorkflowTabs>
     </div>
   );
 };

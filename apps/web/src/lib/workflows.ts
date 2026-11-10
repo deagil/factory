@@ -74,6 +74,11 @@ export const mayReadDrafts = (
   queries: readonly { name: string }[] | undefined
 ) => queries?.some((query) => query.name === "draft.mine") ?? false;
 
+/** The caller may read the system's roles. */
+export const mayReadRoles = (
+  queries: readonly { name: string }[] | undefined
+) => queries?.some((query) => query.name === "role.list") ?? false;
+
 /** A draft read can start: describe has loaded, and the draft query has settled. */
 export const readsAreReady = (
   described: boolean,
@@ -272,6 +277,7 @@ export const presentWorkflow = (input: {
     why,
     reason: readOnlyReason(why),
     starts: startsOf(definition, input.item),
+    startsWhen: definition?.starts_when ?? input.item?.starts_when,
     facts: workflowFacts(definition),
     tree: workflowTree(definition),
     content: contentOf(input.view),
