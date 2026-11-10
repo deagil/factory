@@ -33,13 +33,20 @@ import {
   Scissors,
   Send,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { workflowLayout } from "../lib/workflow-layout.ts";
-import type { LayoutEdge, LayoutNode } from "../lib/workflow-layout.ts";
+import type {
+  Layout,
+  LayoutEdge,
+  LayoutNode,
+  LayoutSlot,
+} from "../lib/workflow-layout.ts";
 import { countWords, findingsByRow } from "../lib/workflow-problems.ts";
 import type { Finding } from "../lib/workflow-problems.ts";
 import type { Cut } from "../lib/workflow-segments.ts";
+import { slotOf } from "../lib/workflow-steps.ts";
+import type { Slot } from "../lib/workflow-steps.ts";
 import {
   insidePath,
   kindWords,
@@ -59,6 +66,10 @@ interface ChartData extends Record<string, unknown> {
   inPath: boolean;
   /** Open a path with no steps, from its marker. */
   onPath: (path: string) => void;
+  /** In edit mode, a path with no steps is where its first step is added. */
+  onAdd: (() => void) | null;
+  /** A step is being dragged and would land here. */
+  near: boolean;
   /** "1 problem, 2 warnings", or null. */
   found: string | null;
   cut: Cut | undefined;
@@ -173,6 +184,25 @@ const Marker = ({ data }: { data: ChartData }) => {
     );
   }
   const Icon = markerIcons[node.kind];
+  if (node.kind === "empty" && data.onAdd) {
+    const { onAdd } = data;
+    return (
+      <button
+        type="button"
+        aria-pressed={data.pressed}
+        aria-label="A path with no steps. Add a step here."
+        onClick={() => onAdd()}
+        className={`nopan flex size-full cursor-pointer items-center justify-center gap-1.5 rounded-full border border-dashed px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+          data.near || data.pressed
+            ? "border-foreground bg-muted"
+            : "bg-background hover:bg-muted/60"
+        }`}
+      >
+        <Plus aria-hidden className="size-3.5 shrink-0" />
+        Add a step
+      </button>
+    );
+  }
   if (node.kind === "empty") {
     return (
       <button
@@ -213,7 +243,37 @@ const ChartNodeView = ({ data }: NodeProps<ChartNode>) => (
   </>
 );
 
-const nodeTypes = { chart: ChartNodeView };
+interface SlotData extends Record<string, unknown> {
+  /** "Add a step to Steps, at place 2": what a screen reader hears. */
+  name: string;
+  pressed: boolean;
+  near: boolean;
+  onAdd: () => void;
+}
+
+type SlotNode = Node<SlotData, "slot">;
+type AnyNode = ChartNode | SlotNode;
+
+const slotSize = 22;
+
+/** A place a step can go: press it to add one, or drop a step on it. */
+const SlotNodeView = ({ data }: NodeProps<SlotNode>) => (
+  <button
+    type="button"
+    aria-label={data.name}
+    aria-pressed={data.pressed}
+    onClick={() => data.onAdd()}
+    className={`nopan flex size-full cursor-pointer items-center justify-center rounded-full border focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+      data.near || data.pressed
+        ? "scale-125 border-foreground bg-foreground text-background"
+        : "bg-background text-muted-foreground hover:bg-muted"
+    }`}
+  >
+    <Plus aria-hidden className="size-3" />
+  </button>
+);
+
+const nodeTypes = { chart: ChartNodeView, slot: SlotNodeView };
 
 const lineColour = "var(--muted-foreground)";
 
@@ -334,7 +394,84 @@ export interface WorkflowCanvasProps {
   /** What starts the workflow, and what it gives back, in words. */
   startText: string;
   endText: string;
+  /** Edit mode: where a step is being added, and what a press or drop does. */
+  edit?:
+    | {
+        adding: Slot | null;
+        onAdd: (slot: Slot) => void;
+        onDrop: (path: string, slot: Slot) => void;
+      }
+    | undefined;
 }
+
+interface Drag {
+  id: string;
+  x: number;
+  y: number;
+}
+
+/** How close, in canvas units, a dragged step must be to a slot to land on it. */
+const reach = 110;
+
+/** The slot a dragged step would land on, or null. Never one inside itself. */
+const nearestSlot = (layout: Layout, drag: Drag | null): LayoutSlot | null => {
+  const node = layout.nodes.find((each) => each.id === drag?.id);
+  if (!drag || !node) {
+    return null;
+  }
+  const own = slotOf(drag.id);
+  const x = drag.x + node.width / 2;
+  const y = drag.y + node.height / 2;
+  let best: LayoutSlot | null = null;
+  let bestDistance = reach;
+  for (const slot of layout.slots) {
+    const inside = slot.list === drag.id || slot.list.startsWith(`${drag.id}.`);
+    // The slots on either side of the step would leave it where it is.
+    const beside =
+      slot.list === own.list &&
+      (slot.index === own.index || slot.index === own.index + 1);
+    const distance = Math.hypot(slot.x - x, slot.y - y);
+    if (!inside && !beside && distance < bestDistance) {
+      best = slot;
+      bestDistance = distance;
+    }
+  }
+  return best;
+};
+
+const sameSlot = (a: Slot | null | undefined, b: Slot) =>
+  a !== null && a !== undefined && a.list === b.list && a.index === b.index;
+
+/** The plus between steps. A path with no steps uses its marker instead. */
+const slotNodes = (
+  layout: Layout,
+  edit: NonNullable<WorkflowCanvasProps["edit"]>,
+  near: LayoutSlot | null
+): SlotNode[] => {
+  const empty = new Set(
+    layout.nodes.flatMap((node) => (node.kind === "empty" ? [node.id] : []))
+  );
+  return layout.slots
+    .filter((slot) => !empty.has(slot.list) && !empty.has(`${slot.list}.empty`))
+    .map((slot) => ({
+      id: `slot:${slot.id}`,
+      type: "slot",
+      position: { x: slot.x - slotSize / 2, y: slot.y - slotSize / 2 },
+      width: slotSize,
+      height: slotSize,
+      draggable: false,
+      connectable: false,
+      selectable: false,
+      focusable: false,
+      zIndex: 5,
+      data: {
+        name: `Add a step at place ${slot.index + 1} of ${slot.list}`,
+        pressed: sameSlot(edit.adding, slot),
+        near: near?.id === slot.id,
+        onAdd: () => edit.onAdd({ list: slot.list, index: slot.index }),
+      },
+    }));
+};
 
 const markerText = (node: LayoutNode, props: WorkflowCanvasProps) => {
   if (node.kind === "start") {
@@ -346,19 +483,27 @@ const markerText = (node: LayoutNode, props: WorkflowCanvasProps) => {
   return node.kind === "empty" ? "Nothing" : "";
 };
 
-const useChart = (props: WorkflowCanvasProps) => {
-  const { tree, selected, onSelect, findings, cuts, queued } = props;
+const useChart = (props: WorkflowCanvasProps, drag: Drag | null) => {
+  const { tree, selected, onSelect, findings, cuts, queued, edit } = props;
   const layout = useMemo(() => workflowLayout(tree), [tree]);
   const byRow = findingsByRow(findings);
-  const nodes = layout.nodes.map((node): ChartNode => {
+  const near = nearestSlot(layout, drag);
+  const emptySlot = (node: LayoutNode) =>
+    layout.slots.find(
+      (slot) => slot.list === node.id || `${slot.list}.empty` === node.id
+    );
+  const chart = layout.nodes.map((node): ChartNode => {
     const id = node.kind === "step" ? (node.row.id ?? "") : "";
+    const slot = node.kind === "empty" ? emptySlot(node) : undefined;
+    const dragged = drag?.id === node.id;
     return {
       id: node.id,
       type: "chart",
-      position: { x: node.x, y: node.y },
+      position: dragged ? { x: drag.x, y: drag.y } : { x: node.x, y: node.y },
       width: node.width,
       height: node.height,
-      draggable: false,
+      zIndex: dragged ? 10 : 0,
+      draggable: edit !== undefined && node.kind === "step",
       connectable: false,
       selectable: false,
       focusable: false,
@@ -367,8 +512,14 @@ const useChart = (props: WorkflowCanvasProps) => {
         text: markerText(node, props),
         pressed:
           node.kind === "empty"
-            ? props.path === node.id
+            ? props.path === node.id ||
+              (slot !== undefined && sameSlot(edit?.adding, slot))
             : selected !== undefined && selected.path === node.id,
+        onAdd:
+          edit && slot
+            ? () => edit.onAdd({ list: slot.list, index: slot.index })
+            : null,
+        near: slot !== undefined && near?.id === slot.id,
         inPath: node.kind === "step" && insidePath(node.row, props.path),
         onPath: (path) => props.onPath(props.path === path ? undefined : path),
         found: countWords(byRow.get(node.id) ?? []),
@@ -400,14 +551,19 @@ const useChart = (props: WorkflowCanvasProps) => {
           } satisfies PathData,
         };
   });
-  return { layout, nodes, edges };
+  const nodes: AnyNode[] = [
+    ...chart,
+    ...(edit ? slotNodes(layout, edit, near) : []),
+  ];
+  return { layout, nodes, edges, near };
 };
 
 export const WorkflowCanvas = (props: WorkflowCanvasProps) => {
-  const { layout, nodes, edges } = useChart(props);
-  const { selected } = props;
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const { layout, nodes, edges, near } = useChart(props, drag);
+  const { selected, edit } = props;
   // A link to a step opens with that step in the middle, at full size.
-  const showSelected = (flow: ReactFlowInstance<ChartNode>) => {
+  const showSelected = (flow: ReactFlowInstance<AnyNode>) => {
     const node = layout.nodes.find((each) => each.id === selected?.path);
     if (node) {
       void flow.setCenter(node.x + node.width / 2, node.y + node.height / 2, {
@@ -430,7 +586,17 @@ export const WorkflowCanvas = (props: WorkflowCanvasProps) => {
         minZoom={0.3}
         maxZoom={1.5}
         panOnScroll
-        nodesDraggable={false}
+        nodesDraggable={edit !== undefined}
+        nodeDragThreshold={4}
+        onNodeDrag={(_event, node) =>
+          setDrag({ id: node.id, x: node.position.x, y: node.position.y })
+        }
+        onNodeDragStop={(_event, node) => {
+          setDrag(null);
+          if (edit && near) {
+            edit.onDrop(node.id, { list: near.list, index: near.index });
+          }
+        }}
         nodesConnectable={false}
         nodesFocusable={false}
         edgesFocusable={false}

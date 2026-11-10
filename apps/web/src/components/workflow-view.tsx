@@ -34,6 +34,8 @@ import { EventStartsList } from "./workflow-events.tsx";
 import { StepPanel, WorkflowOutline } from "./workflow-outline.tsx";
 import { PathPanel } from "./workflow-path.tsx";
 import type { Place } from "./workflow-path.tsx";
+import { AddStep, StepCommands, useStepEdit } from "./workflow-step-edit.tsx";
+import type { StepEditing } from "./workflow-step-edit.tsx";
 
 export interface WorkflowTabProps {
   workflow: string;
@@ -54,6 +56,8 @@ export interface WorkflowTabProps {
   path: string | undefined;
   /** Go to a step, a path, both or neither, in one move. */
   onPlace: (place: Place) => void;
+  /** In edit mode: the working copy's steps, and how to change them. */
+  editing?: StepEditing | undefined;
   /** In edit mode: take a new description. */
   onDescription?: ((text: string) => void) | undefined;
   /** `list` when the viewer chose the outline over the canvas. */
@@ -302,13 +306,48 @@ const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
   const canvas = wide && props.view !== "list";
   const open = pathView(props.tree, props.path);
   const inPath = open?.rows.some((each) => each.path === row?.path) ?? false;
+  const stepEdit = useStepEdit({
+    editing: props.editing,
+    tree: props.tree,
+    selected: row,
+    onPlace: props.onPlace,
+  });
   return (
-    <div ref={pane} className="flex flex-col gap-2">
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- Alt with an arrow moves the selected step, from wherever the focus is among the steps
+    <div
+      ref={pane}
+      className="flex flex-col gap-2"
+      onKeyDown={(event) => stepEdit.onKey(event)}
+    >
       {wide ? (
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium">Steps</h2>
           <ViewSwitch view={props.view} onView={props.onView} />
         </div>
+      ) : null}
+      {stepEdit.active ? (
+        <>
+          <p aria-live="polite" className="text-sm text-muted-foreground">
+            {stepEdit.said}
+          </p>
+          <AddStep edit={stepEdit} />
+          {row && !stepEdit.adding ? (
+            <StepCommands row={row} edit={stepEdit} />
+          ) : null}
+          {!row && !stepEdit.adding && !canvas ? (
+            <div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  stepEdit.startAdding({ list: "steps", index: 0 })
+                }
+              >
+                Add a step at the start
+              </Button>
+            </div>
+          ) : null}
+        </>
       ) : null}
       {canvas ? (
         <div
@@ -332,6 +371,15 @@ const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
             }
             path={open?.path}
             onPath={(path) => props.onPlace({ path, step: undefined })}
+            edit={
+              stepEdit.active
+                ? {
+                    adding: stepEdit.adding,
+                    onAdd: stepEdit.startAdding,
+                    onDrop: stepEdit.drop,
+                  }
+                : undefined
+            }
             findings={props.findings}
             cuts={cuts}
             queued={queued}

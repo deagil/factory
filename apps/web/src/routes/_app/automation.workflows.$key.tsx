@@ -440,6 +440,11 @@ const WorkflowScreen = () => {
           facts={present.facts}
           tree={present.tree}
           check={shown?.check}
+          editing={
+            copy
+              ? { definition: copy.value, onChange: edit.set, draftId }
+              : undefined
+          }
           onDescription={
             copy
               ? (text) => edit.set(withDescription(copy.value, text))
