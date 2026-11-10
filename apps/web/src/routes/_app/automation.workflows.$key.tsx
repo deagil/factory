@@ -296,12 +296,17 @@ const WorkflowScreen = () => {
       });
     }
   }, [pastGone, navigate]);
-  const setSearch = (next: { tab?: "file"; step?: string; v?: string }) => {
+  const setSearch = (next: {
+    tab?: "file";
+    step?: string;
+    v?: string;
+    view?: "list";
+  }) => {
     void navigate({ search: (previous) => ({ ...previous, ...next }) });
   };
 
   return (
-    <div className="flex max-w-4xl flex-col gap-4">
+    <div className="flex max-w-6xl flex-col gap-4">
       <PageHeader
         title={present.label}
         trail={[...trail]}
@@ -371,6 +376,8 @@ const WorkflowScreen = () => {
           next={whatNext}
           selected={search.step}
           onSelect={(step) => setSearch({ step })}
+          view={search.view}
+          onView={(view) => setSearch({ view })}
         />
       </WorkflowTabs>
     </div>

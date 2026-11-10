@@ -49,7 +49,7 @@ import type {
 import { plain, titleOf } from "../lib/workflow-words.ts";
 import type { FactRow } from "../lib/workflow-words.ts";
 
-const icons: Record<StepKind, LucideIcon> = {
+export const stepIcons: Record<StepKind, LucideIcon> = {
   action: Zap,
   if: GitBranch,
   wait: Clock,
@@ -81,6 +81,18 @@ const saveCollapsed = (workflow: string, collapsed: ReadonlySet<string>) => {
 
 /** Something to show at a step, keyed by the step's path. */
 export type RowSlots = ReadonlyMap<string, ReactNode>;
+
+/** What a step's detail needs, wherever it is shown. */
+type DetailState = Pick<
+  OutlineState,
+  | "tree"
+  | "byRow"
+  | "readers"
+  | "highlight"
+  | "onHighlight"
+  | "onJump"
+  | "extra"
+>;
 
 interface OutlineState {
   tree: WorkflowTree;
@@ -153,7 +165,7 @@ const StepLink = ({
   children,
 }: {
   step: string;
-  state: OutlineState;
+  state: DetailState;
   children: ReactNode;
 }) => (
   <button
@@ -178,7 +190,7 @@ const Inputs = ({
 }: {
   title: string;
   rows: DetailRow[];
-  state: OutlineState;
+  state: DetailState;
 }) =>
   rows.length === 0 ? null : (
     <div className="flex flex-col gap-1">
@@ -202,7 +214,7 @@ const Inputs = ({
     </div>
   );
 
-const ReadBy = ({ row, state }: { row: TreeRow; state: OutlineState }) => {
+const ReadBy = ({ row, state }: { row: TreeRow; state: DetailState }) => {
   const readers = state.readers.get(row.id ?? "") ?? [];
   const output = state.tree.outputReads.includes(row.id ?? "");
   if (readers.length === 0 && !output) {
@@ -243,7 +255,7 @@ const FindingLine = ({ finding }: { finding: Finding }) => {
   );
 };
 
-const RowFindings = ({ row, state }: { row: TreeRow; state: OutlineState }) => {
+const RowFindings = ({ row, state }: { row: TreeRow; state: DetailState }) => {
   const findings = state.byRow.get(row.path) ?? [];
   return findings.length === 0 ? null : (
     <ul className="flex flex-col gap-1 pl-3">
@@ -263,7 +275,7 @@ const StepDetailView = ({
   state,
 }: {
   row: TreeRow;
-  state: OutlineState;
+  state: DetailState;
 }) => {
   const detail = stepDetail(row.step);
   return (
@@ -350,7 +362,7 @@ const Ends = ({ show }: { show: boolean }) =>
   ) : null;
 
 const RowButton = ({ row, state }: { row: TreeRow; state: OutlineState }) => {
-  const Icon = icons[row.kind];
+  const Icon = stepIcons[row.kind];
   const pressed = state.selected?.path === row.path;
   return (
     <button
@@ -455,12 +467,46 @@ const useCollapsed = (workflow: string) => {
 
 const noFindings: readonly Finding[] = [];
 
+/** A step's detail and its problems, for a view that isn't the outline. */
+export const StepPanel = ({
+  tree,
+  row,
+  findings,
+  onSelect,
+}: {
+  tree: WorkflowTree;
+  row: TreeRow;
+  findings: readonly Finding[];
+  onSelect: (address: string) => void;
+}) => {
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const state: DetailState = {
+    tree,
+    byRow: findingsByRow(findings),
+    readers: readersOf(tree),
+    highlight,
+    onHighlight: setHighlight,
+    onJump: (step) => {
+      setHighlight(null);
+      onSelect(step);
+    },
+    extra: undefined,
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <StepDetailView row={row} state={state} />
+      <RowFindings row={row} state={state} />
+    </div>
+  );
+};
+
 export const WorkflowOutline = ({
   workflow,
   tree,
   selected,
   onSelect,
   findings = noFindings,
+  heading = true,
   before,
   notes,
   extra,
@@ -471,6 +517,8 @@ export const WorkflowOutline = ({
   selected: string | undefined;
   onSelect: (address: string | undefined) => void;
   findings?: readonly Finding[];
+  /** False when the page already has a heading above the steps. */
+  heading?: boolean;
   before?: RowSlots;
   notes?: RowSlots;
   extra?: RowSlots;
@@ -536,7 +584,7 @@ export const WorkflowOutline = ({
     <div className="@container">
       <div className="grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <div ref={list} className="flex min-w-0 flex-col gap-2">
-          <h2 className="text-sm font-medium">Steps</h2>
+          {heading ? <h2 className="text-sm font-medium">Steps</h2> : null}
           <RowList label="Steps" rows={tree.rows} state={state} />
           <AfterSteps tree={tree} state={state} />
         </div>
