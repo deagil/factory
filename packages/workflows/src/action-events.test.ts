@@ -1,19 +1,23 @@
 import type { GitService } from "@workspace/actions";
+import { stepActions } from "@workspace/actions";
 import { noRemote } from "@workspace/config";
 import { organisation } from "@workspace/objects/testing";
-import { defineWorkflow, workflowEntries } from "@workspace/workflows";
 import { describe, expect, it } from "vitest";
 
 import { collectEvents, listEvents, listStepActions } from "./action-events.ts";
-import { defineSystem } from "./system.ts";
+import { defineWorkflow } from "./define-workflow.ts";
+import { workflowEntries } from "./entries.ts";
 
-const system = defineSystem({ name: "s", objects: [organisation] });
+const objects = [organisation];
+const steps = new Map(
+  stepActions(objects).map((action) => [action.name, action])
+);
 
 const deps = {
-  objects: system.objects,
-  definitions: system.registry.list(),
-  steps: system.stepActions,
-  codeWorkflows: system.workflows,
+  objects,
+  definitions: [],
+  steps,
+  codeWorkflows: new Map(),
 };
 
 const git = (files: { path: string; content: string }[]): GitService => ({
@@ -24,6 +28,8 @@ const git = (files: { path: string; content: string }[]): GitService => ({
   diff: () => Promise.reject(new Error("unused")),
   remove: () => Promise.reject(new Error("unused")),
   files: () => Promise.resolve(files),
+  blob: () => Promise.resolve(null),
+  show: () => Promise.resolve(null),
   check: () => Promise.reject(new Error("unused")),
   publish: () => Promise.reject(new Error("unused")),
 });
@@ -44,7 +50,7 @@ steps:
 
 describe("action and event lists", () => {
   it("describes record actions with their object, and checks as read-only", () => {
-    const actions = listStepActions(system.stepActions, system.objects);
+    const actions = listStepActions(steps, objects);
     const update = actions.find(
       (action) => action.name === "organisation_update"
     );
@@ -65,12 +71,7 @@ describe("action and event lists", () => {
   });
 
   it("attributes a generated event to its object", () => {
-    const events = listEvents(
-      system.objects,
-      system.registry.list(),
-      system.stepActions,
-      []
-    );
+    const events = listEvents(objects, [], steps, []);
     expect(
       events.find((event) => event.type === "organisation_created")
     ).toMatchObject({

@@ -11,7 +11,7 @@ import type { DraftEntry } from "@workspace/objects";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { coreWorkflowActions, coreWorkflows } from "./code.ts";
+import { coreStepActions, coreWorkflows } from "./code.ts";
 import { defineWorkflow } from "./define-workflow.ts";
 import { workflowEntries } from "./entries.ts";
 import { getWorkflow, listWorkflows } from "./reading.ts";
@@ -27,6 +27,13 @@ const ping = defineAction({
   handler: () => ({ ok: true }),
 });
 
+const coreActions = coreStepActions({
+  objects: [],
+  steps: new Map(),
+  definitions: () => [],
+  codeWorkflows: new Map(),
+});
+
 const catalog: ConfigCatalog = {
   objects: new Map(),
   actions: new Set(),
@@ -35,7 +42,7 @@ const catalog: ConfigCatalog = {
   events: new Set(),
   choiceLists: [],
   stepActions: new Map<string, AnyActionDefinition>([
-    ...coreWorkflowActions.map(
+    ...coreActions.map(
       (action) => [action.name, action] as [string, AnyActionDefinition]
     ),
     [ping.name, ping],
@@ -85,9 +92,7 @@ const reader = (
 describe("reading workflows", () => {
   it("keeps each workflow's output aligned with its action", () => {
     for (const workflow of coreWorkflows) {
-      const action = coreWorkflowActions.find(
-        (item) => item.name === workflow.key
-      );
+      const action = coreActions.find((item) => item.name === workflow.key);
       expect(workflow.read_only).toBeTruthy();
       expect(workflow.steps).toStrictEqual([
         expect.objectContaining({ id: "read", action: workflow.key }),
@@ -129,7 +134,13 @@ describe("reading workflows", () => {
       code,
       hasKey: got.content.includes("key: ping_flow"),
     }).toMatchObject({
-      keys: ["ping_flow", "workflow_get", "workflow_list"],
+      keys: [
+        "action_list",
+        "event_list",
+        "ping_flow",
+        "workflow_get",
+        "workflow_list",
+      ],
       ping: {
         source: "config",
         path: "config/workflows/ping_flow.yaml",

@@ -273,6 +273,11 @@ export const runSteps = pgTable(
     /** For an `if` step: `then` or `else`. */
     branch: text("branch"),
     attempt: integer("attempt").notNull().default(1),
+    /**
+     * Where the step sits in the run, from 1 in the order it ran. Reads
+     * order by it: `started_at` can tie, and the id is not that order.
+     */
+    position: integer("position").notNull().default(0),
     startedAt: timestamptz("started_at").notNull().defaultNow(),
     finishedAt: timestamptz("finished_at"),
   },

@@ -10,10 +10,12 @@ import type {
 } from "@workspace/actions";
 import { noRemote } from "@workspace/config";
 import type { AnyObjectDefinition } from "@workspace/objects";
-import { workflowSchema } from "@workspace/workflows";
-import type { FieldSpecs, WorkflowDefinition } from "@workspace/workflows";
 import { parse } from "yaml";
 import type { z } from "zod";
+
+import type { FieldSpecs } from "./fields.ts";
+import { workflowSchema } from "./schema.ts";
+import type { WorkflowDefinition } from "./schema.ts";
 
 const recordJobs = ["get", "list", "create", "update", "archive", "restore"];
 

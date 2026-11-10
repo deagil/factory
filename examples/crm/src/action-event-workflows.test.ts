@@ -52,6 +52,8 @@ const gitStub = (): GitService => ({
   diff: () => Promise.reject(new Error("unused")),
   remove: () => Promise.reject(new Error("unused")),
   files: () => Promise.reject(new Error("unused")),
+  blob: () => Promise.resolve(null),
+  show: () => Promise.resolve(null),
   check: () => Promise.reject(new Error("unused")),
   publish: () => Promise.reject(new Error("unused")),
 });
@@ -240,12 +242,13 @@ describe("action_list and event_list", () => {
       ...crm.stepActions,
       [probe.name, probe],
     ]);
+    const remote = gitStub();
     const runner = createRunner({
       db: server.db,
       actions,
       clock: { now: () => new Date() },
+      git: remote,
     });
-    const remote = gitStub();
     const result = await runner.run(
       defineWorkflow({
         key: "probe_git",
@@ -259,7 +262,6 @@ describe("action_list and event_list", () => {
       {
         originUserId: null,
         config: { sha: null, roles: [] },
-        git: remote,
       }
     );
     expect(result).toMatchObject({ ok: true, output: { present: true } });

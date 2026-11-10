@@ -1,0 +1,1 @@
+ALTER TABLE "run_steps" ADD COLUMN "position" integer DEFAULT 0 NOT NULL;

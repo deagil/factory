@@ -402,7 +402,7 @@ export const createLogReader = (executor: Executor) => {
       .select()
       .from(runSteps)
       .where(eq(runSteps.runId, id))
-      .orderBy(runSteps.startedAt, runSteps.id);
+      .orderBy(runSteps.position, runSteps.startedAt, runSteps.id);
     return {
       ...toRunEntry(entry),
       input,
