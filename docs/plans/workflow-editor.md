@@ -375,7 +375,7 @@ Dylan, 2026-11-10. Each question is settled on the recommendation.
 5. **Comments.** A save keeps the comments it did not change (WE.13).
 6. **Who may test.** Roles that name `workflow_test`, given to few. Every test is a dry run on record. Hiding real tables from the test transaction waits until testing is given to many people.
 7. **The File tab.** A plain text area, with problems listed by line. No editor library.
-8. **Moving steps.** Commands and the keyboard. No dragging. *Changed the same day by decision 0059: steps are also dragged to drop zones on the canvas. Every drag keeps its command.*
+8. **Moving steps.** Commands and the keyboard. No dragging. _Changed the same day by decision 0059: steps are also dragged to drop zones on the canvas. Every drag keeps its command._
 9. **The in-app agent's draft.** It saves into the person's draft when the page context names that draft. Every other agent uses its own.
 10. **Building a value from parts.** Five internal actions, the same closed set as computed fields (decision 0052): join text, the first value that is present, add, subtract and multiply. That is WE.17a, straight after WE.17. Not a template inside a fixed value.
 11. **Schedules.** Shown in UTC with the viewer's local time beside. The file is unchanged.
