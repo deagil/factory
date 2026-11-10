@@ -13,6 +13,7 @@ import type {
   Registry,
 } from "@workspace/actions";
 import type { Db } from "@workspace/db";
+import { isComputedField } from "@workspace/objects";
 import type {
   AnyField,
   AnyObjectDefinition,
@@ -384,7 +385,8 @@ export const runContract = async ({
     skip: readonly string[] = []
   ) => {
     const entries = Object.entries(object.fields).filter(
-      ([key]) => !skip.includes(key)
+      ([key, field]) =>
+        !(skip.includes(key) || isComputedField(field as AnyField))
     );
     const values = await Promise.all(
       entries.map(([, field]) =>
