@@ -1,6 +1,6 @@
 # The workflow editor
 
-**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, and the read-only workflow view is built (WE.05 to WE.10). Editing is not built yet.
+**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). The API work so far (WE.01 to WE.03, WE.11 to WE.13) and the workflows list and page (WE.04) are done, and the read-only workflow view is built (WE.05 to WE.10). Editing is not built yet.
 
 **Goal:** a person can open any workflow and understand it end to end: what starts it, what each step does, where each value comes from, where a run may pause, what happens when a step fails, who can call it and who it acts as. Then they can change it. Most workflows are written by agents over the API or MCP, so the editor is first a place to read and check, and second a place to build. Everything an agent can set in a workflow file can be edited here, through the same operations, with the same roles, validation, drafts and approvals. The web app gets nothing the API lacks.
 
@@ -15,7 +15,7 @@
 ## Resume here
 
 - **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, the page reads in words (WE.05) and shows the outline (WE.06). Editing is not built yet.
-- **Next task:** WE.10a and WE.10b (the design pass), which both need Dylan, before WE.14. WE.11, WE.24, WE.26 and WE.32 need neither and can go now. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Next task:** WE.10a and WE.10b (the design pass), which both need Dylan, before WE.14. WE.24, WE.26 and WE.32 need neither and can go now. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Open follow-up.** The CRM's sales role (Sarah) still grants dotted names such as `deal.moveStage` rather than `deal_move_stage`.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
@@ -199,7 +199,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
 
 ### Phase 2: edit
 
-- [ ] **WE.11 `workflow_validate`** [API]
+- [x] **WE.11 `workflow_validate`** [API]
   - Row 4. Takes a value or YAML, never saves, and checks it with `validateConfig` laid over the draft's files (or live), so its problems are the ones a save would give. Returns the value and the YAML each way, which is how the editor moves between its form and the file without parsing YAML in the browser.
   - **Needs:** WE.02.
   - **Done when:** over HTTP and MCP, a value whose step reads a later step returns that problem with its path and no commit is made; YAML with a syntax error returns the line.
@@ -360,7 +360,8 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.08 · [#111](https://github.com/deagil/factory/pull/111) · A value that reads a step is a link to it in the step's detail, and focusing the link marks that step; each step lists what reads its output. `lib/workflow-problems.ts` puts each problem and warning on the deepest step its path reaches, with the field. They show under the step, in its screen-reader name, as a count on a collapsed branch and in a summary above the page that selects the step. The branches around the selected step are always open.
 - 2026-11-10 · WE.09 · [#112](https://github.com/deagil/factory/pull/112) · The workflow page lists the events it emits and the workflows each starts; an object's page gains "What happens when…" for its four generated events; Automation → Events and Actions read `event_list` and `action_list` for people who may, and fall back to `system.describe` for the rest. `lib/workflow-events.ts` holds the lookups.
 - 2026-11-10 · plan · Dylan saw the outline and expected a more polished editor. WE.10b is added: a design pass, agreed with him first, before edit mode (WE.14) builds on the outline.
-- 2026-11-10 · WE.10 · The File tab lists the check's problems and warnings under the file, by path: the check carries no line numbers until WE.11 returns them. The page links to its runs, and Activity → Workflow runs takes `?workflow=` as an exact filter. A run's steps link to the workflow at the run's `configSha` with the step selected, for people who may read workflows; a version that can't be read (or a system with no config remote) falls back to live and says so, with `?was=` holding the sha.
+- 2026-11-10 · WE.10 · [#113](https://github.com/deagil/factory/pull/113) · The File tab lists the check's problems and warnings under the file, by path: the check carries no line numbers until WE.11 returns them. The page links to its runs, and Activity → Workflow runs takes `?workflow=` as an exact filter. A run's steps link to the workflow at the run's `configSha` with the step selected, for people who may read workflows; a version that can't be read (or a system with no config remote) falls back to live and says so, with `?was=` holding the sha.
+- 2026-11-10 · WE.11 · `workflow_validate` is the core's fifth code workflow. A workflow's input fields have no JSON type, so `value` is the definition as JSON text and `content` is its YAML; give one. It returns the value, the YAML a save would write (the value laid over the file, keeping comments) and the check, where each problem and warning now has a `line`. It checks with `validateWorkflow` against the draft's or the live workflows and choice lists, as `workflow_get` does, not with the whole of `validateConfig`. A YAML or shape error comes back as problems with no segments. The web app should call it with `POST`, since a file doesn't fit a query string. The CRM's manager role is granted it.
 
 ## Answers
 

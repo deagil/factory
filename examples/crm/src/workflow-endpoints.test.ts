@@ -230,6 +230,7 @@ describe("workflow endpoints (P2.18)", () => {
       "event_list",
       "workflow_get",
       "workflow_list",
+      "workflow_validate",
     ]);
   });
 
@@ -246,6 +247,31 @@ describe("workflow endpoints (P2.18)", () => {
           name: "move stage",
           key: "workflow_get",
           input: () => ({ key: "deal_move_stage" }),
+        },
+        {
+          name: "a step that reads a later step",
+          key: "workflow_validate",
+          input: () => ({
+            key: "deal_new_flow",
+            value: JSON.stringify({
+              key: "deal_new_flow",
+              description: "Reads a step before it has run.",
+              starts_when: "called",
+              input: { deal: { type: "ref", object: "deal" } },
+              steps: [
+                {
+                  id: "update",
+                  action: "deal_update",
+                  with: { id: { from: "steps.load.output.record.id" } },
+                },
+                {
+                  id: "load",
+                  action: "deal_get",
+                  with: { id: { from: "input.deal" } },
+                },
+              ],
+            }),
+          }),
         },
       ],
     });

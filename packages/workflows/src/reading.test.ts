@@ -14,7 +14,7 @@ import { z } from "zod";
 import { coreStepActions, coreWorkflows } from "./code.ts";
 import { defineWorkflow } from "./define-workflow.ts";
 import { workflowEntries } from "./entries.ts";
-import { getWorkflow, listWorkflows } from "./reading.ts";
+import { checkUnsavedWorkflow, getWorkflow, listWorkflows } from "./reading.ts";
 import type { WorkflowReadContext } from "./reading.ts";
 
 const ping = defineAction({
@@ -140,6 +140,7 @@ describe("reading workflows", () => {
         "ping_flow",
         "workflow_get",
         "workflow_list",
+        "workflow_validate",
       ],
       ping: {
         source: "config",
@@ -162,6 +163,83 @@ describe("reading workflows", () => {
       message:
         "Drafts need a config remote. This system reads config/ from its working tree, so edit the files there.",
     });
+  });
+
+  it("checks an unsaved workflow by value or by YAML, with lines", async () => {
+    const ctx = reader({
+      config: {
+        sha: "abc",
+        roles: [],
+        catalog,
+        workflows: workflowEntries([...coreWorkflows]),
+      },
+    });
+    const good = await checkUnsavedWorkflow(ctx, {
+      key: "ping_flow",
+      content: yaml("ping_flow", "Ping something."),
+    });
+    const late = await checkUnsavedWorkflow(ctx, {
+      key: "late_flow",
+      value: JSON.stringify({
+        key: "late_flow",
+        description: "Reads a step that hasn't run.",
+        starts_when: "called",
+        read_only: true,
+        steps: [
+          { id: "ping", action: "ping" },
+          { output: { ok: { from: "steps.later.output.ok" } } },
+        ],
+      }),
+    });
+    const broken = await checkUnsavedWorkflow(ctx, {
+      key: "ping_flow",
+      content: "key: ping_flow\ndescription: [oops\n",
+    });
+    const wrongKey = await checkUnsavedWorkflow(ctx, {
+      key: "ping_flow",
+      content: yaml("other_flow", "Ping something."),
+    });
+    const both = await checkUnsavedWorkflow(ctx, {
+      key: "ping_flow",
+      value: "{}",
+      content: "x",
+    });
+    const code = await checkUnsavedWorkflow(ctx, {
+      key: "workflow_list",
+      content: "x",
+    });
+    if (
+      isActionFailure(good) ||
+      isActionFailure(late) ||
+      isActionFailure(broken) ||
+      isActionFailure(wrongKey)
+    ) {
+      throw new Error("a check failed");
+    }
+    expect(good).toMatchObject({
+      value: { key: "ping_flow" },
+      check: { problems: [], segments: [{ steps: ["ping"] }] },
+    });
+    expect({
+      count: late.check.problems.length,
+      at: late.check.problems[0]?.path.slice(0, 2),
+      hasLine: (late.check.problems[0]?.line ?? 0) > 1,
+      keptKey: late.content.includes("key: late_flow"),
+    }).toStrictEqual({
+      count: 1,
+      at: ["steps", 1],
+      hasLine: true,
+      keptKey: true,
+    });
+    expect(broken).toMatchObject({
+      value: null,
+      check: { problems: [{ path: [], line: expect.any(Number) }] },
+    });
+    expect(wrongKey.check.problems).toMatchObject([{ path: ["key"], line: 1 }]);
+    expect([
+      isActionFailure(both) && both.error.code,
+      isActionFailure(code) && code.error.code,
+    ]).toStrictEqual(["validation", "validation"]);
   });
 
   it(
