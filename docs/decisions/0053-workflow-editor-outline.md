@@ -1,6 +1,6 @@
 # 0053. The workflow editor is an outline of steps
 
-- **Status:** Accepted
+- **Status:** Superseded by [0059](0059-workflow-editor-canvas.md)
 - **Date:** 2026-11-10
 - **Builds on:** [0045](0045-object-endpoints-and-workflows.md), [0046](0046-runs-segments-and-errors.md) ("the editor shows where a cut may happen") and [0048](0048-workflow-file-format.md). Fills in SYSTEM_DESIGN §4.6 **Visibility**.
 
