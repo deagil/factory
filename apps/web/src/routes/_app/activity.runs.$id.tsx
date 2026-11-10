@@ -21,6 +21,7 @@ import {
 import { opensItem } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, runQuery } from "../../lib/api.ts";
+import { canReadWorkflows, runStepLink } from "../../lib/workflows.ts";
 
 const stepState = (step: RunStepEntry) => {
   if (step.error) {
@@ -28,6 +29,27 @@ const stepState = (step: RunStepEntry) => {
   }
   return step.finishedAt ? "done" : "…";
 };
+
+/** The step's id, linked to its place in the workflow when that can be read. */
+const StepName = ({
+  link,
+  stepId,
+}: {
+  link: ReturnType<typeof runStepLink>;
+  stepId: string;
+}) =>
+  link ? (
+    <Link
+      to="/automation/workflows/$key"
+      params={{ key: link.key }}
+      search={link.search}
+      className="underline underline-offset-2"
+    >
+      {stepId}
+    </Link>
+  ) : (
+    stepId
+  );
 
 const RunScreen = () => {
   const { id } = Route.useParams();
@@ -110,7 +132,15 @@ const RunScreen = () => {
               <li key={step.id} className="rounded-2xl border p-3 text-sm">
                 <div className="flex flex-wrap items-baseline gap-x-3">
                   <span className="font-mono text-xs font-medium">
-                    {step.stepId}
+                    <StepName
+                      link={runStepLink({
+                        endpoint: run.endpoint,
+                        stepId: step.stepId,
+                        configSha: run.configSha,
+                        canRead: canReadWorkflows(described.data?.workflows),
+                      })}
+                      stepId={step.stepId}
+                    />
                   </span>
                   {step.name === step.stepId ? null : (
                     <span className="font-mono text-xs text-muted-foreground">

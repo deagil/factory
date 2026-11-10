@@ -2,7 +2,7 @@
 // beside live, and the file. The version, the selected step and the tab
 // stay in the URL.
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import {
   Tabs,
@@ -10,7 +10,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
-import { useState } from "react";
+import type { WorkflowCheck } from "@workspace/workflows";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { useRoles } from "../../components/access.tsx";
@@ -28,6 +29,8 @@ import {
   canReadWorkflows,
   draftChangesWorkflow,
   emitsOf,
+  fileFindings,
+  isPastVersion,
   mayReadDrafts,
   mayReadRoles,
   presentWorkflow,
@@ -139,11 +142,13 @@ const VersionToggle = ({
 const WorkflowTabs = ({
   tab,
   content,
+  check,
   onTab,
   children,
 }: {
   tab: "workflow" | "file";
   content: string | null;
+  check: WorkflowCheck | undefined;
   onTab: (tab: "file" | undefined) => void;
   children: ReactNode;
 }) => (
@@ -163,17 +168,38 @@ const WorkflowTabs = ({
       {children}
     </TabsContent>
     <TabsContent value="file">
-      <FileText content={content} />
+      <FileText content={content} check={check} />
     </TabsContent>
   </Tabs>
 );
 
-const FileText = ({ content }: { content: string | null }) =>
-  content === null ? null : (
-    <pre className="overflow-x-auto rounded-2xl bg-muted/50 p-3 font-mono text-xs/relaxed whitespace-pre-wrap">
-      {content}
-    </pre>
+const FileText = ({
+  content,
+  check,
+}: {
+  content: string | null;
+  check: WorkflowCheck | undefined;
+}) => {
+  const findings = fileFindings(check);
+  return content === null ? null : (
+    <div className="flex flex-col gap-3">
+      <pre className="overflow-x-auto rounded-2xl bg-muted/50 p-3 font-mono text-xs/relaxed whitespace-pre-wrap">
+        {content}
+      </pre>
+      {findings.length > 0 ? (
+        <ul className="flex flex-col gap-1 text-sm">
+          {findings.map((finding) => (
+            <li key={`${finding.at}:${finding.message}`}>
+              <span className="font-medium">{finding.kind}</span> at{" "}
+              <span className="font-mono text-xs">{finding.at}</span>:{" "}
+              {finding.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
+};
 
 const RunButton = ({
   open,
@@ -261,6 +287,15 @@ const WorkflowScreen = () => {
     eventList.events ?? [],
     eventList.labels
   );
+  const pastGone = got.isError && isPastVersion(search.v);
+  useEffect(() => {
+    if (pastGone) {
+      void navigate({
+        replace: true,
+        search: (previous) => ({ ...previous, v: undefined, was: previous.v }),
+      });
+    }
+  }, [pastGone, navigate]);
   const setSearch = (next: { tab?: "file"; step?: string; v?: string }) => {
     void navigate({ search: (previous) => ({ ...previous, ...next }) });
   };
@@ -293,18 +328,35 @@ const WorkflowScreen = () => {
         onLive={() => setSearch({ v: undefined })}
       />
       <Notice text={present.reason} />
+      <Notice
+        text={
+          search.was
+            ? "The version this link asked for can no longer be read, so this is the live workflow."
+            : null
+        }
+      />
+      <p className="text-sm">
+        <Link
+          to="/activity/runs"
+          search={{ workflow: key }}
+          className="font-medium underline underline-offset-2"
+        >
+          Runs of this workflow
+        </Link>
+      </p>
       <RunPanel
         open={running}
         workflow={callable}
         description={described.data}
         onClose={() => setRunning(false)}
       />
-      <ErrorText error={listed.error ?? got.error} />
+      <ErrorText error={listed.error ?? (pastGone ? null : got.error)} />
       <Notice text={present.missingText} />
       <Loading show={got.isLoading} />
       <WorkflowTabs
         tab={present.tab}
         content={present.content}
+        check={got.data?.check}
         onTab={(tab) => setSearch({ tab })}
       >
         <WorkflowTab

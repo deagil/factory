@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  fileFindings,
+  isPastVersion,
+  runStepLink,
   canReadWorkflows,
   draftChangeLabel,
   draftChangesWorkflow,
@@ -199,5 +202,80 @@ describe(presentWorkflow, () => {
         missing: "only_in_draft",
       }).missingText
     ).toBe("This workflow is only in your draft.");
+  });
+});
+
+describe(runStepLink, () => {
+  const sha = "a".repeat(40);
+
+  it("opens the workflow at the run's config with the step selected", () => {
+    expect(
+      runStepLink({
+        endpoint: "deal_move_stage",
+        stepId: "update",
+        configSha: sha,
+        canRead: true,
+      })
+    ).toStrictEqual({
+      key: "deal_move_stage",
+      search: { step: "update", v: sha },
+    });
+    expect(
+      runStepLink({
+        endpoint: "deal_move_stage",
+        stepId: "update",
+        configSha: null,
+        canRead: true,
+      })?.search
+    ).toStrictEqual({ step: "update" });
+  });
+
+  it("gives no link for an action's run, or a viewer who can't read workflows", () => {
+    expect(
+      runStepLink({
+        endpoint: "deal.moveStage",
+        stepId: "x",
+        configSha: sha,
+        canRead: true,
+      })
+    ).toBeNull();
+    expect(
+      runStepLink({
+        endpoint: "deal_move_stage",
+        stepId: "x",
+        configSha: sha,
+        canRead: false,
+      })
+    ).toBeNull();
+    expect([
+      isPastVersion(sha),
+      isPastVersion("draft"),
+      isPastVersion(undefined),
+    ]).toStrictEqual([true, false, false]);
+    expect(workflowPageSearch({ was: sha, v: "nope" })).toStrictEqual({
+      was: sha,
+    });
+  });
+
+  it("lists the check's findings for the File tab by their path", () => {
+    expect(
+      fileFindings({
+        problems: [
+          { path: ["steps", 1, "action"], message: "No such action." },
+        ],
+        warnings: [{ path: ["input", "deal"], message: "Nobody checks it." }],
+        segments: [],
+        scopes: {
+          steps: {},
+          outputs: {},
+          input: null,
+          event: null,
+          eventSchema: null,
+        },
+      })
+    ).toStrictEqual([
+      { kind: "Problem", at: "steps.1.action", message: "No such action." },
+      { kind: "Warning", at: "input.deal", message: "Nobody checks it." },
+    ]);
   });
 });

@@ -1,6 +1,6 @@
 # The workflow editor
 
-**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, the page reads in words (WE.05) and shows the outline (WE.06). Editing is not built yet.
+**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, and the read-only workflow view is built (WE.05 to WE.10). Editing is not built yet.
 
 **Goal:** a person can open any workflow and understand it end to end: what starts it, what each step does, where each value comes from, where a run may pause, what happens when a step fails, who can call it and who it acts as. Then they can change it. Most workflows are written by agents over the API or MCP, so the editor is first a place to read and check, and second a place to build. Everything an agent can set in a workflow file can be edited here, through the same operations, with the same roles, validation, drafts and approvals. The web app gets nothing the API lacks.
 
@@ -15,7 +15,7 @@
 ## Resume here
 
 - **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, the page reads in words (WE.05) and shows the outline (WE.06). Editing is not built yet.
-- **Next task:** WE.10, then WE.10a and WE.10b (the design pass) before phase 2. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Next task:** WE.10a and WE.10b (the design pass), which both need Dylan, before WE.14. WE.11, WE.24, WE.26 and WE.32 need neither and can go now. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Open follow-up.** The CRM's sales role (Sarah) still grants dotted names such as `deal.moveStage` rather than `deal_move_stage`.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
@@ -181,7 +181,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.03, WE.04.
   - **Done when:** in the browser, Move stage shows `deal_stage_changed` starting `deal_won_task`, and the Deal object shows `deal_owner_task` under "when a deal is updated".
 
-- [ ] **WE.10 The file, and links to and from runs** [web]
+- [x] **WE.10 The file, and links to and from runs** [web]
   - The File tab shows `content` as it is in git, read-only, with problems listed by line. The page links to Activity → Workflow runs for this workflow (`routes/_app/activity.runs.index.tsx` gains an exact `workflow` filter beside its prefix one). A run's page (`activity.runs.$id.tsx`) links each step to the workflow at the run's `configSha` with that step selected; a version that can no longer be read falls back to live and says so.
   - **Needs:** WE.06.
   - **Done when:** in the browser, a run of Move stage opens the workflow with `update` selected, and the workflow's Runs link lists only its runs.
@@ -358,8 +358,9 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.06 · [#109](https://github.com/deagil/factory/pull/109) · `lib/workflow-tree.ts` walks the steps into rows with the check's own paths (`steps.1.then.0`, `on_failure.0`), and `components/workflow-outline.tsx` draws them as nested lists of buttons. A row is its id as a title and a sentence for what it does. `?step=` holds the id, or the path for a `fail` or `output` with none. The detail sits beside the outline from a 48rem pane and under the row below that. `WorkflowOutline` takes `notes` and `extra` so later tasks can add cuts, problems and links to a row and its detail.
 - 2026-11-10 · WE.07 · [#110](https://github.com/deagil/factory/pull/110) · The outline shows a divider above each step that ends a segment, in the check's words, a mark on external steps sent after a commit, and "May pause in N places" above the steps. A panel says which roles can call the workflow (from `role.list`, when the viewer may read it), who it acts as, and any warning about its input. The CRM gains `deal_follow_up`, with a wait and failure steps. The outline's slots (`before`, `notes`, `extra`) are maps keyed by a step's path, and the Workflow tab is `components/workflow-view.tsx`.
 - 2026-11-10 · WE.08 · [#111](https://github.com/deagil/factory/pull/111) · A value that reads a step is a link to it in the step's detail, and focusing the link marks that step; each step lists what reads its output. `lib/workflow-problems.ts` puts each problem and warning on the deepest step its path reaches, with the field. They show under the step, in its screen-reader name, as a count on a collapsed branch and in a summary above the page that selects the step. The branches around the selected step are always open.
-- 2026-11-10 · WE.09 · The workflow page lists the events it emits and the workflows each starts; an object's page gains "What happens when…" for its four generated events; Automation → Events and Actions read `event_list` and `action_list` for people who may, and fall back to `system.describe` for the rest. `lib/workflow-events.ts` holds the lookups.
+- 2026-11-10 · WE.09 · [#112](https://github.com/deagil/factory/pull/112) · The workflow page lists the events it emits and the workflows each starts; an object's page gains "What happens when…" for its four generated events; Automation → Events and Actions read `event_list` and `action_list` for people who may, and fall back to `system.describe` for the rest. `lib/workflow-events.ts` holds the lookups.
 - 2026-11-10 · plan · Dylan saw the outline and expected a more polished editor. WE.10b is added: a design pass, agreed with him first, before edit mode (WE.14) builds on the outline.
+- 2026-11-10 · WE.10 · The File tab lists the check's problems and warnings under the file, by path: the check carries no line numbers until WE.11 returns them. The page links to its runs, and Activity → Workflow runs takes `?workflow=` as an exact filter. A run's steps link to the workflow at the run's `configSha` with the step selected, for people who may read workflows; a version that can't be read (or a system with no config remote) falls back to live and says so, with `?was=` holding the sha.
 
 ## Answers
 
