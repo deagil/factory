@@ -15,7 +15,7 @@
 ## Resume here
 
 - **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, the page reads in words (WE.05) and shows the outline (WE.06). Editing is not built yet.
-- **Next task:** a visual pass on the outline (Dylan, 10 Nov: it should look like a polished flow of connected cards, as Zapier's does, still as an outline), then WE.09 and WE.10. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Next task:** WE.10, then WE.10a and WE.10b (the design pass) before phase 2. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Open follow-up.** The CRM's sales role (Sarah) still grants dotted names such as `deal.moveStage` rather than `deal_move_stage`.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
@@ -176,7 +176,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.06.
   - **Done when:** in the browser, choosing "the record's stage from Load" on `announce` selects `load`; a draft workflow with an unknown action shows the problem on that step and in the summary.
 
-- [ ] **WE.09 Events: what happens next, and what happens when** [web]
+- [x] **WE.09 Events: what happens next, and what happens when** [web]
   - On the workflow page: the events it emits, and under each the workflows it starts, linked. Automation → Events lists every event from `event_list` with the workflows it starts. An object's page (`routes/_app/data.objects.$object.tsx`) gains "What happens when…": the workflows its four generated events start. Automation → Actions lists `action_list`, which is what steps can really run.
   - **Needs:** WE.03, WE.04.
   - **Done when:** in the browser, Move stage shows `deal_stage_changed` starting `deal_won_task`, and the Deal object shows `deal_owner_task` under "when a deal is updated".
@@ -190,6 +190,12 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - Decision 0053: a row is read from the step's id and what it does, and a step has no `label`. With the read-only outline on screen and the CRM's real workflows in it, decide whether that reads well. If it does not, the next task adds an optional `label` on each step, which amends decision 0048. This task does not change the file.
   - **Needs:** WE.10.
   - **Done when:** the log records the look: either rows stay as they are, or a follow-up task is added for the optional `label`.
+
+- [ ] **WE.10b A design pass on the outline** [web]
+  - Dylan, 10 Nov 2026: the read-only outline is plain, and he expected something more polished. Zapier was a point of reference, not the target: the design should come from what editing a workflow here has to show (what starts it, the order of steps, branches, where a run commits, where a value comes from, problems). It stays an outline (decision 0053), with no canvas and no new dependency.
+  - Propose the look first, with the CRM's workflows on screen, and agree it with Dylan before building. Then restyle `components/workflow-outline.tsx` and `components/workflow-view.tsx` so phase 2's controls (insert, move, forms) have a place to go.
+  - **Needs:** WE.10.
+  - **Done when:** Dylan has agreed the design, and in the browser the four CRM workflows show it at a wide pane and at 28rem, with the keyboard and screen-reader behaviour of WE.06 unchanged.
 
 ### Phase 2: edit
 
@@ -211,7 +217,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
 - [ ] **WE.14 Edit mode and saving** [web]
   - Edit turns the page into a working copy held in the page: undo and redo, each change checked with `workflow_validate` after a short pause, and **Save to draft** sending the value with its revision. A conflict offers Compare and Reload. Leaving with unsaved edits asks first. When the draft waits for approval, Save says it withdraws the request, as choice lists do. Publish stays in the header pill.
   - New workflow (a key, a description and what starts it) and Delete (a save with no content). Read-only cases each say why: code, no config remote, a past version, or roles that can't save drafts.
-  - **Needs:** WE.08, WE.11, WE.12.
+  - **Needs:** WE.08, WE.10b, WE.11, WE.12.
   - **Done when:** in the browser a manager changes Move stage's description, saves, and the pill shows the edit; saving from a second tab that is behind is refused with the choice to compare or reload.
 
 - [ ] **WE.15 Add, remove, move and duplicate steps** [web]
@@ -351,7 +357,9 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.05 · [#108](https://github.com/deagil/factory/pull/108) · `lib/workflow-words.ts` phrases what starts a workflow, the nine condition operators, a value's source, a duration and a schedule (UTC, with the viewer's time beside it, or the five named fields). A record's own events read as "a deal is updated"; any other event reads by its name. The page shows what starts it, what it takes, what it gives back and how it can fail.
 - 2026-11-10 · WE.06 · [#109](https://github.com/deagil/factory/pull/109) · `lib/workflow-tree.ts` walks the steps into rows with the check's own paths (`steps.1.then.0`, `on_failure.0`), and `components/workflow-outline.tsx` draws them as nested lists of buttons. A row is its id as a title and a sentence for what it does. `?step=` holds the id, or the path for a `fail` or `output` with none. The detail sits beside the outline from a 48rem pane and under the row below that. `WorkflowOutline` takes `notes` and `extra` so later tasks can add cuts, problems and links to a row and its detail.
 - 2026-11-10 · WE.07 · [#110](https://github.com/deagil/factory/pull/110) · The outline shows a divider above each step that ends a segment, in the check's words, a mark on external steps sent after a commit, and "May pause in N places" above the steps. A panel says which roles can call the workflow (from `role.list`, when the viewer may read it), who it acts as, and any warning about its input. The CRM gains `deal_follow_up`, with a wait and failure steps. The outline's slots (`before`, `notes`, `extra`) are maps keyed by a step's path, and the Workflow tab is `components/workflow-view.tsx`.
-- 2026-11-10 · WE.08 · A value that reads a step is a link to it in the step's detail, and focusing the link marks that step; each step lists what reads its output. `lib/workflow-problems.ts` puts each problem and warning on the deepest step its path reaches, with the field. They show under the step, in its screen-reader name, as a count on a collapsed branch and in a summary above the page that selects the step. The branches around the selected step are always open.
+- 2026-11-10 · WE.08 · [#111](https://github.com/deagil/factory/pull/111) · A value that reads a step is a link to it in the step's detail, and focusing the link marks that step; each step lists what reads its output. `lib/workflow-problems.ts` puts each problem and warning on the deepest step its path reaches, with the field. They show under the step, in its screen-reader name, as a count on a collapsed branch and in a summary above the page that selects the step. The branches around the selected step are always open.
+- 2026-11-10 · WE.09 · The workflow page lists the events it emits and the workflows each starts; an object's page gains "What happens when…" for its four generated events; Automation → Events and Actions read `event_list` and `action_list` for people who may, and fall back to `system.describe` for the rest. `lib/workflow-events.ts` holds the lookups.
+- 2026-11-10 · plan · Dylan saw the outline and expected a more polished editor. WE.10b is added: a design pass, agreed with him first, before edit mode (WE.14) builds on the outline.
 
 ## Answers
 

@@ -16,15 +16,18 @@ import type { ReactNode } from "react";
 import { useRoles } from "../../components/access.tsx";
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
+import { useEventList } from "../../components/workflow-events.tsx";
 import { WorkflowForm } from "../../components/workflow-form.tsx";
 import { WorkflowTab } from "../../components/workflow-view.tsx";
 import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
 import type { WorkflowDescription } from "../../lib/forms.ts";
+import { startedBy } from "../../lib/workflow-events.ts";
 import {
   canReadWorkflows,
   draftChangesWorkflow,
+  emitsOf,
   mayReadDrafts,
   mayReadRoles,
   presentWorkflow,
@@ -100,7 +103,7 @@ const useWorkflowData = (key: string, version: string | undefined) => {
     }),
     retry: false,
   });
-  return { described, listed, got, item, missing };
+  return { described, listed, got, item, missing, draftId: draft?.id };
 };
 
 const VersionToggle = ({
@@ -239,7 +242,7 @@ const WorkflowScreen = () => {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const [running, setRunning] = useState(false);
-  const { described, listed, got, item, missing } = useWorkflowData(
+  const { described, listed, got, item, missing, draftId } = useWorkflowData(
     key,
     search.v
   );
@@ -252,6 +255,12 @@ const WorkflowScreen = () => {
   });
   const callable = callableOf(described.data, key);
   const roles = useRoles(mayReadRoles(described.data?.queries));
+  const eventList = useEventList(search.v === "draft" ? draftId : undefined);
+  const whatNext = startedBy(
+    emitsOf(got.data?.definition ?? null, item),
+    eventList.events ?? [],
+    eventList.labels
+  );
   const setSearch = (next: { tab?: "file"; step?: string; v?: string }) => {
     void navigate({ search: (previous) => ({ ...previous, ...next }) });
   };
@@ -307,6 +316,7 @@ const WorkflowScreen = () => {
           tree={present.tree}
           check={got.data?.check}
           roles={roles.data}
+          next={whatNext}
           selected={search.step}
           onSelect={(step) => setSearch({ step })}
         />
