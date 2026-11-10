@@ -221,6 +221,7 @@ describe("reading workflows", () => {
         ],
         status: "draft",
         baseSha: base,
+        headSha: null,
         publishedSha: null,
         syncedSha: null,
         publishRunId: null,
