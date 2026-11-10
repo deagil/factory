@@ -1,6 +1,6 @@
 # 0057. Test runs of draft workflows
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Builds on:** [0045](0045-object-endpoints-and-workflows.md) (example cases, the publish gate) and [0046](0046-runs-segments-and-errors.md) (dry runs back example cases). Leaves [0041](0041-drafts-over-git.md)'s rule alone: the draft operations themselves still refuse dry runs.
 

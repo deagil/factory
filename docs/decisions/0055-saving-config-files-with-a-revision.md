@@ -1,6 +1,6 @@
 # 0055. Config files are saved whole, with a revision
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Amends:** [0041](0041-drafts-over-git.md) (a publish whose file production changed ends in "start a new draft"; a save by value rewrites the file) and [0044](0044-working-drafts-and-requests.md) (anyone who may save drafts can save into anyone's).
 

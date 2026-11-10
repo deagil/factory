@@ -1,6 +1,6 @@
 # 0058. Page context and links for the in-app agent
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Amends:** [0033](0033-web-navigation-and-dev-bar.md), which keeps the sidebar for the agent and says nothing yet about what the app gives it.
 - **Builds on:** SYSTEM_DESIGN §7: the in-app agent is a client of the MCP server with no tools an external agent lacks.

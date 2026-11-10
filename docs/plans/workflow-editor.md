@@ -1,29 +1,29 @@
 # The workflow editor
 
-**Status:** proposed. Nothing here is built, and the decision records it leans on (0053 to 0058) are `Proposed`. WE.00 is where Dylan accepts or changes them.
+**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Nothing here is built yet.
 
 **Goal:** a person can open any workflow and understand it end to end: what starts it, what each step does, where each value comes from, where a run may pause, what happens when a step fails, who can call it and who it acts as. Then they can change it. Most workflows are written by agents over the API or MCP, so the editor is first a place to read and check, and second a place to build. Everything an agent can set in a workflow file can be edited here, through the same operations, with the same roles, validation, drafts and approvals. The web app gets nothing the API lacks.
 
 **Out of scope:**
 
 - Run data drawn over steps. Runs stay in Activity → Workflow runs; the editor links there.
-- New kinds of step, loops and an expression language (SYSTEM_DESIGN §8). Open question 10 covers the one gap this plan expects people to hit.
+- New kinds of step, loops and an expression language (SYSTEM_DESIGN §8). Building a value from parts is the five actions in WE.17a, not a template in a fixed value.
 - The in-app agent's harness (phase 4). Phase 4 of this plan builds only what the web app gives it.
 - Building `http_send` (P2.28) or example cases (P2.22). Tasks that need them say so.
 - Editing code workflows. They are TypeScript, shipped with a release; the editor shows them and says why they can't be changed here.
 
 ## Resume here
 
-- **Status:** not started. The plan was written on 10 Nov 2026 against `main` at `6fe3fdb`.
-- **Next task:** WE.00. After it, WE.01 to WE.03 can go in any order; WE.04 needs WE.01.
+- **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Nothing in this plan is built yet.
+- **Next task:** WE.01. WE.02 and WE.03 can go with it, in any order; WE.04 needs WE.01. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
 - **How to start:** see [README.md](README.md) and AGENTS.md. The CRM (`examples/crm`) is the system to check against. Editing needs a config remote: run it with `CONFIG_REMOTE=local`.
 
 ## How this fits phase 2
 
-- **P2.23 splits in two.** It bundles the run inspector with the workflow view. This plan's phase 1 is the workflow view and the "What happens when…" view, so WE.00 splits P2.23 into **P2.23a** (Activity → Runs: a run's steps drawn with segments, branches, errors and retries, and record history linking to runs) and **P2.23b** (the read-only workflow view and "What happens when…"), and P2.23b is done by WE.04 to WE.10. P2.10f and P2.30 then need P2.23a only.
-- **P2.23a should draw a run with the outline from WE.06,** so a run and its definition look alike. That makes WE.06 a dependency of P2.23a (open question 2).
+- **P2.23 is split in two.** It bundled the run inspector with the workflow view. This plan's phase 1 is the workflow view and the "What happens when…" view, so WE.00 split P2.23 into **P2.23a** (Activity → Runs: a run's steps drawn with segments, branches, errors and retries, and record history linking to runs) and **P2.23b** (the read-only workflow view and "What happens when…"), and P2.23b is done by WE.04 to WE.10. P2.10f and P2.30 need P2.23a only.
+- **P2.23a draws a run with the outline from WE.06,** so a run and its definition look alike. WE.06 is a dependency of P2.23a.
 - **New operations are code workflows from the start,** read-only where they only read, as P2.24 makes the rest of the core. None exists in the core yet (`defineWorkflow` is used only in tests), so WE.01 is the first and sets the pattern. A step's action runs under the service key and knows the origin user but not the calling actor (`packages/actions/src/step.ts`), so these operations never say "mine": they take a `draft_id`.
 - **What waits for phase 2:** WE.28 to WE.30 need P2.22 (example cases). The approval step's form (WE.19) can be built before P2.21, since the schema already has `wait_for_approval`, but can only be tried end to end after it. `http_send`'s form needs nothing special: it is an action with a fixed input, which WE.16 and WE.17 handle for any action.
 
@@ -107,7 +107,7 @@ Found by reading the code, not assumed. "Exists" means it is in `main` today.
 | 10 | **`draft_list`** (changes) | adds `path?`, `open?` | Drafts that change one file. Without the grant, a caller still sees their own and their agents' | As today | WE.22 |
 | 11 | **`draft_rebase`** (new) | `id`, `keep?` (per path, `mine` or `live`) | The draft on the current live config, checked; or `conflict` naming the files both changed | Roles naming it, on a draft they may save | WE.23 |
 | 12 | **`config_history`** (new, read-only) | `path`, `limit?`, `cursor?` | The published commits that changed a config file, newest first: `sha`, `at`, `title`, who, and the draft it came from. Needs a new `GitService.log` (`packages/actions/src/define-action.ts`, `packages/config/src/git.ts`) | Roles naming it | WE.26 |
-| 13 | **`workflow_test`** (new) | `key`, `draft_id?`, `input` or `event`, `caller?`, `fakes?`, `approvals?` | The output or error, each step with its input, output, error, branch and segment, the changes and events it would have written, the id of the dry run that keeps the trace, and the same thing as an example case | Roles naming it; see open question 6 | WE.28 |
+| 13 | **`workflow_test`** (new) | `key`, `draft_id?`, `input` or `event`, `caller?`, `fakes?`, `approvals?` | The output or error, each step with its input, output, error, branch and segment, the changes and events it would have written, the id of the dry run that keeps the trace, and the same thing as an example case | Roles naming it. The grant is a serious one: a test runs under the service key against real records (decision 0057) | WE.28 |
 | 14 | **`run_list`** (changes) | adds `step?`, `step_failed?` | Runs that reached, or failed at, one step | As today | WE.31 |
 
 **What doesn't change:** `system_describe` keeps meaning "what you may call". The new operations show up in it because they are workflows. The web app keeps reading it for navigation and for the Run form.
@@ -120,7 +120,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
 
 ### Phase 0: agree
 
-- [ ] **WE.00 Accept the decisions and split P2.23** [docs]
+- [x] **WE.00 Accept the decisions and split P2.23** [docs]
   - Dylan answers the open questions. Decisions 0053 to 0058 become `Accepted` (changed where an answer differs), with their rows in `docs/decisions/README.md`.
   - `docs/plans/phase-2.md`: P2.23 becomes P2.23a (run inspector) and P2.23b (the workflow view, done by this plan); P2.10f and P2.30 need P2.23a. SYSTEM_DESIGN §4.6 **Visibility** and §4.9 describe the editor, and the glossary gains **revision**.
   - **Needs:** nothing.
@@ -151,7 +151,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Done when:** in the browser, an admin opens Move stage from the list and sees its description and key; a workflow started by an event is listed; a sales user still sees only their Run forms.
 
 - [ ] **WE.05 Words for triggers, values and conditions** [web]
-  - `lib/workflow-words.ts`, pure and tested: what starts a workflow ("When a deal's stage changes, if the new stage's category is won"; "Every weekday at 09:00 UTC", falling back to the five named fields for a schedule it can't phrase); a condition for each of the nine operators, with choice columns ("the stage's category is lost"); a value ("the deal from the input", "the record's stage from the step Load", a fixed value); a duration.
+  - `lib/workflow-words.ts`, pure and tested: what starts a workflow ("When a deal's stage changes, if the new stage's category is won"; "Every weekday at 09:00 UTC", with the viewer's local time beside it, falling back to the five named fields for a schedule it can't phrase); a condition for each of the nine operators, with choice columns ("the stage's category is lost"); a value ("the deal from the input", "the record's stage from the step Load", a fixed value); a duration. The file stays in UTC: no time zone is added to it.
   - The page shows what starts it, its input fields, its output and its errors, using them.
   - **Needs:** WE.04.
   - **Done when:** tests cover each operator, each kind of start and each kind of value; in the browser the three CRM workflows read as sentences.
@@ -185,6 +185,11 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.06.
   - **Done when:** in the browser, a run of Move stage opens the workflow with `update` selected, and the workflow's Runs link lists only its runs.
 
+- [ ] **WE.10a Look again at step labels** [docs]
+  - Decision 0053: a row is read from the step's id and what it does, and a step has no `label`. With the read-only outline on screen and the CRM's real workflows in it, decide whether that reads well. If it does not, the next task adds an optional `label` on each step, which amends decision 0048. This task does not change the file.
+  - **Needs:** WE.10.
+  - **Done when:** the log records the look: either rows stay as they are, or a follow-up task is added for the optional `label`.
+
 ### Phase 2: edit
 
 - [ ] **WE.11 `workflow_validate`** [API]
@@ -209,7 +214,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Done when:** in the browser a manager changes Move stage's description, saves, and the pill shows the edit; saving from a second tab that is behind is refused with the choice to compare or reload.
 
 - [ ] **WE.15 Add, remove, move and duplicate steps** [web]
-  - `lib/workflow-tree.ts` gains insert, remove, duplicate (with a new unique id), move up and down, move into the branch before and out of a branch, and rename an id (rewriting every `steps.<id>.…` that reads it). Each is a button or menu item on the row and a keyboard command, announced to screen readers. No dragging (open question 8). Removing a step that others read lists them first.
+  - `lib/workflow-tree.ts` gains insert, remove, duplicate (with a new unique id), move up and down, move into the branch before and out of a branch, and rename an id (rewriting every `steps.<id>.…` that reads it). Each is a button or menu item on the row and a keyboard command, announced to screen readers. No dragging: moving is a command, and it has to work from the keyboard. Removing a step that others read lists them first.
   - **Needs:** WE.14.
   - **Done when:** tests cover each operation and the rename; in the browser, using only the keyboard, a step is added, moved into the `then` branch and out again.
 
@@ -222,6 +227,11 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - `lib/schema-form.ts`: from an action's input JSON Schema, one row per input with its `title` or name, `description`, required mark and a fixed-value control by type (text, number, switch, select for `enum`, date for a date format, a JSON box for objects, arrays and anything else). A record action uses its object's fields for labels, choice options and record pickers. Picking a different action keeps inputs with the same name.
   - **Needs:** WE.03, WE.16.
   - **Done when:** tests cover each schema type and the fallback; in the browser a step is switched to `task_create` and filled in; and a test action with an input the renderer doesn't know still saves through the JSON box.
+
+- [ ] **WE.17a Actions that build a value** [API]
+  - Five internal actions, the same closed set as computed fields (decision 0052): `text_join` joins text, email and url parts, skipping empty ones, with a space unless a separator is set; `value_first` returns the first value that is present, and zero counts; `number_add`, `number_subtract` and `number_multiply` combine numbers and return null when any part is empty. A step runs one of them. They appear in `action_list` and use WE.17's schema form, with no form of their own. A fixed value stays a fixed value: no template syntax.
+  - **Needs:** WE.17.
+  - **Done when:** tests cover each action, including an empty part; in the browser a step joins a name into a task title from earlier steps and saves.
 
 - [ ] **WE.18 The condition builder** [web]
   - For `if`, `starts_when.when` and `wait_for_approval.when`: rows of field, operator and value. The field is the picker from WE.16; the operators offered fit its type; the value is a select for a choice field or an enum column, a number box for the comparing operators, a list for `one_of`. Each row shows its sentence.
@@ -239,7 +249,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Done when:** in the browser a new workflow is built from nothing to match `deal_won_task`, and `workflow_get` returns the same definition.
 
 - [ ] **WE.21 Editing the file directly** [web]
-  - The File tab becomes editable for config workflows: a plain text area, checked with `workflow_validate` by `content`, saved as `content` so comments are kept exactly. Switching between Workflow and File with unsaved edits converts through `workflow_validate`. No code-editor dependency (open question 7).
+  - The File tab becomes editable for config workflows: a plain text area, checked with `workflow_validate` by `content`, saved as `content` so comments are kept exactly. Switching between Workflow and File with unsaved edits converts through `workflow_validate`. Problems are listed by line. No code-editor library.
   - **Needs:** WE.14.
   - **Done when:** in the browser a comment added in the File tab survives a save, and a YAML mistake shows its line and blocks Save.
 
@@ -331,69 +341,21 @@ These hold for every web task; a task isn't done if it breaks one.
 ## Log
 
 - 2026-11-10 · plan · Written from Dylan's brief for the visual workflow editor. Decisions 0053 to 0058 proposed.
+- 2026-11-10 · WE.00 · Decisions 0053 to 0058 accepted. P2.23 split into P2.23a (the run inspector, reusing WE.06's outline) and P2.23b (the read-only workflow view, done by WE.04 to WE.10); P2.10f and P2.30 need P2.23a only. Step labels stay off the file until WE.10a looks again, after phase 1. The five value-building actions are WE.17a, straight after WE.17. Schedules stay UTC in the file and are shown with the viewer's local time beside them.
 
-## Open questions for Dylan
+## Answers
 
-1. **Who may read a workflow's steps?**
-   - (a) Roles that name `workflow_get` and `workflow_list`, like any workflow.
-   - (b) Everyone who signs in.
-   - (c) Anyone who may call the workflow.
-   - **Recommend (a).** Steps show how the business works and which roles approve what. Granting by name needs no new idea. The CRM would give it to admin and manager.
+Dylan, 2026-11-10. Each question is settled on the recommendation.
 
-2. **Split P2.23, and draw runs with the editor's outline?**
-   - (a) Split into P2.23a (runs) and P2.23b (this plan's phase 1), and build P2.23a after WE.06 so it reuses the outline.
-   - (b) Split, but let P2.23a draw runs its own way now.
-   - (c) Keep P2.23 whole in phase 2.
-   - **Recommend (a).** A run and its definition should look alike, and it is one component instead of two.
-
-3. **New operations before P2.24?**
-   - (a) Write them as code workflows now; WE.01 is the core's first.
-   - (b) Write them as queries now and let P2.24 convert them.
-   - (c) Wait for P2.24.
-   - **Recommend (a).** It adds nothing to `/queries`, and P2.24 gets a worked example. The cost is that WE.01 meets P2.24's problems first, the main one being that a step's action can't tell which actor called.
-
-4. **Should a step be able to carry a label or a note?** The file has none, and agents explain steps in YAML comments, which the outline can't show. This would amend decision 0048.
-   - (a) No. Rows read from the step's id and what it does.
-   - (b) An optional `label` on each step.
-   - (c) An optional `label` and `note`.
-   - **Recommend (a) for now,** and look again after phase 1 with real workflows on screen. If rows read badly, (b).
-
-5. **Comments when the editor saves.**
-   - (a) Keep them (WE.13).
-   - (b) Accept that a save from a form drops them, as choice lists do today.
-   - **Recommend (a).** Otherwise a person's one-word change rewrites an agent's whole file, and the diff an approver reads is noise.
-
-6. **Who may run a test, given what it can read?** A test runs under the service key against real records, rolled back. Its step outputs can show the author data their roles hide, before anyone has approved the workflow.
-   - (a) Roles that name `workflow_test`; give it to few, and keep every test as a dry run on record.
-   - (b) Only people who could approve the workflow's publish.
-   - (c) Tests see only the fixture records they declare.
-   - **Recommend (a).** (c) is the safe answer but means hiding real tables from a transaction, which is a lot to build; raise it again if tests are given to many people.
-
-7. **A code editor for the File tab?**
-   - (a) A plain text area with problems listed by line.
-   - (b) Add an editor library for highlighting and inline marks.
-   - **Recommend (a).** The form is the main way in; the file is for checking. A library is a dependency to approve later if people live in that tab.
-
-8. **Dragging steps?**
-   - (a) No: move commands and the keyboard.
-   - (b) The browser's own drag and drop.
-   - (c) A drag library.
-   - **Recommend (a) to start.** It has to work by keyboard anyway, and nested drop targets are where drag libraries get hard. Add (b) later if people ask.
-
-9. **Does the in-app agent save into the person's draft, or its own?** Decision 0044 gives each agent its own working draft.
-   - (a) Into the person's, when the page context names it; every other agent uses its own.
-   - (b) Always its own, and the person copies or publishes it.
-   - **Recommend (a).** One draft to look at while working together. It needs the owner rule in WE.12, which also closes today's gap where anyone who may save drafts can save into anyone's.
-
-10. **Building a value from parts.** There is no expression language, and decision 0045 says reshaping is an action, but no such actions exist. People will want "Thank {customer}" as a task title on day one.
-    - (a) A few ready-made internal actions that mirror computed fields' closed set (decision 0052): join text, first present value, add, subtract, multiply.
-    - (b) Nothing until a client asks.
-    - (c) A template syntax inside fixed values.
-    - **Recommend (a),** as its own small task outside this plan. Not (c): it is an expression language by another name.
-
-11. **Schedules are in UTC** (`packages/events`). Show them as UTC with the viewer's local time beside, or add a time zone to the file? **Recommend** showing both and changing nothing in the file.
-
-12. **When live changes a file a draft also changes** (WE.23).
-    - (a) The person picks theirs or live for the whole file.
-    - (b) Merge step by step.
-    - **Recommend (a).** A merged workflow that nobody wrote is worse than a choice, and the Changes view shows what picking either side loses.
+1. **Who may read a workflow's steps.** Roles that name `workflow_get` and `workflow_list`. The CRM gives both to admin and manager.
+2. **P2.23.** Split into P2.23a (the run inspector) and P2.23b (this plan's phase 1). P2.23a reuses the outline from WE.06.
+3. **New operations.** Code workflows now. WE.01 is the core's first.
+4. **Step labels.** Not now. A row is read from the step's id and what it does. An optional `label` on each step (which would amend decision 0048) is looked at again in WE.10a, right after phase 1, with real workflows on screen. No schema change until then.
+5. **Comments.** A save keeps the comments it did not change (WE.13).
+6. **Who may test.** Roles that name `workflow_test`, given to few. Every test is a dry run on record. Hiding real tables from the test transaction waits until testing is given to many people.
+7. **The File tab.** A plain text area, with problems listed by line. No editor library.
+8. **Moving steps.** Commands and the keyboard. No dragging.
+9. **The in-app agent's draft.** It saves into the person's draft when the page context names that draft. Every other agent uses its own.
+10. **Building a value from parts.** Five internal actions, the same closed set as computed fields (decision 0052): join text, the first value that is present, add, subtract and multiply. That is WE.17a, straight after WE.17. Not a template inside a fixed value.
+11. **Schedules.** Shown in UTC with the viewer's local time beside. The file is unchanged.
+12. **When live and a draft both change a file.** The person picks theirs or live for the whole file. Nothing is merged inside a file.

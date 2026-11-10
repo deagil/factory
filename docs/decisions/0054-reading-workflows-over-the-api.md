@@ -1,6 +1,6 @@
 # 0054. Reading workflows over the API
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Builds on:** [0045](0045-object-endpoints-and-workflows.md) (reads are read-only code workflows; agents build workflows through the endpoints the web app uses), [0048](0048-workflow-file-format.md) (validation and segments) and [0029](0029-system-describe.md), which stays as it is.
 

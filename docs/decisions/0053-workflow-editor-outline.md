@@ -1,6 +1,6 @@
 # 0053. The workflow editor is an outline of steps
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Builds on:** [0045](0045-object-endpoints-and-workflows.md), [0046](0046-runs-segments-and-errors.md) ("the editor shows where a cut may happen") and [0048](0048-workflow-file-format.md). Fills in SYSTEM_DESIGN §4.6 **Visibility**.
 
@@ -32,6 +32,7 @@ A graph earns its edges when lines carry information: joins, fan-out, loops. Her
 - **View state lives outside the file.** The selected step, the tab and the version are in the URL. Collapsed branches are in `localStorage`, per workflow, like the sidebar's width.
 - **The same outline is used wherever a workflow is drawn:** read-only, in edit mode, for a comparison of two versions, and for a run in Activity. Run data is never drawn in the editor.
 - **No new dependency.**
+- **A step has no label of its own.** The row is read from the step's id and what it does. An optional `label` is not part of the file. It will be looked at again once real workflows are on the outline; adding one would amend decision [0048](0048-workflow-file-format.md).
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 # 0056. Step forms come from schemas
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Builds on:** [0045](0045-object-endpoints-and-workflows.md) (modules and systems add their own actions) and [0048](0048-workflow-file-format.md) (values, conditions, `fixed_inputs`).
 
@@ -20,6 +20,7 @@ A step runs an action, and actions come from the core, modules and each client s
 - **UI hints live in the action's code, as standard JSON Schema annotations:** `title`, `description`, `examples` and `default`, set on the Zod input. They reach the form through the same schema, and MCP and OpenAPI read them too. There is no separate `hints` option on `defineAction`, and nothing about a form is ever in the workflow file.
 - **The built-in steps have hand-made forms.** There are seven and nobody adds more: `if`, `wait`, `wait_for_approval`, `run`, `emit`, `fail` and `output`. `run` and `emit` reuse the schema form for the child's input and the event's payload.
 - **Conditions are built, not typed:** a field from the same picker, one of the nine operators that fits the field's type, and a value control that fits it too, with a choice field's options and its columns.
+- **A value built from parts is an action, not syntax in a fixed value.** Five internal actions mirror computed fields' closed set (decision [0052](0052-computed-and-display-fields.md)): join text, the first value that is present, add, subtract and multiply. A template inside a fixed value would be an expression language, which config does not hold.
 
 ## Consequences
 
