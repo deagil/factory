@@ -2,6 +2,7 @@
 // if the action's input has it, so a read-only field never gets a control.
 // Labels and types come from the object's fields in system.describe.
 import type { SystemDescription } from "./api.ts";
+import { isMoney, moneyFromInput, moneyInputText } from "./records.ts";
 import type { FieldDescription, ObjectDescription } from "./records.ts";
 
 export type ActionDescription = SystemDescription["actions"][number];
@@ -115,9 +116,11 @@ export const toFormValues = (
       if (value === null || value === undefined) {
         return [field.key, ""];
       }
-      if (field.type === "money") {
-        const money = value as { amount: number };
-        return [field.key, String(money.amount / 100)];
+      if (field.type === "money" && isMoney(value)) {
+        return [field.key, moneyInputText(value)];
+      }
+      if (field.type === "url") {
+        return [field.key, String(value).replace(/^https?:\/\//iu, "")];
       }
       return [field.key, String(value)];
     })
@@ -133,9 +136,8 @@ const fromText = (
       return Number(text);
     }
     case "money": {
-      const currency =
-        (previous as { currency?: string } | null)?.currency ?? "GBP";
-      return { amount: Math.round(Number(text) * 100), currency };
+      const currency = isMoney(previous) ? previous.currency : "GBP";
+      return moneyFromInput(text, currency);
     }
     default: {
       return text;

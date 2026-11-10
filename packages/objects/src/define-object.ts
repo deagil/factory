@@ -26,6 +26,7 @@ import type {
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
+import { isComputedField, textSourceKinds } from "./fields/computed.ts";
 import type { AnyField, BuiltColumns, ValueOf } from "./fields/field.ts";
 import {
   identifierPattern,
@@ -143,12 +144,17 @@ export type ObjectTable<
   dialect: "pg";
 }>;
 
-type RequiredKeys<TFields extends ObjectFields> = {
-  [K in FieldKey<TFields>]: TFields[K]["required"] extends true ? K : never;
+/** Fields a create or update can set. A computed field is calculated on read. */
+type InputKey<TFields extends ObjectFields> = {
+  [K in FieldKey<TFields>]: TFields[K]["kind"] extends "computed" ? never : K;
 }[FieldKey<TFields>];
 
+type RequiredKeys<TFields extends ObjectFields> = {
+  [K in InputKey<TFields>]: TFields[K]["required"] extends true ? K : never;
+}[InputKey<TFields>];
+
 type OptionalKeys<TFields extends ObjectFields> = Exclude<
-  FieldKey<TFields>,
+  InputKey<TFields>,
   RequiredKeys<TFields>
 >;
 
@@ -159,9 +165,9 @@ export type CreateInput<TFields extends ObjectFields> = Simplify<
   }
 >;
 
-/** What an update takes: any of the fields; role rules say which (P2.14). */
+/** What an update takes: any stored field; role rules say which (P2.14). */
 export type UpdateInput<TFields extends ObjectFields> = Simplify<{
-  [K in FieldKey<TFields>]?: ValueOf<TFields[K]>;
+  [K in InputKey<TFields>]?: ValueOf<TFields[K]>;
 }>;
 
 /** A record as reads return it. Timestamps are ISO 8601 strings. */
@@ -375,6 +381,84 @@ const checkFields = (name: string, fields: ObjectFields): string[] => {
   return keys;
 };
 
+/** One display field, and an avatar that names an image field. */
+const checkPresentation = (
+  name: string,
+  fields: ObjectFields,
+  keys: string[]
+) => {
+  const marked = keys.filter((key) => (fields[key] as AnyField).displayField);
+  if (marked.length > 1) {
+    fail(
+      name,
+      `only one field can be the display field (${marked.join(", ")} are)`
+    );
+  }
+  const [displayKey] = marked;
+  const display = displayKey ? (fields[displayKey] as AnyField) : undefined;
+  if (display && (display.kind === "ref" || display.kind === "image")) {
+    fail(
+      name,
+      `the display field "${displayKey}" can't be a ${display.kind} field`
+    );
+  }
+  for (const key of keys) {
+    const { avatar } = fields[key] as AnyField;
+    if (!avatar) {
+      continue;
+    }
+    if (key !== displayKey) {
+      fail(
+        name,
+        `only the display field can name an avatar, and "${key}" does`
+      );
+    }
+    const image = fields[avatar] as AnyField | undefined;
+    if (!image) {
+      fail(name, `the display field's avatar "${avatar}" isn't a field`);
+    } else if (image.kind !== "image") {
+      fail(name, `the display field's avatar "${avatar}" isn't an image field`);
+    }
+  }
+};
+
+/** A computed field reads stored fields of the shape its operation returns. */
+const checkComputedFields = (
+  name: string,
+  fields: ObjectFields,
+  keys: string[]
+) => {
+  for (const key of keys) {
+    const field = fields[key] as AnyField;
+    if (!isComputedField(field)) {
+      continue;
+    }
+    for (const source of field.sources) {
+      if (source === key) {
+        fail(name, `"${key}" can't read itself`);
+      }
+      const other = fields[source] as AnyField | undefined;
+      if (!other) {
+        fail(name, `"${key}" reads "${source}", which isn't a field`);
+      } else if (isComputedField(other)) {
+        fail(
+          name,
+          `"${key}" reads "${source}", and a computed field reads stored fields`
+        );
+      } else if (
+        !(field.result === "text"
+          ? textSourceKinds.has(other.kind)
+          : other.kind === "number")
+      ) {
+        fail(
+          name,
+          `"${key}" combines ${field.result} fields with ${field.using}, and "${source}" is ${other.kind}`
+        );
+      }
+    }
+  }
+};
+
 const checkOptions = (
   options: ObjectOptions<string, ObjectFields, boolean>
 ) => {
@@ -383,6 +467,8 @@ const checkOptions = (
     fail(name, "the name must be camelCase, starting with a lowercase letter");
   }
   const keys = checkFields(name, options.fields);
+  checkPresentation(name, options.fields, keys);
+  checkComputedFields(name, options.fields, keys);
   for (const key of options.list ?? []) {
     if (!keys.includes(key)) {
       fail(name, `list names "${key}", which isn't a field`);
@@ -531,9 +617,12 @@ export const defineObject = <
   };
   for (const key of keys) {
     const field = fields[key] as AnyField;
+    recordShape[key] = field.output;
+    if (isComputedField(field)) {
+      continue;
+    }
     createShape[key] = field.required ? field.input : field.input.optional();
     updateShape[key] = field.input.optional();
-    recordShape[key] = field.output;
   }
   if (customFields) {
     recordShape.customFields = z.record(z.string(), z.unknown());
@@ -570,6 +659,9 @@ export const defineObject = <
       if (!field) {
         throw new Error(`${name} has no field "${key}"`);
       }
+      if (isComputedField(field)) {
+        throw new Error(`${name}.${key} is computed, so it can't be written`);
+      }
       for (const [suffix, column] of Object.entries(field.toColumns(value))) {
         row[`${key}${suffix}`] = column;
       }
@@ -588,13 +680,23 @@ export const defineObject = <
       version: row.version,
     };
     for (const key of keys) {
+      const field = fields[key] as AnyField;
+      if (isComputedField(field)) {
+        continue;
+      }
       const own = Object.fromEntries(
         (suffixes.get(key) ?? []).map((suffix) => [
           suffix,
           row[`${key}${suffix}`] ?? null,
         ])
       );
-      record[key] = (fields[key] as AnyField).fromColumns(own);
+      record[key] = field.fromColumns(own);
+    }
+    for (const key of keys) {
+      const field = fields[key] as AnyField;
+      if (isComputedField(field)) {
+        record[key] = field.evaluate(record);
+      }
     }
     if (customFields) {
       record.customFields = row.customFields ?? {};

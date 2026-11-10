@@ -1,13 +1,15 @@
 // A record's history: each audit_log change, newest first, with who made
 // it and through which action, from the `record.history` query (P1.21).
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { HistoryEntry } from "@workspace/actions";
 
 import { objectApi, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
 import { displayValue, findObject, titleOf } from "../lib/records.ts";
 import type { ObjectDescription } from "../lib/records.ts";
+import { canQuery } from "./activity.tsx";
+import { opensItem } from "./open-row.tsx";
 
 /** The name of the record a ref points at, if the caller can read it. */
 const RefName = ({
@@ -88,6 +90,7 @@ export const RecordHistory = ({
   id: string;
   description: SystemDescription | undefined;
 }) => {
+  const navigate = useNavigate();
   const history = useQuery({
     queryKey: ["history", object.name, id],
     queryFn: () =>
@@ -112,6 +115,7 @@ export const RecordHistory = ({
     const index = object.fields.findIndex((field) => field.key === key);
     return index === -1 ? object.fields.length : index;
   };
+  const openChange = canQuery(description, "auditLog.get");
   return (
     <ol className="flex flex-col gap-3">
       {history.data.entries.map((entry) => {
@@ -124,7 +128,22 @@ export const RecordHistory = ({
           verb = entry.after.archivedAt ? "archived it" : "restored it";
         }
         return (
-          <li key={entry.id} className="rounded-2xl border p-3 text-sm">
+          <li
+            key={entry.id}
+            {...(openChange
+              ? opensItem(() =>
+                  navigate({
+                    to: "/activity/changes/$id",
+                    params: { id: entry.id },
+                  })
+                )
+              : {})}
+            className={
+              openChange
+                ? "cursor-pointer rounded-2xl border p-3 text-sm outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
+                : "rounded-2xl border p-3 text-sm"
+            }
+          >
             <p>
               <span className="font-medium">{entry.actor.name}</span>
               {entry.onBehalfOf && ` for ${entry.onBehalfOf.name}`} {verb}

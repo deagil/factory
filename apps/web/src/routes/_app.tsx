@@ -11,13 +11,13 @@ import { AppShell } from "../components/app-shell.tsx";
 import { DraftPill } from "../components/working-draft.tsx";
 import { describeSystem } from "../lib/api.ts";
 import { sessionQuery, signOut } from "../lib/auth.ts";
-import { navFrom } from "../lib/nav.ts";
+import { accountPages, navFrom } from "../lib/nav.ts";
 
 /** The signed-in app: navigation built from system.describe. */
 const Shell = () => {
   const { session } = Route.useRouteContext();
   const navigate = useNavigate();
-  // The deepest route that names a section, for the header and breadcrumb.
+  // The deepest route that names a section, so the header can mark it.
   const currentSection = useMatches({
     select: (matches) =>
       matches.findLast((match) => match.staticData.section)?.staticData
@@ -41,6 +41,7 @@ const Shell = () => {
       onSignOut={leave}
       status={<DraftPill />}
       sections={described.data ? navFrom(described.data) : []}
+      account={described.data ? accountPages(described.data) : []}
       currentSection={currentSection}
       navPending={described.isPending}
       navError={described.isError ? described.error.message : null}

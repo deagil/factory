@@ -1,42 +1,26 @@
 // One run (P1b.03, P2.12): what went in and came out, who made it and for
 // whom, the config it ran under, each step, and the changes and events it
-// wrote, each linking to its record.
+// wrote. A change or event opens that log entry when the caller can read
+// it; the record name still opens the record.
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { RunDetail, RunStepEntry } from "@workspace/actions";
-import type { ReactNode } from "react";
 
 import {
   ChangedFields,
+  DetailRow,
+  DetailSection,
   ErrorText,
   Json,
   RecordLink,
   StatusBadge,
   WhoDid,
+  canQuery,
   when,
 } from "../../components/activity.tsx";
+import { opensItem } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, runQuery } from "../../lib/api.ts";
-
-const Row = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="grid grid-cols-[8rem_1fr] gap-3 py-1.5 text-sm">
-    <dt className="text-muted-foreground">{label}</dt>
-    <dd className="min-w-0 break-words">{children}</dd>
-  </div>
-);
-
-const Section = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) => (
-  <section className="flex flex-col gap-2">
-    <h2 className="text-sm font-medium">{title}</h2>
-    {children}
-  </section>
-);
 
 const stepState = (step: RunStepEntry) => {
   if (step.error) {
@@ -47,6 +31,7 @@ const stepState = (step: RunStepEntry) => {
 
 const RunScreen = () => {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const described = useQuery({
     queryKey: ["system.describe"],
     queryFn: describeSystem,
@@ -56,7 +41,9 @@ const RunScreen = () => {
     queryFn: () => runQuery<{ run: RunDetail }>("run.get", { id }),
     retry: false,
   });
-  const trail = [{ label: "Runs", link: { to: "/activity/runs" } }] as const;
+  const trail = [
+    { label: "Workflow runs", link: { to: "/activity/runs" } },
+  ] as const;
 
   if (found.isPending) {
     return (
@@ -79,40 +66,40 @@ const RunScreen = () => {
     <div className="flex max-w-4xl flex-col gap-6">
       <PageHeader title={run.endpoint} trail={[...trail]} />
       <dl className="divide-y">
-        <Row label="Status">
+        <DetailRow label="Status">
           <StatusBadge status={run.status} dryRun={run.dryRun} />
-        </Row>
-        <Row label="By">
+        </DetailRow>
+        <DetailRow label="By">
           <WhoDid who={run} />
-        </Row>
-        <Row label="Started">{when(run.at)}</Row>
-        <Row label="Finished">
+        </DetailRow>
+        <DetailRow label="Started">{when(run.at)}</DetailRow>
+        <DetailRow label="Finished">
           {run.finishedAt ? when(run.finishedAt) : "—"}
-        </Row>
-        <Row label="Retry key">
+        </DetailRow>
+        <DetailRow label="Retry key">
           <span className="font-mono text-xs">{run.retryKey ?? "—"}</span>
-        </Row>
-        <Row label="Config">
+        </DetailRow>
+        <DetailRow label="Config">
           <span className="font-mono text-xs">
             {run.configSha ?? "not from git"}
           </span>
-        </Row>
-        <Row label="Run ID">
+        </DetailRow>
+        <DetailRow label="Run ID">
           <span className="font-mono text-xs">{run.id}</span>
-        </Row>
+        </DetailRow>
       </dl>
       {run.error ? (
-        <Section title="Error">
+        <DetailSection title="Error">
           <Json value={run.error} />
-        </Section>
+        </DetailSection>
       ) : null}
-      <Section title="Input">
+      <DetailSection title="Input">
         <Json value={run.input} />
-      </Section>
-      <Section title="Output">
+      </DetailSection>
+      <DetailSection title="Output">
         <Json value={run.output} />
-      </Section>
-      <Section title={`Steps (${run.steps.length})`}>
+      </DetailSection>
+      <DetailSection title={`Steps (${run.steps.length})`}>
         {run.steps.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No steps have run yet.
@@ -148,53 +135,99 @@ const RunScreen = () => {
             ))}
           </ol>
         )}
-      </Section>
-      <Section title={`Changes (${run.changes.length})`}>
+      </DetailSection>
+      <DetailSection title={`Changes (${run.changes.length})`}>
         {run.changes.length === 0 ? (
           <p className="text-sm text-muted-foreground">No records changed.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {run.changes.map((change) => (
-              <li key={change.id} className="rounded-2xl border p-3 text-sm">
-                <RecordLink
-                  object={change.object}
-                  recordId={change.recordId}
-                  values={{ ...change.before, ...change.after }}
-                  description={described.data}
-                />
-                <div className="mt-1">
-                  <ChangedFields
+            {run.changes.map((change) => {
+              const open = canQuery(described.data, "auditLog.get");
+              return (
+                <li
+                  key={change.id}
+                  {...(open
+                    ? opensItem(() =>
+                        navigate({
+                          to: "/activity/changes/$id",
+                          params: { id: change.id },
+                        })
+                      )
+                    : {})}
+                  className={
+                    open
+                      ? "cursor-pointer rounded-2xl border p-3 text-sm outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
+                      : "rounded-2xl border p-3 text-sm"
+                  }
+                >
+                  <RecordLink
                     object={change.object}
-                    before={change.before}
-                    after={change.after}
+                    recordId={change.recordId}
+                    values={{ ...change.before, ...change.after }}
                     description={described.data}
                   />
-                </div>
-              </li>
-            ))}
+                  <div className="mt-1">
+                    <ChangedFields
+                      object={change.object}
+                      before={change.before}
+                      after={change.after}
+                      description={described.data}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
-      </Section>
-      <Section title={`Events (${run.events.length})`}>
+      </DetailSection>
+      <DetailSection title={`Events (${run.events.length})`}>
         {run.events.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {run.events.map((event) => (
-              <li key={event.id} className="flex flex-col gap-2 text-sm">
-                <Link
-                  to="/activity/events"
-                  search={{ run: run.id }}
-                  className="font-mono text-xs hover:underline"
+            {run.events.map((event) => {
+              const open = canQuery(described.data, "eventLog.get");
+              return (
+                <li
+                  key={event.id}
+                  {...(open
+                    ? opensItem(() =>
+                        navigate({
+                          to: "/activity/events/$id",
+                          params: { id: event.id },
+                        })
+                      )
+                    : {})}
+                  className={
+                    open
+                      ? "flex cursor-pointer flex-col gap-2 rounded-2xl text-sm outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
+                      : "flex flex-col gap-2 text-sm"
+                  }
                 >
-                  {event.type}
-                </Link>
-                <Json value={event.payload} />
-              </li>
-            ))}
+                  {open ? (
+                    <Link
+                      to="/activity/events/$id"
+                      params={{ id: event.id }}
+                      className="font-mono text-xs hover:underline"
+                    >
+                      {event.type}
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/activity/events"
+                      search={{ run: run.id }}
+                      className="font-mono text-xs hover:underline"
+                    >
+                      {event.type}
+                    </Link>
+                  )}
+                  <Json value={event.payload} />
+                </li>
+              );
+            })}
           </ul>
         )}
-      </Section>
+      </DetailSection>
     </div>
   );
 };

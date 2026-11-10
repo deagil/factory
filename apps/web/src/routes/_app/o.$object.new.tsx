@@ -65,6 +65,7 @@ const CreateScreen = () => {
       <PageHeader
         title={`New ${object.label.toLowerCase()}`}
         trail={[
+          { label: "Objects", link: { to: "/data/objects" } },
           {
             label: plural(object.label),
             link: { to: "/o/$object", params: { object: name } },

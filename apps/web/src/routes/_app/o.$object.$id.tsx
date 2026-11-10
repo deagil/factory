@@ -6,12 +6,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
+import { Label } from "@workspace/ui/components/label";
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
 import { useState } from "react";
 
 import { PageHeader, PageSupplement } from "../../components/page-header.tsx";
 import { ErrorMessage, RecordForm } from "../../components/record-form.tsx";
 import { RecordHistory } from "../../components/record-history.tsx";
+import { RecordTitle, WithAvatar } from "../../components/record-title.tsx";
 import { WorkflowForm } from "../../components/workflow-form.tsx";
 import { describeSystem, objectApi, runAction } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
@@ -36,7 +38,7 @@ import {
   displayValue,
   expandable,
   findObject,
-  titleOf,
+  leadingSrc,
 } from "../../lib/records.ts";
 import type { ObjectDescription, Related } from "../../lib/records.ts";
 
@@ -110,6 +112,7 @@ const ActionButton = ({
             <RecordForm
               fields={fields}
               initial={toFormValues(fields, loaded.record)}
+              record={loaded.record}
               description={description}
               submitLabel={label}
               pending={run.isPending}
@@ -204,30 +207,40 @@ const Details = ({
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      {fixed.length > 0 && (
-        <dl className="grid max-w-lg grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-          {fixed.map((field) => (
-            <div key={field.key} className="contents">
-              <dt className="text-muted-foreground">{field.label}</dt>
-              <dd>
-                {displayValue(
+    <div className="flex max-w-lg flex-col gap-4">
+      {fixed.map((field) => {
+        const text =
+          displayValue(field, loaded.record, loaded.related, description) ||
+          "—";
+        return (
+          <div key={field.key} className="flex flex-col gap-1.5">
+            <Label id={`fixed-${field.key}-label`}>{field.label}</Label>
+            <div
+              aria-labelledby={`fixed-${field.key}-label`}
+              className="flex min-w-0 items-center text-sm"
+            >
+              <WithAvatar
+                src={leadingSrc(
                   field,
                   loaded.record,
                   loaded.related,
-                  description
-                ) || "—"}
-              </dd>
+                  description,
+                  object
+                )}
+              >
+                {text}
+              </WithAvatar>
             </div>
-          ))}
-        </dl>
-      )}
+          </div>
+        );
+      })}
       {updateAction && (
         <RecordForm
           // A new version resets the form to what was saved.
           key={String(loaded.record.version)}
           fields={fields}
           initial={toFormValues(fields, loaded.record)}
+          record={loaded.record}
           description={description}
           submitLabel="Save"
           pending={save.isPending}
@@ -318,8 +331,9 @@ const RecordScreen = () => {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={titleOf(record.record, object)}
+        title={<RecordTitle record={record.record} object={object} />}
         trail={[
+          { label: "Objects", link: { to: "/data/objects" } },
           {
             label: plural(object.label),
             link: { to: "/o/$object", params: { object: name } },

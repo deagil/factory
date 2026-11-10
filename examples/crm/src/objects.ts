@@ -11,7 +11,7 @@ export const organisation = defineObject({
   description: "A company or other body the business works with.",
   fields: {
     name: f.text({ required: true, maxLength: 200 }),
-    website: f.text(),
+    website: f.url(),
     employees: f.number({ integer: true, min: 0 }),
     industry: f.choice(industries),
     owner: f.ref("actor", { label: "Account owner" }),
@@ -27,12 +27,19 @@ export const contact = defineObject({
   fields: {
     firstName: f.text({ required: true, maxLength: 100 }),
     lastName: f.text({ maxLength: 100 }),
-    email: f.text({ maxLength: 320 }),
+    fullName: f.computed({
+      label: "Full name",
+      type: "text",
+      using: "concat",
+      fields: ["firstName", "lastName"],
+      displayField: true,
+    }),
+    email: f.email(),
     organisation: f.ref("organisation", { required: true }),
     active: f.boolean({ required: true }),
   },
   customFields: true,
-  list: ["firstName", "lastName", "email", "organisation"],
+  list: ["fullName", "firstName", "lastName", "email", "organisation"],
 });
 
 export const deal = defineObject({

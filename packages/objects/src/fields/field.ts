@@ -21,6 +21,16 @@ export interface FieldOptions<TRequired extends boolean = boolean> {
   label?: string;
   /** Shown to staff and agents next to the field. */
   description?: string;
+  /**
+   * This field's value is the record's name: what a reference shows, and the
+   * record screen's title. An object has at most one.
+   */
+  displayField?: boolean;
+  /**
+   * An image field shown before the display value, such as a logo. Only the
+   * display field names one. Image fields are not built yet.
+   */
+  avatar?: string;
 }
 
 /** A field's column builders, keyed by suffix. The main column's suffix is "". */
@@ -88,6 +98,10 @@ export interface Field<
   readonly required: TRequired;
   readonly label: string | undefined;
   readonly description: string | undefined;
+  /** Whether this field is the record's display field. */
+  readonly displayField: boolean;
+  /** The image field shown before the display value, when this field is it. */
+  readonly avatar: string | undefined;
   /**
    * The Drizzle column builders for this field. `name` is the field's column
    * name in snake case; each builder's database name starts with it.
@@ -124,6 +138,8 @@ export interface AnyField {
   readonly required: boolean;
   readonly label: string | undefined;
   readonly description: string | undefined;
+  readonly displayField: boolean;
+  readonly avatar: string | undefined;
   readonly columns: (name: string) => FieldColumns;
   readonly toColumns: (value: any) => Record<string, unknown>;
   readonly fromColumns: (row: any) => unknown;

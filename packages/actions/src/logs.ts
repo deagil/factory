@@ -1,7 +1,8 @@
 // The log queries (P1b.02): `run.list`, `run.get` (P2.12, which replaced
-// `actionLog.*`), `auditLog.list` and `eventLog.list`. Each needs a
-// permission on its own name. Without it, anyone may still read their own
-// runs: those they performed, or that an agent or workflow did for them.
+// `actionLog.*`), `auditLog.list`, `auditLog.get`, `eventLog.list` and
+// `eventLog.get`. Each needs a permission on its own name. Without it,
+// anyone may still read their own runs: those they performed, or that an
+// agent or workflow did for them.
 import { z } from "zod";
 
 import { defineQuery } from "./define-action.ts";
@@ -116,6 +117,21 @@ export const auditLogList = defineQuery({
     ctx.dal.changes(filter, { cursor, limit }),
 });
 
+export const auditLogGet = defineQuery({
+  name: "auditLog.get",
+  description:
+    "One change: the fields before and after, the record it belongs to, the run and step that wrote it, and who made it.",
+  input: z.strictObject({ id: z.uuid() }),
+  output: z.object({ change: changeEntrySchema }),
+  handler: async (ctx, { id }) => {
+    const change = await ctx.dal.changeGet(id);
+    if (!change) {
+      return ctx.notFound("change", id);
+    }
+    return { change };
+  },
+});
+
 export const eventLogList = defineQuery({
   name: "eventLog.list",
   description:
@@ -133,11 +149,28 @@ export const eventLogList = defineQuery({
     ctx.dal.events(filter, { cursor, limit }),
 });
 
+export const eventLogGet = defineQuery({
+  name: "eventLog.get",
+  description:
+    "One event: its type, payload, the run and step that emitted it, and whether it has been dispatched.",
+  input: z.strictObject({ id: z.uuid() }),
+  output: z.object({ event: eventEntrySchema }),
+  handler: async (ctx, { id }) => {
+    const event = await ctx.dal.eventGet(id);
+    if (!event) {
+      return ctx.notFound("event", id);
+    }
+    return { event };
+  },
+});
+
 /** Every log query, for defineSystem to register. */
 export const logQueries = [
   runList,
   runGet,
   runNeedsAttention,
   auditLogList,
+  auditLogGet,
   eventLogList,
+  eventLogGet,
 ] as const;

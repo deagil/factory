@@ -8,11 +8,14 @@ describe("the field types library", () => {
     expect(Object.keys(f).toSorted()).toStrictEqual([
       "boolean",
       "choice",
+      "computed",
       "date",
+      "email",
       "money",
       "number",
       "ref",
       "text",
+      "url",
     ]);
   });
 

@@ -6,7 +6,9 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 
 import { FilterBar } from "../../components/filter-bar.tsx";
+import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
+import { WithAvatar } from "../../components/record-title.tsx";
 import { describeSystem, objectApi } from "../../lib/api.ts";
 import { plural } from "../../lib/nav.ts";
 import {
@@ -16,6 +18,7 @@ import {
   expandable,
   findObject,
   isSortable,
+  leadingSrc,
   nextSort,
 } from "../../lib/records.ts";
 import type { Filter, ListPage } from "../../lib/records.ts";
@@ -94,6 +97,7 @@ const ListScreen = () => {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={plural(object.label)}
+        trail={[{ label: "Objects", link: { to: "/data/objects" } }]}
         actions={
           canCreate ? (
             <Link
@@ -161,42 +165,57 @@ const ListScreen = () => {
             </thead>
             <tbody>
               {page.data?.records.map((record) => (
-                <tr
+                <OpenRow
                   key={String(record.id)}
-                  className="border-b last:border-0 hover:bg-muted/30"
+                  onOpen={() =>
+                    navigate({
+                      to: "/o/$object/$id",
+                      params: { object: name, id: String(record.id) },
+                    })
+                  }
                 >
-                  {columns.map((field, index) => (
-                    <td key={field.key} className="px-3 py-2">
-                      {index === 0 ? (
-                        <Link
-                          to="/o/$object/$id"
-                          params={{ object: name, id: String(record.id) }}
-                          className="font-medium hover:underline"
-                        >
-                          {displayValue(
-                            field,
-                            record,
-                            page.data.related,
-                            described.data
-                          ) || "(blank)"}
-                        </Link>
-                      ) : null}
-                      {index === 0 && record.archivedAt ? (
-                        <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          Archived
-                        </span>
-                      ) : null}
-                      {index === 0
-                        ? null
-                        : displayValue(
-                            field,
-                            record,
-                            page.data.related,
-                            described.data
-                          )}
-                    </td>
-                  ))}
-                </tr>
+                  {columns.map((field, index) => {
+                    const text = displayValue(
+                      field,
+                      record,
+                      page.data.related,
+                      described.data
+                    );
+                    const shown = (
+                      <WithAvatar
+                        src={leadingSrc(
+                          field,
+                          record,
+                          page.data.related,
+                          described.data,
+                          object
+                        )}
+                      >
+                        {text || (index === 0 ? "(blank)" : "")}
+                      </WithAvatar>
+                    );
+                    return (
+                      <td key={field.key} className="px-3 py-2">
+                        {index === 0 ? (
+                          <Link
+                            to="/o/$object/$id"
+                            params={{ object: name, id: String(record.id) }}
+                            className="font-medium hover:underline"
+                          >
+                            {shown}
+                          </Link>
+                        ) : (
+                          shown
+                        )}
+                        {index === 0 && record.archivedAt ? (
+                          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            Archived
+                          </span>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </OpenRow>
               ))}
               {page.data?.records.length === 0 && (
                 <tr>

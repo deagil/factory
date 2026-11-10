@@ -162,7 +162,9 @@ export {
   apiKeyEntrySchema,
 } from "./identity-schemas.ts";
 export {
+  auditLogGet,
   auditLogList,
+  eventLogGet,
   eventLogList,
   logQueries,
   runGet,

@@ -15,7 +15,7 @@ import type {
   RefObject,
 } from "react";
 
-import type { NavSection, SectionKey } from "../lib/nav.ts";
+import type { NavPage, NavSection, SectionKey } from "../lib/nav.ts";
 import {
   DESKTOP_MIN_PX,
   canResizeSidebar,
@@ -362,6 +362,7 @@ const ShellHeader = ({
   side,
   sidebarOpen,
   sections,
+  account,
   currentSection,
   user,
   status,
@@ -377,6 +378,7 @@ const ShellHeader = ({
   side: SidebarSide;
   sidebarOpen: boolean;
   sections: NavSection[];
+  account: NavPage[];
   currentSection: SectionKey | null;
   user: { name: string; email: string };
   status: ReactNode;
@@ -427,6 +429,7 @@ const ShellHeader = ({
         <AccountMenu
           name={user.name}
           email={user.email}
+          pages={account}
           onSignOut={onSignOut}
         />
         {side === "right" ? (
@@ -452,6 +455,7 @@ const ShellHeader = ({
 export const AppShell = ({
   user,
   sections,
+  account,
   currentSection,
   status,
   navPending = false,
@@ -461,6 +465,7 @@ export const AppShell = ({
 }: {
   user: { name: string; email: string };
   sections: NavSection[];
+  account: NavPage[];
   /** Shown before the account menu, such as the caller's draft (P2.10b). */
   status?: ReactNode;
   currentSection: SectionKey | null;
@@ -597,10 +602,6 @@ export const AppShell = ({
       title={titleSlot}
       actions={actionsSlot}
       supplement={supplementSlot}
-      section={
-        sections.find((section) => section.key === currentSection)?.label ??
-        null
-      }
     >
       <div
         data-slot="sidebar-wrapper"
@@ -677,6 +678,7 @@ export const AppShell = ({
             side={side}
             sidebarOpen={sidebarOpen}
             sections={sections}
+            account={account}
             currentSection={currentSection}
             user={user}
             status={status}

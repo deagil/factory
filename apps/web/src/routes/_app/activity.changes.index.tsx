@@ -20,6 +20,7 @@ import {
   when,
 } from "../../components/activity.tsx";
 import type { PageSearch } from "../../components/activity.tsx";
+import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, runQuery } from "../../lib/api.ts";
 import { plural } from "../../lib/nav.ts";
@@ -70,7 +71,7 @@ const ChangesScreen = () => {
   const first = page.data?.entries[0];
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Changes" />
+      <PageHeader title="Audit log" />
       <div className="flex flex-wrap items-center gap-3">
         <SelectFilter
           label="Object"
@@ -128,9 +129,14 @@ const ChangesScreen = () => {
           </thead>
           <tbody>
             {page.data?.entries.map((entry) => (
-              <tr
+              <OpenRow
                 key={entry.id}
-                className="border-b align-top last:border-0 hover:bg-muted/30"
+                onOpen={() =>
+                  navigate({
+                    to: "/activity/changes/$id",
+                    params: { id: entry.id },
+                  })
+                }
               >
                 <td className="px-3 py-2">
                   <RecordLink
@@ -157,7 +163,7 @@ const ChangesScreen = () => {
                 <td className="px-3 py-2 whitespace-nowrap text-muted-foreground tabular-nums">
                   {when(entry.at)}
                 </td>
-              </tr>
+              </OpenRow>
             ))}
             {page.data?.entries.length === 0 && (
               <tr>
@@ -183,7 +189,7 @@ const ChangesScreen = () => {
   );
 };
 
-export const Route = createFileRoute("/_app/activity/changes")({
+export const Route = createFileRoute("/_app/activity/changes/")({
   staticData: { section: "activity" },
   validateSearch: (search: Record<string, unknown>): ChangesSearch => ({
     object: text(search.object),

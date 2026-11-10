@@ -195,6 +195,12 @@ const sampleValue = async (
     case "text": {
       return `Sample ${variant}`;
     }
+    case "email": {
+      return `sample${variant}@example.com`;
+    }
+    case "url": {
+      return `https://example${variant}.com`;
+    }
     case "number": {
       return variant;
     }

@@ -12,6 +12,8 @@ export const baseOptions = <TRequired extends boolean = false>(
   required: (options?.required ?? false) as TRequired,
   label: options?.label,
   description: options?.description,
+  displayField: options?.displayField === true,
+  avatar: options?.avatar,
 });
 
 /** Marks a builder NOT NULL when the field is required. */

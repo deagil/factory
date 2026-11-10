@@ -19,6 +19,7 @@ import {
   when,
 } from "../../components/activity.tsx";
 import type { PageSearch } from "../../components/activity.tsx";
+import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { runQuery } from "../../lib/api.ts";
 
@@ -63,7 +64,7 @@ const RunsScreen = () => {
       .name ?? search.actor?.slice(0, 8);
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Runs" />
+      <PageHeader title="Workflow runs" />
       <div className="flex flex-wrap items-center gap-3">
         <TextFilter
           key={search.name ?? ""}
@@ -108,9 +109,14 @@ const RunsScreen = () => {
           </thead>
           <tbody>
             {page.data?.entries.map((entry) => (
-              <tr
+              <OpenRow
                 key={entry.id}
-                className="border-b last:border-0 hover:bg-muted/30"
+                onOpen={() =>
+                  navigate({
+                    to: "/activity/runs/$id",
+                    params: { id: entry.id },
+                  })
+                }
               >
                 <td className="px-3 py-2">
                   <RunLink id={entry.id}>{entry.endpoint}</RunLink>
@@ -124,7 +130,7 @@ const RunsScreen = () => {
                 <td className="px-3 py-2 whitespace-nowrap text-muted-foreground tabular-nums">
                   {when(entry.at)}
                 </td>
-              </tr>
+              </OpenRow>
             ))}
             {page.data?.entries.length === 0 && (
               <tr>

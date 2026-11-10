@@ -3,17 +3,19 @@
 // pill publishes (decision 0044); and every draft, newest first. P2.10c and
 // P2.10d move editing to each setting's own page.
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { ErrorText, when } from "../../components/activity.tsx";
 import { ConfigFiles } from "../../components/config-files.tsx";
 import { DraftStatus } from "../../components/drafts.tsx";
 import type { Draft } from "../../components/drafts.tsx";
+import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { runQuery } from "../../lib/api.ts";
 
 const DraftsScreen = () => {
+  const navigate = useNavigate();
   const working = useWorkingDraft();
   const drafts = useQuery({
     queryKey: ["draft.list"],
@@ -51,7 +53,15 @@ const DraftsScreen = () => {
               </thead>
               <tbody>
                 {drafts.data.drafts.map((draft) => (
-                  <tr key={draft.id} className="border-b last:border-0">
+                  <OpenRow
+                    key={draft.id}
+                    onOpen={() =>
+                      navigate({
+                        to: "/config/drafts/$id",
+                        params: { id: draft.id },
+                      })
+                    }
+                  >
                     <td className="px-3 py-2">
                       <Link
                         to="/config/drafts/$id"
@@ -70,7 +80,7 @@ const DraftsScreen = () => {
                     <td className="px-3 py-2 text-muted-foreground">
                       {draft.createdBy.name}, {when(draft.createdAt)}
                     </td>
-                  </tr>
+                  </OpenRow>
                 ))}
               </tbody>
             </table>

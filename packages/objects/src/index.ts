@@ -42,7 +42,15 @@ export type {
   ChoiceOptions,
   OptionOf,
 } from "./fields/choice.ts";
+export { isComputedField, textSourceKinds } from "./fields/computed.ts";
+export type {
+  ComputedField,
+  ComputedOperation,
+  ComputedResult,
+} from "./fields/computed.ts";
 export type { DateField } from "./fields/date.ts";
+export type { EmailField, EmailOptions } from "./fields/email.ts";
+export type { UrlField, UrlOptions } from "./fields/url.ts";
 export type {
   AnyField,
   BuiltColumns,

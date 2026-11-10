@@ -8,7 +8,7 @@ const Home = () => {
     <div className="flex flex-col gap-2">
       <PageHeader title={`Hello, ${session.user.name}`} />
       <p className="text-sm text-muted-foreground">
-        Choose an object to get started.
+        Open Data to see the records this system keeps.
       </p>
     </div>
   );

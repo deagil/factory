@@ -6,7 +6,7 @@ import type {
   AnyObjectDefinition,
   ChoiceOptions,
 } from "@workspace/objects";
-import { isChoiceField } from "@workspace/objects";
+import { isChoiceField, isComputedField } from "@workspace/objects";
 import { z } from "zod";
 
 import { actionKinds, defineQuery } from "./define-action.ts";
@@ -56,6 +56,22 @@ const fieldSchema = z.object({
   optionColumns: jsonSchema.nullable(),
   /** A choice field's list: `config/choices/<list>.yaml`. Null otherwise. */
   list: z.string().nullable(),
+  /** This field is the record's name, shown for references (decision 0052). */
+  display: z.boolean(),
+  /** An image field shown before the display value. Null when there isn't one. */
+  avatar: z.string().nullable(),
+  /**
+   * How a computed field is calculated. Null when the field is stored.
+   * `fields` are other fields on the same record.
+   */
+  computed: z
+    .object({
+      type: z.enum(["text", "number"]),
+      using: z.enum(["concat", "coalesce", "add", "subtract", "multiply"]),
+      fields: z.array(z.string()),
+      separator: z.string().nullable(),
+    })
+    .nullable(),
   schema: jsonSchema,
 });
 
@@ -179,9 +195,19 @@ const describeField = (
   type: field.kind,
   required: field.required,
   read: grant?.read.has(key) ?? false,
-  write: grant?.write.has(key) ?? false,
+  write: isComputedField(field) ? false : (grant?.write.has(key) ?? false),
   target: "target" in field ? String(field.target) : null,
   filters: Object.keys(field.filters),
+  display: field.displayField,
+  avatar: field.avatar ?? null,
+  computed: isComputedField(field)
+    ? {
+        type: field.result,
+        using: field.using,
+        fields: [...field.sources],
+        separator: field.separator,
+      }
+    : null,
   options: choiceOptions(field, choices),
   optionColumns: optionColumns(field),
   list: isChoiceField(field) ? field.list.key : null,
