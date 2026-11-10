@@ -1,6 +1,6 @@
 # The workflow editor
 
-**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). Nothing here is built yet.
+**Status:** in progress. Decisions 0053 to 0058 are accepted (10 Nov 2026). WE.02 is done; the editor itself is not built yet.
 
 **Goal:** a person can open any workflow and understand it end to end: what starts it, what each step does, where each value comes from, where a run may pause, what happens when a step fails, who can call it and who it acts as. Then they can change it. Most workflows are written by agents over the API or MCP, so the editor is first a place to read and check, and second a place to build. Everything an agent can set in a workflow file can be edited here, through the same operations, with the same roles, validation, drafts and approvals. The web app gets nothing the API lacks.
 
@@ -14,8 +14,8 @@
 
 ## Resume here
 
-- **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Nothing in this plan is built yet.
-- **Next task:** WE.01. WE.02 and WE.03 can go with it, in any order; WE.04 needs WE.01. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. WE.02 is done. WE.01 and WE.03 can still land in either order.
+- **Next task:** WE.01. WE.03 can go with it, in any order; WE.04 needs WE.01. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
 - **How to start:** see [README.md](README.md) and AGENTS.md. The CRM (`examples/crm`) is the system to check against. Editing needs a config remote: run it with `CONFIG_REMOTE=local`.
@@ -134,7 +134,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** nothing (P2.18 is done).
   - **Done when:** over HTTP and MCP, `workflow_get` returns `deal_move_stage` with its steps, its one warning (no ownership check) and its one segment; `deal_won_task`, which nothing can call, is in `workflow_list`; a sales user gets a permission error; and the contract tests cover both.
 
-- [ ] **WE.02 Scopes from `validateWorkflow`** [API]
+- [x] **WE.02 Scopes from `validateWorkflow`** [API]
   - `WorkflowCheck` gains `scopes` (row 3). The checker already knows which steps have run on every path to a step (`flow.ran` in `packages/workflows/src/validate.ts`); this records it per step path, with each step's output schema once. Input and event fields are described as `describeField` does in `packages/actions/src/describe.ts`, so a choice field carries its list, options and columns.
   - **Needs:** nothing.
   - **Done when:** tests show that in `deal_move_stage`, `update` may read `load`; that in a test workflow a step inside a `then` branch is not readable after the `if`, and a step in `on_failure` reads only what its owner could; and `workflow_get` returns scopes once WE.01 is in.
@@ -342,6 +342,7 @@ These hold for every web task; a task isn't done if it breaks one.
 
 - 2026-11-10 · plan · Written from Dylan's brief for the visual workflow editor. Decisions 0053 to 0058 proposed.
 - 2026-11-10 · WE.00 · [#101](https://github.com/deagil/factory/pull/101) · Decisions 0053 to 0058 accepted. P2.23 split into P2.23a (the run inspector, reusing WE.06's outline) and P2.23b (the read-only workflow view, done by WE.04 to WE.10); P2.10f and P2.30 need P2.23a only. Step labels stay off the file until WE.10a looks again, after phase 1. The five value-building actions are WE.17a, straight after WE.17. Schedules stay UTC in the file and are shown with the viewer's local time beside them.
+- 2026-11-10 · WE.02 · [#102](https://github.com/deagil/factory/pull/102) · `validateWorkflow` returns `scopes`: per step path, the steps whose output it may read; each step's output JSON Schema once; input and event fields as `describeWorkflowField` describes them, so a choice field carries its list, options and columns. A catalog event with no field list is `eventSchema`. Not wired into `workflow_get` (WE.01). The workflow's own output is recorded at the path `output`.
 
 ## Answers
 

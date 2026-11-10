@@ -1,8 +1,13 @@
 // Workflows as config: `config/workflows/<key>.yaml` (P2.16, decision
 // 0048). Its references are the roles it names; its check is
 // validateWorkflow, against the system and the other config files.
-import { defineConfigType } from "@workspace/config";
-import type { ConfigCatalog, ConfigFile, Reference } from "@workspace/config";
+import { choiceLookup, defineConfigType } from "@workspace/config";
+import type {
+  ChoiceList,
+  ConfigCatalog,
+  ConfigFile,
+  Reference,
+} from "@workspace/config";
 import type { z } from "zod";
 
 import { workflowSchema } from "./schema.ts";
@@ -79,20 +84,19 @@ export const workflowsIn = (
 export const contextOf = (
   catalog: ConfigCatalog,
   files: readonly ConfigFile[]
-): WorkflowContext => ({
-  catalog,
-  workflows: workflowsIn(files),
-  choiceKeys: new Map(
-    files
-      .filter((file) => file.type === "choices")
-      .map((file) => [
-        file.key,
-        (file.value as unknown as { options: { key: string }[] }).options.map(
-          (option) => option.key
-        ),
-      ])
-  ),
-});
+): WorkflowContext => {
+  const lists = files
+    .filter((file) => file.type === "choices")
+    .map((file) => file.value as ChoiceList);
+  return {
+    catalog,
+    workflows: workflowsIn(files),
+    choiceKeys: new Map(
+      lists.map((list) => [list.key, list.options.map((option) => option.key)])
+    ),
+    choices: choiceLookup(lists),
+  };
+};
 
 export const workflowConfigType = defineConfigType<WorkflowDefinition>({
   type: "workflows",

@@ -140,6 +140,7 @@ export {
   describeFor,
   describeOutput,
   describeQuery,
+  describeWorkflowField,
 } from "./describe.ts";
 export { historyEntrySchema, historyQuery } from "./history.ts";
 export {

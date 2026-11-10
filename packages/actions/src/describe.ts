@@ -214,6 +214,21 @@ const describeField = (
   schema: toJson(field.input, "input"),
 });
 
+/**
+ * A workflow's input or event field, as `system.describe` describes a field.
+ * The caller may read and write it: a workflow's fields have no object grant.
+ */
+export const describeWorkflowField = (
+  label: string,
+  key: string,
+  field: AnyField,
+  choices: ChoiceOptions | undefined
+) => ({
+  ...describeField(label, key, field, choices, null),
+  read: true,
+  write: true,
+});
+
 const describeDefinition = (definition: AnyDefinition) => ({
   name: definition.name,
   description: definition.description,
@@ -306,11 +321,9 @@ export const describeFor = (
         description,
         readOnly,
         input: toJson(input, "input"),
-        fields: fields.map((each) => ({
-          ...describeField(each.label, each.key, each.field, choices, null),
-          read: true,
-          write: true,
-        })),
+        fields: fields.map((each) =>
+          describeWorkflowField(each.label, each.key, each.field, choices)
+        ),
         errors: { ...errors },
       })),
     ...(stepActions ? { stepActions: stepActions.map(describeAction) } : {}),

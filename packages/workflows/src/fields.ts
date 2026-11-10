@@ -62,6 +62,12 @@ export type FieldSpec = z.infer<typeof fieldSpecSchema>;
 /** Field specs by name, as `input` and each event's payload hold them. */
 export type FieldSpecs = Readonly<Record<string, FieldSpec>>;
 
+/** `deal_move_stage` → "Deal move stage", for a key with no label of its own. */
+export const labelFromKey = (key: string) => {
+  const words = key.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
 /** The object field a spec describes. */
 export const fieldOf = (spec: FieldSpec): AnyField => {
   const options = {

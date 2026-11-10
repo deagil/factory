@@ -237,15 +237,23 @@ export const defineSystem = (options: SystemOptions): System => {
           source: file.file,
         })),
     ];
-    return all.map(({ workflow, source }) => ({
-      key: workflow.key,
-      label: workflow.label ?? null,
-      description: workflow.description,
-      source,
-      startsWhen: workflow.starts_when,
-      readOnly: workflow.read_only ?? false,
-      ...validateWorkflow(workflow, context),
-    }));
+    return all.map(({ workflow, source }) => {
+      const { problems, warnings, segments } = validateWorkflow(
+        workflow,
+        context
+      );
+      return {
+        key: workflow.key,
+        label: workflow.label ?? null,
+        description: workflow.description,
+        source,
+        startsWhen: workflow.starts_when,
+        readOnly: workflow.read_only ?? false,
+        segments,
+        problems,
+        warnings,
+      };
+    });
   };
   return Object.freeze({
     name: options.name,

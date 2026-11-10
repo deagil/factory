@@ -3,14 +3,8 @@
 // read, and which hold each definition for the runner.
 import type { WorkflowEntry } from "@workspace/actions";
 
-import { fieldOf, schemaOf } from "./fields.ts";
+import { fieldOf, labelFromKey, schemaOf } from "./fields.ts";
 import type { WorkflowDefinition } from "./schema.ts";
-
-/** `deal_move_stage` → "Deal move stage", for a workflow with no label. */
-const labelOf = (key: string) => {
-  const words = key.replaceAll("_", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-};
 
 /** One entry per workflow, in the order given. */
 export const workflowEntries = (
@@ -18,14 +12,14 @@ export const workflowEntries = (
 ): WorkflowEntry[] =>
   [...definitions].map((workflow) => ({
     key: workflow.key,
-    label: workflow.label ?? labelOf(workflow.key),
+    label: workflow.label ?? labelFromKey(workflow.key),
     description: workflow.description,
     called: workflow.starts_when === "called",
     readOnly: workflow.read_only ?? false,
     input: schemaOf(workflow.input ?? {}),
     fields: Object.entries(workflow.input ?? {}).map(([key, spec]) => ({
       key,
-      label: spec.label ?? labelOf(key),
+      label: spec.label ?? labelFromKey(key),
       field: fieldOf(spec),
     })),
     errors: workflow.errors ?? {},
