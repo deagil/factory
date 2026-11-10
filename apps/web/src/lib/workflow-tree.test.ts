@@ -128,7 +128,7 @@ describe(stepWords, () => {
 
   it("lists a step's inputs and where each comes from", () => {
     expect(stepDetail(first.step).inputs).toStrictEqual([
-      { name: "id", words: "the deal from the input" },
+      { name: "id", words: "the deal from the input", reads: null },
     ]);
     expect(
       stepDetail(findRow(tree, "check_reason")?.step ?? first.step).conditions
