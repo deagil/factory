@@ -1,18 +1,52 @@
-// Automation → Actions: the operations the caller may run, from
-// system.describe. Workflow steps run them.
+// Automation → Actions: what a workflow step can run, from `action_list`,
+// for people who may read it; otherwise the operations the caller may run,
+// from system.describe.
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { ErrorText, TextFilter, text } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
-import { describeSystem } from "../../lib/api.ts";
+import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import { humanise } from "../../lib/forms.ts";
+import { actionListKey, mayCall } from "../../lib/workflow-events.ts";
+import type { ActionListItem } from "../../lib/workflow-events.ts";
 
 interface ActionsSearch {
   q?: string;
 }
 
 const cell = "px-3 py-2 align-top";
+
+interface ActionRow {
+  name: string;
+  description: string;
+  kind: string;
+  emits: string[];
+  /** Known only from `action_list`. */
+  readOnly?: boolean;
+  object?: string | undefined;
+}
+
+const fetchActions = async (): Promise<ActionRow[]> => {
+  const result = await readWorkflow<{ actions: ActionListItem[] }>(
+    actionListKey
+  );
+  return result.output.actions.map((action) => ({
+    name: action.name,
+    description: action.description,
+    kind: action.kind,
+    emits: action.emits,
+    readOnly: action.read_only === true,
+    object: action.object,
+  }));
+};
+
+const marksOf = (action: ActionRow) =>
+  [
+    action.kind,
+    ...(action.readOnly ? ["read only"] : []),
+    ...(action.object ? [`on ${action.object}`] : []),
+  ].join(", ");
 
 const ActionsScreen = () => {
   const search = Route.useSearch();
@@ -21,8 +55,14 @@ const ActionsScreen = () => {
     queryKey: ["system.describe"],
     queryFn: describeSystem,
   });
+  const stepActions = useQuery({
+    queryKey: [actionListKey],
+    queryFn: fetchActions,
+    enabled: mayCall(described.data?.workflows, actionListKey),
+  });
+  const all: ActionRow[] = stepActions.data ?? described.data?.actions ?? [];
   const q = search.q?.toLowerCase() ?? "";
-  const actions = (described.data?.actions ?? [])
+  const actions = all
     .filter(
       (action) =>
         q === "" ||
@@ -34,8 +74,9 @@ const ActionsScreen = () => {
     <div className="flex max-w-4xl flex-col gap-4">
       <PageHeader title="Actions" />
       <p className="text-sm text-muted-foreground">
-        Operations this system can run. A workflow step calls one; each run is
-        in Activity.
+        {stepActions.data
+          ? "What a workflow step can run. Nothing else reaches these; each run is in Activity."
+          : "Operations this system can run. A workflow step calls one; each run is in Activity."}
       </p>
       <TextFilter
         key={search.q ?? ""}
@@ -44,7 +85,7 @@ const ActionsScreen = () => {
         value={search.q}
         onChange={(next) => navigate({ search: { q: next } })}
       />
-      <ErrorText error={described.error} />
+      <ErrorText error={described.error ?? stepActions.error} />
       {described.isSuccess && actions.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {q === ""
@@ -76,7 +117,9 @@ const ActionsScreen = () => {
                       </p>
                     ) : null}
                   </td>
-                  <td className={`${cell} capitalize`}>{action.kind}</td>
+                  <td className={`${cell} first-letter:uppercase`}>
+                    {marksOf(action)}
+                  </td>
                   <td
                     className={`${cell} font-mono text-xs text-muted-foreground`}
                   >

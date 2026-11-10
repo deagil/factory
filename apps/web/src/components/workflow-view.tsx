@@ -6,6 +6,7 @@ import { CircleAlert, Scissors, Send, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Role } from "../lib/roles.ts";
+import type { EventStarts } from "../lib/workflow-events.ts";
 import { countWords, findingsOf } from "../lib/workflow-problems.ts";
 import type { Finding } from "../lib/workflow-problems.ts";
 import {
@@ -25,6 +26,7 @@ import type {
   StartWords,
   WorkflowFacts,
 } from "../lib/workflow-words.ts";
+import { EventStartsList } from "./workflow-events.tsx";
 import { WorkflowOutline } from "./workflow-outline.tsx";
 
 export interface WorkflowTabProps {
@@ -38,6 +40,8 @@ export interface WorkflowTabProps {
   check: WorkflowCheck | undefined;
   /** Undefined when the viewer can't read roles. */
   roles: readonly Role[] | undefined;
+  /** The events it emits, with the workflows each one starts. */
+  next: EventStarts[];
   selected: string | undefined;
   onSelect: (step: string | undefined) => void;
 }
@@ -260,6 +264,11 @@ export const WorkflowTab = (props: WorkflowTabProps) => {
         code={false}
       />
       <FactList title="How it can fail" rows={props.facts.errors} code />
+      {props.next.length > 0 ? (
+        <Section title="What happens next">
+          <EventStartsList rows={props.next} />
+        </Section>
+      ) : null}
       <Access
         workflow={props.workflow}
         startsWhen={props.startsWhen}

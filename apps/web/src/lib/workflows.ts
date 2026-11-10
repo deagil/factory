@@ -259,6 +259,12 @@ const missingTextOf = (
   missing: ReturnType<typeof workflowMissing>
 ): string | null => (missing ? missingCopy[missing] : null);
 
+/** The events a workflow emits: the ones it declares, or the list's. */
+export const emitsOf = (
+  definition: WorkflowDefinition | null,
+  item: WorkflowListItem | undefined
+): string[] => item?.emits ?? Object.keys(definition?.events ?? {});
+
 /** The page's text, taken from the draft's row until the workflow itself loads. */
 export const presentWorkflow = (input: {
   key: string;

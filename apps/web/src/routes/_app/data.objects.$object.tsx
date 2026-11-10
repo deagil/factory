@@ -5,10 +5,15 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
+import {
+  EventStartsList,
+  useEventList,
+} from "../../components/workflow-events.tsx";
 import { describeSystem } from "../../lib/api.ts";
 import { listLabel } from "../../lib/choice-lists.ts";
 import { findObject } from "../../lib/records.ts";
 import type { FieldDescription } from "../../lib/records.ts";
+import { whatHappensWhen } from "../../lib/workflow-events.ts";
 
 const cell = "px-3 py-2 align-middle";
 
@@ -42,6 +47,7 @@ const ObjectScreen = () => {
     queryFn: describeSystem,
   });
   const object = findObject(described.data, name);
+  const eventList = useEventList();
   const trail = [{ label: "Objects", link: { to: "/data/objects" } }] as const;
 
   if (described.isPending) {
@@ -108,6 +114,14 @@ const ObjectScreen = () => {
           </tbody>
         </table>
       </div>
+      {eventList.events ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium">What happens when…</h2>
+          <EventStartsList
+            rows={whatHappensWhen(name, eventList.events, eventList.labels)}
+          />
+        </section>
+      ) : null}
     </div>
   );
 };
