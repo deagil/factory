@@ -337,10 +337,10 @@ export const StepCommands = ({
   );
 };
 
-const fetchActions = async (draftId: string | undefined) => {
+const fetchActions = async () => {
+  // `action_list` takes no input: the actions are the system's, not a draft's.
   const result = await readWorkflow<{ actions: ActionListItem[] }>(
-    actionListKey,
-    draftId ? { draft_id: draftId } : {}
+    actionListKey
   );
   return result.output.actions;
 };
@@ -350,8 +350,8 @@ export const AddStep = ({ edit }: { edit: StepEdit }) => {
   const field = useId();
   const [action, setAction] = useState("");
   const actions = useQuery({
-    queryKey: [actionListKey, edit.draftId ?? null],
-    queryFn: () => fetchActions(edit.draftId),
+    queryKey: [actionListKey],
+    queryFn: fetchActions,
     enabled: edit.adding !== null,
   });
   if (!edit.adding) {

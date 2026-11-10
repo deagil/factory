@@ -2,7 +2,7 @@
 // to the next. A step is named by its path (`steps.1.then.0`) and a place
 // to put one by a slot: a list of steps and an index in it. A menu command,
 // a key and a drop on the canvas all end in the same function here.
-import type { Step, WorkflowDefinition } from "@workspace/workflows";
+import type { Source, Step, WorkflowDefinition } from "@workspace/workflows";
 
 type Steps = readonly Step[];
 type Group = "then" | "else" | "on_failure";
@@ -361,6 +361,51 @@ export const renameStep = (
     to
   ) as WorkflowDefinition["on_failure"],
 });
+
+// ---------------------------------------------------------------------------
+// A step's values
+
+/** The values a step is given: an action's inputs, or what an output step gives back. */
+export const stepValues = (
+  step: Step
+): Readonly<Record<string, Source>> | undefined => {
+  if ("output" in step) {
+    return step.output;
+  }
+  return "with" in step ? step.with : undefined;
+};
+
+const withValue = (step: Step, name: string, source: Source): Step => {
+  if ("output" in step) {
+    return { ...step, output: { ...step.output, [name]: source } };
+  }
+  if ("action" in step || "run" in step || "emit" in step) {
+    return { ...step, with: { ...step.with, [name]: source } };
+  }
+  return step;
+};
+
+/** Set one of a step's values to a fixed value or a path. */
+export const setStepValue = (
+  definition: WorkflowDefinition,
+  path: string,
+  name: string,
+  source: Source
+): WorkflowDefinition => {
+  const slot = slotOf(path);
+  const steps = listAt(definition, slot.list);
+  const step = steps[slot.index];
+  if (!step) {
+    return definition;
+  }
+  return replaceList(
+    definition,
+    slot.list,
+    steps.map((each, at) =>
+      at === slot.index ? withValue(step, name, source) : each
+    )
+  );
+};
 
 // ---------------------------------------------------------------------------
 // New steps
