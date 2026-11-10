@@ -144,7 +144,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** nothing.
   - **Done when:** over HTTP and MCP, `action_list` includes `deal_update` (internal, with its input schema and `object: deal`) and `record_belongs_to_caller` (read-only); `event_list` shows `deal_stage_changed` declared by `deal_move_stage` and starting `deal_won_task`.
 
-- [ ] **WE.04 The workflows list and the workflow page** [web]
+- [x] **WE.04 The workflows list and the workflow page** [web]
   - `/automation/workflows` lists every workflow from `workflow_list` for people who may read it: label, what starts it, whether it is code or config, and whether their draft changes it. People who may only call workflows keep today's list of Run forms. `lib/nav.ts` shows Automation → Workflows for either.
   - `/automation/workflows/$key`: the page header (label, key, **Code** or **Config**, **Read only**), a **Your draft / Live** toggle when the draft changes it, tabs (Workflow, File, and later Changes, History and Test) from `packages/ui`, and Run for a callable one. `?v=`, `?step=` and `?tab=` hold the version, the selected step and the tab. A code workflow says "Written in code and shipped with a release, so it can't be changed here". `@workspace/workflows` joins `webTypeOnlyPackages`.
   - **Needs:** WE.01.
@@ -346,6 +346,7 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.02 · [#102](https://github.com/deagil/factory/pull/102) · `validateWorkflow` returns `scopes`: per step path, the steps whose output it may read; each step's output JSON Schema once; input and event fields as `describeWorkflowField` describes them, so a choice field carries its list, options and columns. A catalog event with no field list is `eventSchema`. Not wired into `workflow_get` (WE.01). The workflow's own output is recorded at the path `output`.
 - 2026-11-10 · WE.03 · [#103](https://github.com/deagil/factory/pull/103) · `action_list` and `event_list` are the next pair in `packages/workflows/src/code.ts`, registered with `workflow_list` and `workflow_get` through `coreStepActions` and `coreWorkflows`. Output is `{ actions }` and `{ events }`. `draft_id` is text on the endpoint and a uuid in the action. A generated record event such as `deal_updated` comes from its object. Run steps carry `position`, and reads order by it.
 - 2026-11-10 · WE.12 WE.13 · [#104](https://github.com/deagil/factory/pull/104) · `draft.save` takes a file revision and refuses a stale one, only the draft's owner may save into it, and a save by value keeps the comments and lines it didn't change. `draft.files` returns each revision, and `draft.mine` returns `headSha`.
+- 2026-11-10 · WE.04 · [#106](https://github.com/deagil/factory/pull/106) · Automation → Workflows lists every workflow for people who may call `workflow_list`, including what starts it, code or config, and whether their draft changes it. People who may only call workflows keep the Run forms. A workflow page shows its label, key, source and read-only state, a draft or live toggle, Workflow and File tabs, and Run when they may call it. The version, step and tab are in the URL. `@workspace/workflows` is a type-only import for the web app.
 
 ## Answers
 

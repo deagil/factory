@@ -217,6 +217,9 @@ importers:
       '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@workspace/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       lucide-react:
         specifier: ^1.70.0
         version: 1.70.0(@types/react@19.3.0)(react@19.3.1)

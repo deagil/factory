@@ -263,6 +263,7 @@ export const webTypeOnlyPackages = [
   "@workspace/db",
   "@workspace/objects",
   "@workspace/config",
+  "@workspace/workflows",
 ] as const;
 
 const forbiddenWeb = ["drizzle-orm", "pg"] as const;

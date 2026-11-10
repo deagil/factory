@@ -56,6 +56,19 @@ describe(navFrom, () => {
     ]);
   });
 
+  it("shows Workflows to people who can read them or only run them", () => {
+    expect(
+      pages("automation", described([], [], [], { workflows: [{}] }))
+    ).toStrictEqual(["automation:workflows"]);
+    expect(
+      pages(
+        "automation",
+        described([], [], [], { workflows: [{ key: "workflow_list" }] })
+      )
+    ).toStrictEqual(["automation:workflows"]);
+    expect(pages("automation", described([]))).toBeUndefined();
+  });
+
   it("groups workflows, actions and events under Automation", () => {
     expect(
       pages(

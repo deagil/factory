@@ -81,7 +81,6 @@ const commentAllowlist = [
   "apps/web/src/routes/_app/activity.events.index.tsx",
   "apps/web/src/routes/_app/activity.runs.$id.tsx",
   "apps/web/src/routes/_app/activity.runs.index.tsx",
-  "apps/web/src/routes/_app/automation.workflows.tsx",
   "apps/web/src/routes/_app/config.drafts.$id.tsx",
   "apps/web/src/routes/_app/config.drafts.index.tsx",
   "apps/web/src/routes/_app/inbox.approvals.tsx",

@@ -84,14 +84,13 @@ const sections: {
   {
     key: "automation",
     label: "Automation",
-    // Definitions the caller may use: workflows they can call, actions they
+    // Workflows the caller may read (`workflow_list`) or call, actions they
     // can run, and the events those actions emit.
     pages: (description) => [
       ...when(description.workflows.length > 0, {
         key: "automation:workflows",
         label: "Workflows",
-        description:
-          "Processes you can run, step by step, each traced as a run.",
+        description: "Workflows you can read, and the ones you can run.",
         link: { to: "/automation/workflows" },
       }),
       ...when(description.actions.length > 0, {

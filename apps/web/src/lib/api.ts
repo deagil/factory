@@ -126,6 +126,26 @@ export const runWorkflow = <TOutput = Record<string, unknown>>(
   input: unknown
 ) => send<WorkflowResult<TOutput>>("POST", `/workflows/${key}`, input);
 
+/** A read-only workflow's input, as JSON in `?input=`. */
+const inputQuery = (input: Record<string, unknown>) => {
+  const present = Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined)
+  );
+  return Object.keys(present).length > 0
+    ? `?input=${encodeURIComponent(JSON.stringify(present))}`
+    : "";
+};
+
+/** Reads a read-only workflow. Throws `ApiCallError` for its errors. */
+export const readWorkflow = <TOutput = Record<string, unknown>>(
+  key: string,
+  input: Record<string, unknown> = {}
+) =>
+  send<WorkflowResult<TOutput>>(
+    "GET",
+    `/workflows/${encodeURIComponent(key)}${inputQuery(input)}`
+  );
+
 /** Runs a query and returns its output. */
 export const runQuery = async <TOutput = Record<string, unknown>>(
   name: string,
