@@ -235,6 +235,7 @@ export const createWorkflowCalls = ({
       originUserId: who.originUserId,
       ...contextOf(who.config),
       ...(retryKey === undefined ? {} : { retryKey }),
+      ...(git ? { git } : {}),
     });
     if (!result.ok) {
       return { ok: false, error: result.error, runId: result.runId };

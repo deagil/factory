@@ -45,7 +45,7 @@ import type {
 import type { AnyObjectDefinition, ChoiceOptions } from "@workspace/objects";
 import {
   contextOf,
-  coreWorkflowActions,
+  coreStepActions,
   coreWorkflows,
   validateWorkflow,
   workflowConfigType,
@@ -185,9 +185,15 @@ export const defineSystem = (options: SystemOptions): System => {
     }),
   ]);
   const steps = new Map<string, AnyActionDefinition>();
+  const workflows = new Map<string, WorkflowDefinition>();
   for (const action of [
     ...stepActions(options.objects),
-    ...coreWorkflowActions,
+    ...coreStepActions({
+      objects: options.objects,
+      steps,
+      definitions: () => registry.list(),
+      codeWorkflows: workflows,
+    }),
     ...(options.stepActions ?? []),
   ]) {
     if (steps.has(action.name)) {
@@ -197,7 +203,6 @@ export const defineSystem = (options: SystemOptions): System => {
     }
     steps.set(action.name, action);
   }
-  const workflows = new Map<string, WorkflowDefinition>();
   for (const workflow of [...coreWorkflows, ...(options.workflows ?? [])]) {
     if (workflows.has(workflow.key)) {
       throw new Error(

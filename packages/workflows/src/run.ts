@@ -442,6 +442,8 @@ interface Checkpoint {
   readonly depth: number;
   /** Some committed segment or send changed something. */
   readonly wrote: boolean;
+  /** The last step position assigned. A restart goes on from here. */
+  readonly position?: number;
   readonly phase: Phase;
   readonly failed: Failed | null;
 }
@@ -527,6 +529,7 @@ const checkpointOf = (place: {
   readonly cut: Cut | null;
   readonly output: Record<string, unknown>;
   readonly queued: readonly Queued[];
+  readonly position: number;
 }): Checkpoint => ({
   segment: place.n,
   definition: place.workflow,
@@ -535,6 +538,7 @@ const checkpointOf = (place: {
   outputs: Object.fromEntries(place.frame.outputs),
   depth: place.frame.depth,
   wrote: (place.from?.wrote ?? false) || place.wrote,
+  position: place.position,
   phase: {
     list: place.phase.list,
     resume: place.cut?.path ?? null,
@@ -605,6 +609,14 @@ export const createRunner = ({
     return found.has(stepId);
   };
 
+  /** The next place in a run, in the order its steps are created. */
+  const positions = new Map<string, number>();
+  const positionOf = (runId: string) => {
+    const next = (positions.get(runId) ?? 0) + 1;
+    positions.set(runId, next);
+    return next;
+  };
+
   const stepRow = (
     segment: number,
     runId: string,
@@ -620,6 +632,7 @@ export const createRunner = ({
     name,
     input: input ?? null,
     segment,
+    position: positionOf(runId),
     startedAt: clock.now(),
   });
 
@@ -1172,6 +1185,7 @@ export const createRunner = ({
       cut,
       output,
       queued,
+      position: Math.max(positions.get(runId) ?? 0, from?.position ?? 0),
     });
     if (!place.durable) {
       trace.endRun(runId, {
@@ -1618,6 +1632,16 @@ export const createRunner = ({
     if (!workflow) {
       throw new Error(`Run ${runId} has no definition.`);
     }
+    // A restart replays this function with its original arguments, so the
+    // in-memory count is gone. The run's checkpoint has the last position.
+    if (!positions.has(runId)) {
+      const row = await findRun(db, runId);
+      const stored =
+        (row?.checkpoint as Checkpoint | null | undefined)?.position ??
+        state?.position ??
+        0;
+      positions.set(runId, stored);
+    }
     let closing: readonly Closing[] = [];
     for (;;) {
       // oxlint-disable-next-line eslint/no-await-in-loop -- one at a time
@@ -1772,6 +1796,9 @@ export const createRunner = ({
           ).error;
         }
         const state = row.checkpoint as Checkpoint | null;
+        if (state && !positions.has(runId)) {
+          positions.set(runId, state.position ?? 0);
+        }
         const failed = state?.failed;
         if (!(state && failed)) {
           return failures.conflict("This run has no failure to go back to.")
@@ -1798,13 +1825,15 @@ export const createRunner = ({
           await updateRun(tx, runId, { status: "resolved" });
           return null;
         }
-        const next: Checkpoint =
-          what === "retry"
+        const next: Checkpoint = {
+          ...(what === "retry"
             ? { ...state, phase: failed.phase, outputs: failed.outputs }
             : {
                 ...state,
                 phase: fromStart({ on_failure: way?.owner ?? null }),
-              };
+              }),
+          position: positions.get(runId) ?? state.position ?? 0,
+        };
         await updateRun(tx, runId, {
           status: "running",
           checkpoint: next,

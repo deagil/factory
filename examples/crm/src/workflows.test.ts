@@ -87,7 +87,7 @@ describe("the runner (P2.17)", () => {
       .select()
       .from(runSteps)
       .where(eq(runSteps.runId, runId))
-      .orderBy(asc(runSteps.startedAt));
+      .orderBy(asc(runSteps.position), asc(runSteps.startedAt));
     const events = await db
       .select()
       .from(eventLog)

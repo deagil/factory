@@ -259,7 +259,7 @@ describe("durable runs", { timeout: 30_000 }, () => {
       .select()
       .from(runSteps)
       .where(eq(runSteps.runId, runId))
-      .orderBy(asc(runSteps.startedAt));
+      .orderBy(asc(runSteps.position), asc(runSteps.startedAt));
 
   const runIdOf = (result: Awaited<ReturnType<typeof pay>>) =>
     result.runId ?? "";

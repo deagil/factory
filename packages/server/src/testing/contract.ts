@@ -294,6 +294,11 @@ const observe = async (db: Db, call: SurfaceCall) => {
         }),
         db.query.runSteps.findMany({
           where: (t, { eq }) => eq(t.runId, runId),
+          orderBy: (t, { asc }) => [
+            asc(t.position),
+            asc(t.startedAt),
+            asc(t.id),
+          ],
         }),
         db.query.auditLog.findMany({
           where: (t, { eq }) => eq(t.runId, runId),

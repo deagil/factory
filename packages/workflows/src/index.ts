@@ -61,5 +61,6 @@ export {
   workflowsIn,
 } from "./config-type.ts";
 export { definitionOf, workflowEntries } from "./entries.ts";
-export { coreWorkflowActions, coreWorkflows } from "./code.ts";
+export { coreStepActions, coreWorkflowActions, coreWorkflows } from "./code.ts";
+export type { CoreStepParts } from "./code.ts";
 export { cronMatches } from "./cron.ts";

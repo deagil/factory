@@ -73,7 +73,7 @@ const configFile = z
     "A config file is config/<type>/<key>.yaml"
   );
 
-const noRemote =
+export const noRemote =
   "Drafts need a config remote. This system reads config/ from its working tree, so edit the files there.";
 
 /** Commits are by the actor; the address only says who, it's never mailed. */
