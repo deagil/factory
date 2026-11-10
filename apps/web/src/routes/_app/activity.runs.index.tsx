@@ -26,6 +26,8 @@ import { runQuery } from "../../lib/api.ts";
 interface RunsSearch extends PageSearch {
   /** An endpoint prefix, as `contact.`. */
   name?: string;
+  /** One workflow, by its exact key. */
+  workflow?: string;
   status?: string;
   actor?: string;
 }
@@ -40,6 +42,7 @@ const RunsScreen = () => {
     queryFn: () =>
       runQuery<{ entries: RunEntry[]; nextCursor: string | null }>("run.list", {
         endpointPrefix: search.name,
+        endpoint: search.workflow,
         status: search.status,
         actorId: search.actor,
         cursor: search.cursor,
@@ -82,6 +85,11 @@ const RunsScreen = () => {
           }))}
           onChange={(status) => update({ status })}
         />
+        {search.workflow ? (
+          <Chip onRemove={() => update({ workflow: undefined })}>
+            Workflow {search.workflow}
+          </Chip>
+        ) : null}
         {search.actor ? (
           <Chip onRemove={() => update({ actor: undefined })}>
             By {actorName}
@@ -160,6 +168,7 @@ export const Route = createFileRoute("/_app/activity/runs/")({
   staticData: { section: "activity" },
   validateSearch: (search: Record<string, unknown>): RunsSearch => ({
     name: text(search.name),
+    workflow: text(search.workflow),
     status: text(search.status),
     actor: text(search.actor),
     ...pageSearch(search),

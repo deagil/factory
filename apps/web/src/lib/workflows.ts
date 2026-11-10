@@ -57,6 +57,8 @@ export interface WorkflowPageSearch {
   step?: string;
   /** `draft`, or a commit sha. Absent means the live workflow. */
   v?: string;
+  /** A version that could not be read, so the page shows live instead. */
+  was?: string;
 }
 
 const commitSha = /^[0-9a-f]{40}$/u;
@@ -200,12 +202,60 @@ export const workflowPageSearch = (
     version === "draft" || (version !== undefined && commitSha.test(version))
       ? version
       : undefined;
+  const was = text(search.was);
   return {
     ...(tab ? { tab } : {}),
     ...(step ? { step } : {}),
     ...(v ? { v } : {}),
+    ...(was !== undefined && commitSha.test(was) ? { was } : {}),
   };
 };
+
+/** The URL asks for a past version, by its commit. */
+export const isPastVersion = (version: string | undefined) =>
+  version !== undefined && commitSha.test(version);
+
+const workflowKey = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u;
+
+/**
+ * Where a run's step is in its workflow: the workflow as it was at the
+ * run's config, with the step selected. Null when the run's endpoint isn't
+ * a workflow, or the viewer can't read workflows.
+ */
+export const runStepLink = (input: {
+  endpoint: string;
+  stepId: string;
+  configSha: string | null;
+  canRead: boolean;
+}): { key: string; search: WorkflowPageSearch } | null => {
+  if (!input.canRead || !workflowKey.test(input.endpoint)) {
+    return null;
+  }
+  const v =
+    input.configSha !== null && commitSha.test(input.configSha)
+      ? input.configSha
+      : undefined;
+  return {
+    key: input.endpoint,
+    search: { step: input.stepId, ...(v ? { v } : {}) },
+  };
+};
+
+/** The check's problems and warnings as the File tab lists them. */
+export const fileFindings = (
+  check: WorkflowCheck | undefined
+): { kind: "Problem" | "Warning"; at: string; message: string }[] => [
+  ...(check?.problems ?? []).map((each) => ({
+    kind: "Problem" as const,
+    at: each.path.join("."),
+    message: each.message,
+  })),
+  ...(check?.warnings ?? []).map((each) => ({
+    kind: "Warning" as const,
+    at: each.path.join("."),
+    message: each.message,
+  })),
+];
 
 /** The `workflow_get` input for the version in the URL. */
 export const workflowReadInput = (
