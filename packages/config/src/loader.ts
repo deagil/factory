@@ -230,6 +230,9 @@ export const createConfigLoader = (options: ConfigLoaderOptions) => {
     get workflows() {
       return workflowsNow();
     },
+    get catalog() {
+      return options.catalog();
+    },
     validate: () => {
       const { files, problems } = validateConfig(
         liveDir,

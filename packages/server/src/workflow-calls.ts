@@ -12,6 +12,7 @@ import type {
   Caller,
   Clock,
   ConfigService,
+  GitService,
   Pipeline,
   RunError as ActionRunError,
   WorkflowEntry,
@@ -58,6 +59,8 @@ export interface WorkflowCallsOptions {
   readonly stepActions: ReadonlyMap<string, AnyActionDefinition>;
   /** The system's actions and queries, for the payloads of their events. */
   readonly definitions: readonly AnyDefinition[];
+  /** The config remote, handed to each step's action. */
+  readonly git?: GitService;
   /**
    * For workflows that pause or reach other systems (P2.20): the system's
    * name and database, and its live config for runs a restart picks up.
@@ -98,6 +101,7 @@ export const createWorkflowCalls = ({
   stepActions,
   definitions,
   durable,
+  git,
 }: WorkflowCallsOptions) => {
   const events = new Map<string, z.ZodType>();
   for (const definition of definitions) {
@@ -122,6 +126,7 @@ export const createWorkflowCalls = ({
     db,
     actions: stepActions,
     clock,
+    ...(git ? { git } : {}),
     ...(durable
       ? {
           durable: {

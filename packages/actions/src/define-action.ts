@@ -71,6 +71,11 @@ export interface ConfigService {
    * (P2.18). Those that start when called are endpoints.
    */
   readonly workflows?: readonly WorkflowEntry[];
+  /**
+   * What the running code has, pinned with the version, so a read can check
+   * a workflow. The config loader sets it. Absent in tests that don't.
+   */
+  readonly catalog?: unknown;
 }
 
 /**
@@ -168,6 +173,15 @@ export interface ConfigAuthor {
   readonly email: string;
 }
 
+/** One commit on the config remote: who made it, and when. */
+export interface ConfigCommit {
+  readonly sha: string;
+  readonly author: ConfigAuthor;
+  /** The author's time, as an ISO-8601 string. */
+  readonly at: string;
+  readonly message: string;
+}
+
 /** What publishing a draft did. */
 export type PublishResult =
   | {
@@ -212,6 +226,10 @@ export interface GitService {
   readonly files: (
     ref: string
   ) => Promise<{ readonly path: string; readonly content: string }[]>;
+  /** The git blob id of `path` at `ref`, or null when it isn't there. */
+  readonly blob: (ref: string, path: string) => Promise<string | null>;
+  /** The commit `ref` names, or null when it doesn't exist. */
+  readonly show: (ref: string) => Promise<ConfigCommit | null>;
   /** Checks the config at `ref` against the running code. */
   readonly check: (ref: string) => Promise<ConfigCheck>;
   /** Writes the draft on `branch` to production in one commit, then to main. */

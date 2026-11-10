@@ -252,6 +252,7 @@ export const pin = (config: ConfigService): ConfigService => {
     ...(config.approvals ? { approvals: config.approvals } : {}),
     ...(config.validate ? { validate: config.validate } : {}),
     ...(config.workflows ? { workflows: config.workflows } : {}),
+    ...(config.catalog ? { catalog: config.catalog } : {}),
   };
 };
 

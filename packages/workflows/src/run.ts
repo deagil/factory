@@ -40,6 +40,7 @@ import type {
   Clock,
   ConfigService,
   DeclaredError,
+  GitService,
 } from "@workspace/actions";
 import {
   createIdentityStore,
@@ -136,6 +137,8 @@ export interface RunnerOptions {
   /** The actions steps run, by name: `System.stepActions`. */
   readonly actions: ReadonlyMap<string, AnyActionDefinition>;
   readonly clock: Clock;
+  /** The config remote, so a step can read a draft or a past commit. */
+  readonly git?: GitService;
   /** Runs that pause or reach other systems need it (P2.20). */
   readonly durable?: DurableOptions;
 }
@@ -563,6 +566,7 @@ export const createRunner = ({
   db,
   actions,
   clock,
+  git,
   durable,
 }: RunnerOptions) => {
   const actorIds = new Map<string, Actor>();
@@ -688,6 +692,7 @@ export const createRunner = ({
       originUserId: options.originUserId,
       config: options.config,
       clock,
+      git,
     });
     if (!result.ok) {
       return failStep(shared, row, result.error, frame.anchor ?? path);

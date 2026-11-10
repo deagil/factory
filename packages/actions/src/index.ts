@@ -24,6 +24,7 @@ export type {
   ConfigAuthor,
   ConfigCheck,
   ConfigCheckProblem,
+  ConfigCommit,
   ConfigFileDiff,
   ConfigService,
   ContextFor,

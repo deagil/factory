@@ -47,6 +47,7 @@ export type {
   ConfigLoaderSource,
   LoadResult,
 } from "./loader.ts";
+export { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 export { createGitConfigService, ensureLocalRemote } from "./git.ts";
 export type { GitConfigOptions, GitConfigService } from "./git.ts";
 export {

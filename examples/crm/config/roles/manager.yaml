@@ -20,6 +20,8 @@ workflows:
   - deal_create
   - deal.moveStage
   - deal_move_stage # any deal: manager rows are all
+  - workflow_list
+  - workflow_get
   - actor.createAgent
   - apiKey.create
   - apiKey.revoke

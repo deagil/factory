@@ -221,7 +221,129 @@ describe("workflow endpoints (P2.18)", () => {
     };
     expect(refused.status).toBe(403);
     await expect(describedFor(key)).resolves.toStrictEqual([]);
-    await expect(describedFor()).resolves.toStrictEqual(["deal_move_stage"]);
+    await expect(
+      describedFor().then((keys) => keys.toSorted())
+    ).resolves.toStrictEqual([
+      "deal_move_stage",
+      "workflow_get",
+      "workflow_list",
+    ]);
+  });
+
+  it("lists and reads workflows over HTTP and MCP", async () => {
+    const problems = await runWorkflowContract({
+      db: server.db,
+      surfaces: {
+        http: workflowHttpSurface(request),
+        mcp: workflowMcpSurface(request),
+      },
+      cases: [
+        { name: "every workflow", key: "workflow_list", input: () => ({}) },
+        {
+          name: "move stage",
+          key: "workflow_get",
+          input: () => ({ key: "deal_move_stage" }),
+        },
+      ],
+    });
+    const listed = await post("/workflows/workflow_list", {});
+    const list = (await listed.json()) as {
+      output: { workflows: { key: string; starts_when: unknown }[] };
+    };
+    const query = encodeURIComponent(
+      JSON.stringify({ key: "deal_move_stage" })
+    );
+    const byGet = await request(`/workflows/workflow_get?input=${query}`);
+    const byPost = await post("/workflows/workflow_get", {
+      key: "deal_move_stage",
+    });
+    const got = (await byPost.json()) as {
+      output: {
+        source: string;
+        editable: boolean;
+        why: string | null;
+        revision: string | null;
+        definition: { steps: { id?: string }[] };
+        check: {
+          problems: unknown[];
+          warnings: { message: string }[];
+          segments: { steps: string[]; ends: unknown }[];
+        };
+      };
+    };
+    const code = await post("/workflows/workflow_get", {
+      key: "workflow_list",
+    });
+    const sarah = await server.pipeline.run(
+      crm.registry.get("actor.createAgent") as never,
+      { name: "Reader" },
+      seeded.sales
+    );
+    const { actorId } = (sarah.ok ? sarah.output : {}) as { actorId: string };
+    const made = await server.pipeline.run(
+      crm.registry.get("apiKey.create") as never,
+      { actorId, label: "reader" },
+      seeded.sales
+    );
+    const { key } = (made.ok ? made.output : {}) as { key: string };
+    const refused = await request(
+      "/workflows/workflow_list",
+      { method: "POST", body: "{}" },
+      key
+    );
+    const refusedBody = (await refused.json()) as { error?: { code: string } };
+    const won = list.output.workflows.find(
+      (workflow) => workflow.key === "deal_won_task"
+    );
+    expect({ problems, won, status: byGet.status }).toMatchObject({
+      problems: [],
+      won: {
+        source: "config",
+        path: "config/workflows/deal_won_task.yaml",
+        starts_when: { event: "deal_stage_changed" },
+      },
+      status: 200,
+    });
+    await expect(byGet.json()).resolves.toMatchObject({ output: got.output });
+    expect(got.output).toMatchObject({
+      source: "config",
+      editable: false,
+      why: "no_config_remote",
+      revision: null,
+      definition: {
+        steps: [
+          { id: "load" },
+          { id: "check_reason" },
+          { id: "update" },
+          { id: "announce" },
+        ],
+      },
+      check: {
+        problems: [],
+        warnings: [
+          {
+            message:
+              "input.deal takes a deal id, but no step checks it belongs to the caller (record_belongs_to_caller), so anyone who may call this workflow can act on any deal.",
+          },
+        ],
+        segments: [
+          {
+            steps: ["load", "check_reason", "update", "announce"],
+            ends: null,
+          },
+        ],
+      },
+    });
+    const codeBody = (await code.json()) as { output: unknown };
+    expect({
+      code: codeBody.output,
+      refused: refused.status,
+      error: refusedBody.error?.code,
+    }).toMatchObject({
+      code: { source: "code", editable: false, why: "code", revision: null },
+      refused: 403,
+      error: "permission",
+    });
   });
 
   it("is POST only, and in the OpenAPI document with its errors", async () => {
@@ -234,5 +356,8 @@ describe("workflow endpoints (P2.18)", () => {
     expect(got.status).toBe(404);
     expect(Object.keys(operation ?? {})).toStrictEqual(["post"]);
     expect(operation?.post?.description).toContain("`reason_required`");
+    expect(
+      Object.keys(document.paths["/workflows/workflow_get"] ?? {})
+    ).toStrictEqual(["get"]);
   });
 });
