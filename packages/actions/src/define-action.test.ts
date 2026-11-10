@@ -258,6 +258,7 @@ describe("types", () => {
       | "needsApproval"
       | "conflict"
       | "notFound"
+      | "unavailable"
     >();
     expect(true).toBeTruthy();
   });

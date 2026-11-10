@@ -78,7 +78,15 @@ export type {
   LockedApproval,
 } from "./approvals.ts";
 export { createDraftStore } from "./drafts.ts";
-export { findRetriedRun, saveRunSteps, saveRuns } from "./run-trace.ts";
+export {
+  findRetriedRun,
+  findRun,
+  lockRun,
+  saveRunSteps,
+  saveRuns,
+  updateRun,
+  updateRunStep,
+} from "./run-trace.ts";
 export {
   isUniqueViolation,
   markDispatched,

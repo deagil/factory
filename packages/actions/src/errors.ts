@@ -46,6 +46,15 @@ export interface NotFoundError {
 }
 
 /**
+ * Another system is down or busy for now: an external step that fails with
+ * it is tried again with the same retry key.
+ */
+export interface UnavailableError {
+  code: "unavailable";
+  message: string;
+}
+
+/**
  * An error an action declares itself (decision 0045), such as
  * `reason_required`, with its plain-English message. `declared` tells it
  * apart from the built-in errors, whose codes are fixed.
@@ -62,7 +71,8 @@ export type ActionError =
   | PermissionError
   | ApprovalRequiredError
   | ConflictError
-  | NotFoundError;
+  | NotFoundError
+  | UnavailableError;
 
 export type ActionErrorCode = ActionError["code"];
 
@@ -73,6 +83,7 @@ export const actionErrorCodes = [
   "approval_required",
   "conflict",
   "not_found",
+  "unavailable",
 ] as const satisfies readonly ActionErrorCode[];
 
 const failureBrand: unique symbol = Symbol("ActionFailure");
@@ -135,6 +146,8 @@ export const failures = {
     }),
   /** The change clashes with the record's current state. */
   conflict: (message: string) => fail({ code: "conflict", message }),
+  /** Another system is down or busy: try again later, with the same retry key. */
+  unavailable: (message: string) => fail({ code: "unavailable", message }),
   /** There is no `object` with this `id` that the actor may see. */
   notFound: (object: string, id: string) =>
     fail({

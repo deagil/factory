@@ -107,7 +107,7 @@ const eachStep = (
   });
 
 /** Every step of a workflow, its `on_failure` steps included. */
-const allSteps = (workflow: WorkflowDefinition) => [
+export const allSteps = (workflow: WorkflowDefinition) => [
   ...eachStep(workflow.steps, ["steps"]),
   ...(Array.isArray(workflow.on_failure)
     ? eachStep(workflow.on_failure as readonly Step[], ["on_failure"])
@@ -115,7 +115,7 @@ const allSteps = (workflow: WorkflowDefinition) => [
 ];
 
 /** The ids of steps whose output some value or condition reads. */
-const readSteps = (workflow: WorkflowDefinition): Set<string> => {
+export const readSteps = (workflow: WorkflowDefinition): Set<string> => {
   const found = new Set<string>();
   const visit = (value: unknown) => {
     if (Array.isArray(value)) {

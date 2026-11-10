@@ -85,6 +85,13 @@
       "when": 1794254884456,
       "tag": "0011_p2_19_events_and_the_dispatcher",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794310543121,
+      "tag": "0012_p2_20_durable_runs",
+      "breakpoints": true
     }
   ]
 }

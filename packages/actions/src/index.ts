@@ -88,6 +88,7 @@ export type {
   ConflictError,
   ErrorHelpers,
   NotFoundError,
+  UnavailableError,
   PermissionError,
   ValidationError,
   ValidationIssue,
@@ -166,6 +167,7 @@ export {
   logQueries,
   runGet,
   runList,
+  runNeedsAttention,
 } from "./logs.ts";
 export type { HistoryEntry } from "./history.ts";
 export type { ApprovalEntry } from "./approvals.ts";

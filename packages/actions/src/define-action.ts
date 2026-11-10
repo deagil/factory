@@ -520,6 +520,7 @@ const builtInCodes: Record<string, string> = {
   approval_required: "ctx.needsApproval",
   conflict: "ctx.conflict",
   not_found: "ctx.notFound",
+  unavailable: "ctx.unavailable",
   internal: "a thrown error",
 };
 

@@ -1,7 +1,7 @@
 // Writing a workflow run's trace (P2.17, decision 0046): runs and their
 // steps, inserted or brought up to date in one statement each, so the
 // runner writes a run's steps once at its end rather than step by step.
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import type { Executor } from "./client.ts";
 import { runSteps, runs } from "./schema/core.ts";
@@ -50,9 +50,19 @@ export const saveRunSteps = async (
     });
 };
 
+/** The statuses a reused retry key replays rather than runs again. */
+const replayedStatuses = [
+  "succeeded",
+  "running",
+  "waiting",
+  "needs_attention",
+] as const;
+
 /**
- * The successful run `actorId` made with `retryKey`, if there is one: what
- * a second call with the key replays (P2.18).
+ * The run `actorId` made with `retryKey` that a second call with the key
+ * replays (P2.18): one that succeeded, or one still going, waiting or
+ * needing attention (P2.20), so a retry during a pause doesn't start the
+ * work again. A failed run doesn't count: the key may try again.
  */
 export const findRetriedRun = async (
   executor: Executor,
@@ -66,9 +76,45 @@ export const findRetriedRun = async (
       and(
         eq(runs.actorId, actorId),
         eq(runs.retryKey, retryKey),
-        eq(runs.status, "succeeded"),
+        inArray(runs.status, [...replayedStatuses]),
         eq(runs.dryRun, false)
       )
-    );
+    )
+    .orderBy(desc(runs.startedAt))
+    .limit(1);
   return row ?? null;
+};
+
+/** The run `id`, locked until the transaction ends: one segment at a time. */
+export const lockRun = async (executor: Executor, id: string) => {
+  const [row] = await executor
+    .select()
+    .from(runs)
+    .where(eq(runs.id, id))
+    .for("update");
+  return row ?? null;
+};
+
+/** The run `id`, if there is one. */
+export const findRun = async (executor: Executor, id: string) => {
+  const [row] = await executor.select().from(runs).where(eq(runs.id, id));
+  return row ?? null;
+};
+
+/** Brings the run `id` up to date: its status, outcome or checkpoint. */
+export const updateRun = async (
+  executor: Executor,
+  id: string,
+  change: Partial<Omit<RunRow, "id">>
+) => {
+  await executor.update(runs).set(change).where(eq(runs.id, id));
+};
+
+/** Brings the run step `id` up to date: its output, error or end. */
+export const updateRunStep = async (
+  executor: Executor,
+  id: string,
+  change: Partial<Omit<RunStepRow, "id">>
+) => {
+  await executor.update(runSteps).set(change).where(eq(runSteps.id, id));
 };

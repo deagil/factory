@@ -19,7 +19,12 @@ import type {
 import { findRetriedRun } from "@workspace/db";
 import type { Db } from "@workspace/db";
 import { createRunner, definitionOf } from "@workspace/workflows";
-import type { RunError, WorkflowDefinition } from "@workspace/workflows";
+import type {
+  DurableOptions,
+  RunContext,
+  RunError,
+  WorkflowDefinition,
+} from "@workspace/workflows";
 import type { z } from "zod";
 
 export type WorkflowCallError = RunError | ActionRunError;
@@ -30,6 +35,8 @@ export type WorkflowCallResult =
       readonly output: unknown;
       readonly runId: string;
       readonly replayed: boolean;
+      /** It paused, is still going, or needs attention (P2.20): no output yet. */
+      readonly pending?: "running" | "waiting" | "needs_attention";
     }
   | {
       readonly ok: false;
@@ -51,6 +58,17 @@ export interface WorkflowCallsOptions {
   readonly stepActions: ReadonlyMap<string, AnyActionDefinition>;
   /** The system's actions and queries, for the payloads of their events. */
   readonly definitions: readonly AnyDefinition[];
+  /**
+   * For workflows that pause or reach other systems (P2.20): the system's
+   * name and database, and its live config for runs a restart picks up.
+   */
+  readonly durable?: {
+    readonly name: string;
+    readonly databaseUrl: string;
+    readonly config: () => ConfigService;
+    readonly retries?: DurableOptions["retries"];
+    readonly waitMs?: number;
+  };
 }
 
 /** The workflows `config` has that `granted` may call, which are endpoints. */
@@ -79,8 +97,8 @@ export const createWorkflowCalls = ({
   clock,
   stepActions,
   definitions,
+  durable,
 }: WorkflowCallsOptions) => {
-  const runner = createRunner({ db, actions: stepActions, clock });
   const events = new Map<string, z.ZodType>();
   for (const definition of definitions) {
     if (definition.kind !== "query") {
@@ -89,6 +107,33 @@ export const createWorkflowCalls = ({
       }
     }
   }
+  /** What a run reads under `config`: its workflows, by key, and events. */
+  const contextOf = (config: ConfigService): RunContext => ({
+    config,
+    workflows: new Map<string, WorkflowDefinition>(
+      (config.workflows ?? []).map((workflow) => [
+        workflow.key,
+        definitionOf(workflow),
+      ])
+    ),
+    events,
+  });
+  const runner = createRunner({
+    db,
+    actions: stepActions,
+    clock,
+    ...(durable
+      ? {
+          durable: {
+            name: durable.name,
+            databaseUrl: durable.databaseUrl,
+            context: () => contextOf(durable.config()),
+            ...(durable.retries ? { retries: durable.retries } : {}),
+            ...(durable.waitMs === undefined ? {} : { waitMs: durable.waitMs }),
+          },
+        }
+      : {}),
+  });
 
   /** The earlier run with `retryKey`, if this caller made the same call. */
   const replay = async (
@@ -112,6 +157,16 @@ export const createWorkflowCalls = ({
           "This retry key was already used for a different call. Use a new key."
         ).error,
         runId: null,
+      };
+    }
+    if (earlier.status !== "succeeded") {
+      // Still going: the same run, not a second one (P2.20).
+      return {
+        ok: true,
+        output: null,
+        runId: earlier.id,
+        replayed: true,
+        pending: earlier.status as "running" | "waiting" | "needs_attention",
       };
     }
     return {
@@ -171,27 +226,31 @@ export const createWorkflowCalls = ({
         return earlier;
       }
     }
-    const workflows = new Map<string, WorkflowDefinition>(
-      all.map((workflow) => [workflow.key, definitionOf(workflow)])
-    );
     const result = await runner.run(definitionOf(entry), input, {
       originUserId: who.originUserId,
-      config: who.config,
-      workflows,
-      events,
+      ...contextOf(who.config),
       ...(retryKey === undefined ? {} : { retryKey }),
     });
-    return result.ok
+    if (!result.ok) {
+      return { ok: false, error: result.error, runId: result.runId };
+    }
+    return result.pending
       ? {
+          ok: true,
+          output: null,
+          runId: result.runId,
+          replayed: false,
+          pending: result.status,
+        }
+      : {
           ok: true,
           output: result.output,
           runId: result.runId,
           replayed: false,
-        }
-      : { ok: false, error: result.error, runId: result.runId };
+        };
   };
 
-  return { call, actorOf: runner.actorOf, runner, events };
+  return { call, actorOf: runner.actorOf, runner, events, contextOf };
 };
 
 export type WorkflowCalls = ReturnType<typeof createWorkflowCalls>;

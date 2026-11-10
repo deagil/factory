@@ -72,6 +72,8 @@ const server = await createServer(crm, {
   watchConfig: dev && !remoteUrl,
   // Start the workflows events and schedules start, every second (P2.19).
   dispatchMs: 1000,
+  // Pick up the runs a stop left part way, such as one in a wait (P2.20).
+  durable: true,
   ...(remoteUrl
     ? {
         configRemote: {

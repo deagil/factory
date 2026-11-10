@@ -164,8 +164,10 @@ export const actionLog = pgTable(
 );
 
 /**
- * What a run can be. `waiting` is a run paused at a step, today only for
- * approval; `running` and `needs_attention` come with durable runs (P2.20).
+ * What a run can be. `running` between and during segments, `waiting` at a
+ * pause; `needs_attention` when a step failed after a commit and nothing
+ * undid it, until someone retries it, runs its failure steps or marks it
+ * `resolved` (P2.20).
  */
 export const runStatuses = [
   "running",
@@ -173,6 +175,7 @@ export const runStatuses = [
   "succeeded",
   "failed",
   "needs_attention",
+  "resolved",
   "rejected",
   "withdrawn",
   "cancelled",
@@ -208,6 +211,13 @@ export const runs = pgTable(
     /** The minute a schedule started it for (P2.19). */
     scheduledFor: timestamptz("scheduled_for"),
     depth: integer("depth").notNull().default(0),
+    /** The role whose inbox gets it while it needs attention (P2.20). */
+    attentionRole: text("attention_role"),
+    /**
+     * Where a run that pauses has got to, written with each segment it
+     * commits: what a restart, a retry or its failure steps go on from.
+     */
+    checkpoint: jsonb("checkpoint"),
     startedAt: timestamptz("started_at").notNull().defaultNow(),
     finishedAt: timestamptz("finished_at"),
   },
@@ -230,6 +240,10 @@ export const runs = pgTable(
     uniqueIndex("runs_schedule_unique")
       .on(t.endpoint, t.scheduledFor)
       .where(sql`${t.scheduledFor} is not null`),
+    // A role's inbox of runs that need attention.
+    index("runs_attention_idx")
+      .on(t.attentionRole)
+      .where(sql`${t.status} = 'needs_attention'`),
   ]
 );
 

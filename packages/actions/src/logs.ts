@@ -77,6 +77,26 @@ export const runGet = defineQuery({
   },
 });
 
+export const runNeedsAttention = defineQuery({
+  name: "run.needsAttention",
+  description:
+    "Runs that need attention from a role you hold, newest first: a step failed after earlier steps were committed and nothing undid them (P2.20). Someone can retry one, run its failure steps, or mark it resolved.",
+  input: z.strictObject({ ...range, ...page }),
+  output: pageOf(runEntrySchema),
+  everyone: true,
+  handler: async (ctx, { cursor, limit, ...filter }) => {
+    const named = await ctx.dal.attentionRoles();
+    return ctx.dal.runList(
+      {
+        ...filter,
+        status: "needs_attention",
+        attentionRoles: named.filter((role) => ctx.granted.holds(role)),
+      },
+      { cursor, limit }
+    );
+  },
+});
+
 export const auditLogList = defineQuery({
   name: "auditLog.list",
   description:
@@ -117,6 +137,7 @@ export const eventLogList = defineQuery({
 export const logQueries = [
   runList,
   runGet,
+  runNeedsAttention,
   auditLogList,
   eventLogList,
 ] as const;

@@ -21,6 +21,7 @@ const statuses: Record<BuiltIn["code"], ContentfulStatusCode> = {
   permission: 403,
   not_found: 404,
   conflict: 409,
+  unavailable: 503,
   approval_required: 202,
   internal: 500,
 };
