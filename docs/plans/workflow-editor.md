@@ -15,7 +15,7 @@
 ## Resume here
 
 - **Status:** in progress. Decisions 0053 to 0058 were accepted on 10 Nov 2026. See **Answers**. Phase 1's API work (WE.01 to WE.03, WE.12, WE.13) and the workflows list and page (WE.04) are done, the page reads in words (WE.05) and shows the outline (WE.06). Editing is not built yet.
-- **Next task:** WE.10b (the canvas, read-only), then WE.10c and WE.14. WE.10a needs Dylan. WE.24, WE.26 and WE.32 need neither and can go now. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
+- **Next task:** WE.10c (a path beside the canvas), then WE.14. WE.10a needs Dylan. WE.24, WE.26 and WE.32 need neither and can go now. WE.11 can go alongside; it needs only WE.02. After phase 1, WE.10a looks again at step labels before any schema change. WE.17a (the value-building actions) comes straight after WE.17.
 - **Open follow-up.** The CRM's sales role (Sarah) still grants dotted names such as `deal.moveStage` rather than `deal_move_stage`.
 - **Decision numbers.** The brief asked for records from 0049, but 0049 to 0052 were taken by the time this was written, so the editor's records are 0053 to 0058.
 - **Names.** The draft operations are still `draft.save`, `draft.files` and so on, on `/actions` and `/queries`, until P2.24 makes them the `draft_*` workflows. This plan uses the snake_case names. A task that changes one changes whichever exists when it starts.
@@ -185,8 +185,8 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
   - **Needs:** WE.10.
   - **Done when:** the log records the look: either rows stay as they are, or a follow-up task is added for the optional `label`.
 
-- [ ] **WE.10b The canvas, read-only** [web]
-  - Decision 0059. Add `@xyflow/react`. `lib/workflow-layout.ts` turns the tree from `lib/workflow-tree.ts` into nodes with positions and labelled lines: steps in order down the page, a condition's paths side by side and joined below, an empty path drawn as a line, failure steps beside their step. It is a pure function with tests, and the same tree always gives the same layout.
+- [x] **WE.10b The canvas, read-only** [web]
+  - Decision 0059. Add `@xyflow/react`. `lib/workflow-layout.ts` turns the tree from `lib/workflow-tree.ts` into nodes with positions and labelled lines: steps in order down the page, a condition's paths side by side and joined below, an empty path as a small "Nothing" marker (where a drop zone will go), failure steps beside their step. It is a pure function with tests, and the same tree always gives the same layout.
   - `components/workflow-canvas.tsx` draws it: a node is the row's title and sentence with its kind as an icon and a word, and its count of problems; a line out of a condition says "Then" or "Otherwise"; a cut is marked on the line into the step that cuts; an external step sent after a commit keeps its mark. It pans, zooms and opens fitted to the pane with the selected step in view. Selecting a node sets `?step=` and opens the step's detail beside the canvas.
   - The outline is the view below a 48rem pane and behind a Canvas or List switch (`?view=`). What starts the workflow and what it gives back are the first and last nodes.
   - **Needs:** WE.10.
@@ -339,7 +339,7 @@ Each task is one change. **[API]** changes `packages/` and reaches HTTP and MCP;
 These hold for every web task; a task isn't done if it breaks one.
 
 - **Keyboard:** everything the pointer can do. Moving a step is a command, never only a drag.
-- **Screen readers:** the canvas is hidden from them and the outline is what they are given. The outline is nested lists; each row's name says its place, kind and state ("Step 3 of 5, Update the deal, action, 1 problem"). Changes are announced.
+- **Screen readers:** a node on the canvas is a button named as its row is, in the file's order, and the List switch gives the outline. The outline is nested lists; each row's name says its place, kind and state ("Step 3 of 5, Update the deal, action, 1 problem"). Changes are announced.
 - **No meaning by colour alone:** problems, warnings, cuts, added and removed each have a word and an icon.
 - **Reduced motion:** nothing moves to show a change when the system asks for less motion.
 - **Narrow panes:** the outline, not the canvas, below 48rem. Laid out by the pane's width, since the agent sidebar takes up to 36% of the window.
@@ -363,6 +363,7 @@ These hold for every web task; a task isn't done if it breaks one.
 - 2026-11-10 · WE.10 · [#113](https://github.com/deagil/factory/pull/113) · The File tab lists the check's problems and warnings under the file, by path: the check carries no line numbers until WE.11 returns them. The page links to its runs, and Activity → Workflow runs takes `?workflow=` as an exact filter. A run's steps link to the workflow at the run's `configSha` with the step selected, for people who may read workflows; a version that can't be read (or a system with no config remote) falls back to live and says so, with `?was=` holding the sha.
 - 2026-11-10 · WE.11 · [#114](https://github.com/deagil/factory/pull/114) · `workflow_validate` is the core's fifth code workflow. A workflow's input fields have no JSON type, so `value` is the definition as JSON text and `content` is its YAML; give one. It returns the value, the YAML a save would write (the value laid over the file, keeping comments) and the check, where each problem and warning now has a `line`. It checks with `validateWorkflow` against the draft's or the live workflows and choice lists, as `workflow_get` does, not with the whole of `validateConfig`. A YAML or shape error comes back as problems with no segments. The web app should call it with `POST`, since a file doesn't fit a query string. The CRM's manager role is granted it.
 - 2026-11-10 · plan · Dylan compared the outline with lanes, a flowchart and a focused column, and chose the flowchart. Decision 0059 replaces 0053: a canvas laid out from the file, steps dragged to drop zones, a path opened beside the canvas, the outline kept for narrow panes and screen readers. No positions are stored and no lines are drawn by hand. WE.10b is now the read-only canvas and WE.10c the path column; WE.15 gains dragging. `@xyflow/react` is the one new dependency.
+- 2026-11-10 · WE.10b · `lib/workflow-layout.ts` lays the tree out as nodes and labelled lines, and `components/workflow-canvas.tsx` draws them with `@xyflow/react`: a step is a button with its title, kind and sentence, a cut is a "Commits here" mark on the step that cuts, and a path with no steps is a "Nothing" marker. The canvas shows from a 48rem pane, with a Canvas or List switch (`?view=list`); below that the page is the outline. The selected step's detail sits beside the canvas (`StepPanel`). The page is wider (`max-w-6xl`), and scrolling over the canvas pans it. Nested conditions and failure steps are covered by tests; in the browser only Move stage was drawn.
 
 ## Answers
 

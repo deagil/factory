@@ -1,8 +1,10 @@
+import { Button } from "@workspace/ui/components/button";
 // The Workflow tab, top to bottom as a run goes: what starts it, what it
 // takes, its steps with the places it commits, what it gives back, how it
 // can fail, who can call it and who it acts as.
 import type { WorkflowCheck } from "@workspace/workflows";
 import { CircleAlert, Scissors, Send, TriangleAlert } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { Role } from "../lib/roles.ts";
@@ -18,16 +20,17 @@ import {
   queuedOf,
 } from "../lib/workflow-segments.ts";
 import type { Cut } from "../lib/workflow-segments.ts";
-import { allRows, rowTitle } from "../lib/workflow-tree.ts";
+import { allRows, findRow, rowTitle } from "../lib/workflow-tree.ts";
 import type { WorkflowTree } from "../lib/workflow-tree.ts";
-import { titleOf } from "../lib/workflow-words.ts";
+import { listOf, titleOf } from "../lib/workflow-words.ts";
 import type {
   FactRow,
   StartWords,
   WorkflowFacts,
 } from "../lib/workflow-words.ts";
+import { WorkflowCanvas } from "./workflow-canvas.tsx";
 import { EventStartsList } from "./workflow-events.tsx";
-import { WorkflowOutline } from "./workflow-outline.tsx";
+import { StepPanel, WorkflowOutline } from "./workflow-outline.tsx";
 
 export interface WorkflowTabProps {
   workflow: string;
@@ -44,6 +47,9 @@ export interface WorkflowTabProps {
   next: EventStarts[];
   selected: string | undefined;
   onSelect: (step: string | undefined) => void;
+  /** `list` when the viewer chose the outline over the canvas. */
+  view: "list" | undefined;
+  onView: (view: "list" | undefined) => void;
 }
 
 const Section = ({
@@ -222,23 +228,131 @@ const Access = ({
   </Section>
 );
 
-export const WorkflowTab = (props: WorkflowTabProps) => {
-  const findings = findingsOf(props.tree, props.check);
+/** The canvas needs room: below 48rem of pane, the steps are the outline. */
+const canvasFloor = 768;
+
+const useWide = () => {
+  const pane = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const element = pane.current;
+    if (!element) {
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) => {
+      setWide((entry?.contentRect.width ?? 0) >= canvasFloor);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return { pane, wide };
+};
+
+const ViewSwitch = ({
+  view,
+  onView,
+}: Pick<WorkflowTabProps, "view" | "onView">) => (
+  <fieldset className="flex gap-1">
+    <legend className="sr-only">Show the steps as</legend>
+    <Button
+      type="button"
+      size="sm"
+      variant={view === "list" ? "ghost" : "secondary"}
+      aria-pressed={view !== "list"}
+      onClick={() => onView(undefined)}
+    >
+      Canvas
+    </Button>
+    <Button
+      type="button"
+      size="sm"
+      variant={view === "list" ? "secondary" : "ghost"}
+      aria-pressed={view === "list"}
+      onClick={() => onView("list")}
+    >
+      List
+    </Button>
+  </fieldset>
+);
+
+const endWords = (facts: WorkflowFacts) =>
+  facts.output.length === 0
+    ? "Ends"
+    : `Gives back ${listOf(facts.output.map((row) => titleOf(row.name).toLowerCase()))}`;
+
+/** The steps: a flowchart when the pane is wide, the outline otherwise. */
+const Steps = (props: WorkflowTabProps & { findings: Finding[] }) => {
+  const { pane, wide } = useWide();
   const cuts = cutsOf(props.check);
   const queued = queuedOf(props.check);
   const rows = allRows(props.tree).filter((row) => row.id !== null);
-  const before = new Map(
-    rows.map((row) => [
-      row.path,
-      <CutLine key="cut" cut={cuts.get(row.id ?? "")} />,
-    ])
+  const row = findRow(props.tree, props.selected);
+  const canvas = wide && props.view !== "list";
+  return (
+    <div ref={pane} className="flex flex-col gap-2">
+      {wide ? (
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium">Steps</h2>
+          <ViewSwitch view={props.view} onView={props.onView} />
+        </div>
+      ) : null}
+      {canvas ? (
+        <div
+          className={
+            row ? "grid grid-cols-[minmax(0,1fr)_20rem] gap-4" : undefined
+          }
+        >
+          <WorkflowCanvas
+            tree={props.tree}
+            selected={row}
+            onSelect={props.onSelect}
+            findings={props.findings}
+            cuts={cuts}
+            queued={queued}
+            startText={props.starts.text}
+            endText={endWords(props.facts)}
+          />
+          {row ? (
+            <StepPanel
+              tree={props.tree}
+              row={row}
+              findings={props.findings}
+              onSelect={props.onSelect}
+            />
+          ) : null}
+        </div>
+      ) : (
+        <WorkflowOutline
+          workflow={props.workflow}
+          tree={props.tree}
+          selected={props.selected}
+          onSelect={props.onSelect}
+          findings={props.findings}
+          heading={!wide}
+          before={
+            new Map(
+              rows.map((each) => [
+                each.path,
+                <CutLine key="cut" cut={cuts.get(each.id ?? "")} />,
+              ])
+            )
+          }
+          notes={
+            new Map(
+              rows.map((each) => [
+                each.path,
+                <Queued key="queued" show={queued.has(each.id ?? "")} />,
+              ])
+            )
+          }
+        />
+      )}
+    </div>
   );
-  const notes = new Map(
-    rows.map((row) => [
-      row.path,
-      <Queued key="queued" show={queued.has(row.id ?? "")} />,
-    ])
-  );
+};
+
+export const WorkflowTab = (props: WorkflowTabProps) => {
+  const findings = findingsOf(props.tree, props.check);
   if (props.tree.rows.length === 0) {
     return <Description text={props.description} />;
   }
@@ -248,16 +362,8 @@ export const WorkflowTab = (props: WorkflowTabProps) => {
       <Summary findings={findings} onSelect={props.onSelect} />
       <Starts starts={props.starts} />
       <FactList title="What it takes" rows={props.facts.input} code={false} />
-      <Pauses count={cuts.size} />
-      <WorkflowOutline
-        workflow={props.workflow}
-        tree={props.tree}
-        selected={props.selected}
-        onSelect={props.onSelect}
-        findings={findings}
-        before={before}
-        notes={notes}
-      />
+      <Pauses count={cutsOf(props.check).size} />
+      <Steps {...props} findings={findings} />
       <FactList
         title="What it gives back"
         rows={props.facts.output}
