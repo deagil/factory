@@ -40,9 +40,20 @@ export interface LayoutEdge {
   opens: string | null;
 }
 
+/** A place a step can be put, as a point on the canvas. */
+export interface LayoutSlot {
+  id: string;
+  /** `steps.1.then`: the list, and the index a step put here would have. */
+  list: string;
+  index: number;
+  x: number;
+  y: number;
+}
+
 export interface Layout {
   nodes: LayoutNode[];
   edges: LayoutEdge[];
+  slots: LayoutSlot[];
   width: number;
   height: number;
 }
@@ -50,6 +61,7 @@ export interface Layout {
 interface Block {
   nodes: LayoutNode[];
   edges: LayoutEdge[];
+  slots: LayoutSlot[];
   width: number;
   height: number;
   /** How far the block's main line is from its left edge. */
@@ -76,11 +88,22 @@ const edge = (
 const moved = (block: Block, x: number, y: number): LayoutNode[] =>
   block.nodes.map((node) => ({ ...node, x: node.x + x, y: node.y + y }));
 
+const movedSlots = (block: Block, x: number, y: number): LayoutSlot[] =>
+  block.slots.map((slot) => ({ ...slot, x: slot.x + x, y: slot.y + y }));
+
+const slotAt = (
+  list: string,
+  index: number,
+  x: number,
+  y: number
+): LayoutSlot => ({ id: `${list}@${index}`, list, index, x, y });
+
 const marker = (
   node: { kind: "start" | "end" | "empty"; id: string } | LabelNode
 ): Block => ({
   nodes: [{ ...node, x: 0, y: 0, width: markerWidth, height: markerHeight }],
   edges: [],
+  slots: [],
   width: markerWidth,
   height: markerHeight,
   axis: markerWidth / 2,
@@ -94,8 +117,15 @@ interface LabelNode {
   text: string;
 }
 
-/** Blocks one under the other on one line, each joined to the next. */
-const stack = (blocks: readonly Block[], fallback: Block): Block => {
+/**
+ * Blocks one under the other on one line, each joined to the next. With
+ * `list`, the gaps between them are that list's slots.
+ */
+const stack = (
+  blocks: readonly Block[],
+  fallback: Block,
+  list?: { path: string; open: boolean }
+): Block => {
   const [first] = blocks;
   if (!first) {
     return fallback;
@@ -104,6 +134,7 @@ const stack = (blocks: readonly Block[], fallback: Block): Block => {
   const result: Block = {
     nodes: [],
     edges: [],
+    slots: [],
     width: axis + Math.max(...blocks.map((block) => block.width - block.axis)),
     height: 0,
     axis,
@@ -113,6 +144,10 @@ const stack = (blocks: readonly Block[], fallback: Block): Block => {
   for (const [index, block] of blocks.entries()) {
     const top = index === 0 ? 0 : result.height + down;
     result.nodes.push(...moved(block, axis - block.axis, top));
+    result.slots.push(
+      ...movedSlots(block, axis - block.axis, top),
+      ...(list ? [slotAt(list.path, index, axis, top - down / 2)] : [])
+    );
     result.edges.push(
       ...result.exits.map((from) => edge(from, block.entry)),
       ...block.edges
@@ -120,12 +155,32 @@ const stack = (blocks: readonly Block[], fallback: Block): Block => {
     result.exits = block.exits;
     result.height = top + block.height;
   }
+  if (list?.open) {
+    result.slots.push(
+      slotAt(list.path, blocks.length, axis, result.height + down / 2)
+    );
+  }
   return result;
 };
 
-const pathBlock = (rows: readonly TreeRow[], id: string): Block =>
-  // oxlint-disable-next-line no-use-before-define -- a path holds steps, and a step holds paths
-  stack(rows.map(rowBlock), marker({ kind: "empty", id }));
+/** A path with no steps: its marker is its one slot. */
+const emptyPath = (id: string, list: string): Block => ({
+  ...marker({ kind: "empty", id }),
+  slots: [slotAt(list, 0, markerWidth / 2, markerHeight / 2)],
+});
+
+/** A list of steps. Nothing can follow a last step that ends the run. */
+const pathBlock = (
+  rows: readonly TreeRow[],
+  list: string,
+  emptyId = list
+): Block =>
+  stack(
+    // oxlint-disable-next-line no-use-before-define -- a path holds steps, and a step holds paths
+    rows.map(rowBlock),
+    emptyPath(emptyId, list),
+    { path: list, open: rows.at(-1)?.ends !== true }
+  );
 
 const groupOf = (row: TreeRow, kind: TreeGroup["kind"]) =>
   row.groups.find((group) => group.kind === kind);
@@ -172,6 +227,7 @@ const rowBlock = (row: TreeRow): Block => {
       },
     ],
     edges: [],
+    slots: [],
     width: Math.max(
       axis + nodeWidth / 2,
       lanesWidth,
@@ -184,6 +240,7 @@ const rowBlock = (row: TreeRow): Block => {
   };
   if (side) {
     block.nodes.push(...moved(side, sideLeft, 0));
+    block.slots.push(...movedSlots(side, sideLeft, 0));
     block.edges.push(
       edge(row.path, side.entry, {
         label: "If it fails",
@@ -200,6 +257,10 @@ const rowBlock = (row: TreeRow): Block => {
       ...moved(first.block, 0, lanesTop),
       ...moved(second.block, first.block.width + across, lanesTop)
     );
+    block.slots.push(
+      ...movedSlots(first.block, 0, lanesTop),
+      ...movedSlots(second.block, first.block.width + across, lanesTop)
+    );
     block.edges.push(
       edge(row.path, first.block.entry, { ...first, side: false }),
       ...first.block.edges,
@@ -213,20 +274,16 @@ const rowBlock = (row: TreeRow): Block => {
 };
 
 /** The workflow's own failure steps, under their heading. */
-const ownFailure = (group: TreeGroup): Block =>
-  stack(
-    [
-      marker({ kind: "label", id: group.path, text: group.label }),
-      ...group.rows.map(rowBlock),
-    ],
-    marker({ kind: "empty", id: `${group.path}.empty` })
+const ownFailure = (group: TreeGroup): Block => {
+  const label = marker({ kind: "label", id: group.path, text: group.label });
+  return stack(
+    [label, pathBlock(group.rows, group.path, `${group.path}.empty`)],
+    label
   );
+};
 
 export const workflowLayout = (tree: WorkflowTree): Layout => {
-  const steps = stack(
-    tree.rows.map(rowBlock),
-    marker({ kind: "empty", id: "steps" })
-  );
+  const steps = pathBlock(tree.rows, "steps");
   const main = stack(
     [
       marker({ kind: "start", id: "start" }),
@@ -240,6 +297,10 @@ export const workflowLayout = (tree: WorkflowTree): Layout => {
   return {
     nodes: [...main.nodes, ...(failure ? moved(failure, failureLeft, 0) : [])],
     edges: [...main.edges, ...(failure?.edges ?? [])],
+    slots: [
+      ...main.slots,
+      ...(failure ? movedSlots(failure, failureLeft, 0) : []),
+    ],
     width: failure ? failureLeft + failure.width : main.width,
     height: Math.max(main.height, failure?.height ?? 0),
   };

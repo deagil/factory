@@ -91,4 +91,23 @@ describe("the layout of a workflow", () => {
       layout.width
     );
   });
+
+  it("gives every place a step can go a slot, between the steps of its list", () => {
+    const slot = (id: string) => layout.slots.find((each) => each.id === id);
+    expect(layout.slots.filter((each) => each.list === "steps")).toHaveLength(
+      4
+    );
+    expect(slot("steps@1")?.x).toBe(centre("steps.0"));
+    expect(slot("steps@1")?.y).toBeGreaterThan(at("steps.0").y);
+    expect(slot("steps@1")?.y).toBeLessThan(at("steps.1").y);
+    expect(slot("steps.1.else@0")?.x).toBe(centre("steps.1.else"));
+  });
+
+  it("has no slot after a step that ends the run", () => {
+    const ids = layout.slots.map((each) => each.id);
+    expect(ids).toContain("steps.1.then.0.then@0");
+    expect(ids).not.toContain("steps.1.then.0.then@1");
+    expect(ids).toContain("steps.2.on_failure@1");
+    expect(ids).toContain("on_failure@1");
+  });
 });
