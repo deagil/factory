@@ -20,7 +20,6 @@ import { Route as AppAccessUsersRouteImport } from './routes/_app/access.users'
 import { Route as AppAccountAgentsRouteImport } from './routes/_app/account.agents'
 import { Route as AppAutomationActionsRouteImport } from './routes/_app/automation.actions'
 import { Route as AppAutomationEventsRouteImport } from './routes/_app/automation.events'
-import { Route as AppAutomationWorkflowsRouteImport } from './routes/_app/automation.workflows'
 import { Route as AppInboxApprovalsRouteImport } from './routes/_app/inbox.approvals'
 import { Route as AppSettingsApiRouteImport } from './routes/_app/settings.api'
 import { Route as AppSettingsReferenceRouteImport } from './routes/_app/settings.reference'
@@ -31,6 +30,8 @@ import { Route as AppActivityEventsIndexRouteImport } from './routes/_app/activi
 import { Route as AppActivityEventsIdRouteImport } from './routes/_app/activity.events.$id'
 import { Route as AppActivityRunsIndexRouteImport } from './routes/_app/activity.runs.index'
 import { Route as AppActivityRunsIdRouteImport } from './routes/_app/activity.runs.$id'
+import { Route as AppAutomationWorkflowsIndexRouteImport } from './routes/_app/automation.workflows.index'
+import { Route as AppAutomationWorkflowsKeyRouteImport } from './routes/_app/automation.workflows.$key'
 import { Route as AppConfigDraftsIndexRouteImport } from './routes/_app/config.drafts.index'
 import { Route as AppConfigDraftsIdRouteImport } from './routes/_app/config.drafts.$id'
 import { Route as AppDataObjectsIndexRouteImport } from './routes/_app/data.objects.index'
@@ -95,11 +96,6 @@ const AppAutomationEventsRoute = AppAutomationEventsRouteImport.update({
   path: '/automation/events',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAutomationWorkflowsRoute = AppAutomationWorkflowsRouteImport.update({
-  id: '/automation/workflows',
-  path: '/automation/workflows',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppInboxApprovalsRoute = AppInboxApprovalsRouteImport.update({
   id: '/inbox/approvals',
   path: '/inbox/approvals',
@@ -150,6 +146,18 @@ const AppActivityRunsIdRoute = AppActivityRunsIdRouteImport.update({
   path: '/activity/runs/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAutomationWorkflowsIndexRoute =
+  AppAutomationWorkflowsIndexRouteImport.update({
+    id: '/automation/workflows/',
+    path: '/automation/workflows/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppAutomationWorkflowsKeyRoute =
+  AppAutomationWorkflowsKeyRouteImport.update({
+    id: '/automation/workflows/$key',
+    path: '/automation/workflows/$key',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppConfigDraftsIndexRoute = AppConfigDraftsIndexRouteImport.update({
   id: '/config/drafts/',
   path: '/config/drafts/',
@@ -207,7 +215,6 @@ export interface FileRoutesByFullPath {
   '/account/agents': typeof AppAccountAgentsRoute
   '/automation/actions': typeof AppAutomationActionsRoute
   '/automation/events': typeof AppAutomationEventsRoute
-  '/automation/workflows': typeof AppAutomationWorkflowsRoute
   '/inbox/approvals': typeof AppInboxApprovalsRoute
   '/settings/api': typeof AppSettingsApiRoute
   '/settings/reference': typeof AppSettingsReferenceRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/activity/changes/$id': typeof AppActivityChangesIdRoute
   '/activity/events/$id': typeof AppActivityEventsIdRoute
   '/activity/runs/$id': typeof AppActivityRunsIdRoute
+  '/automation/workflows/$key': typeof AppAutomationWorkflowsKeyRoute
   '/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/data/objects/$object': typeof AppDataObjectsObjectRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
@@ -223,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/activity/changes/': typeof AppActivityChangesIndexRoute
   '/activity/events/': typeof AppActivityEventsIndexRoute
   '/activity/runs/': typeof AppActivityRunsIndexRoute
+  '/automation/workflows/': typeof AppAutomationWorkflowsIndexRoute
   '/config/drafts/': typeof AppConfigDraftsIndexRoute
   '/data/objects/': typeof AppDataObjectsIndexRoute
   '/o/$object/': typeof AppOObjectIndexRoute
@@ -239,7 +248,6 @@ export interface FileRoutesByTo {
   '/account/agents': typeof AppAccountAgentsRoute
   '/automation/actions': typeof AppAutomationActionsRoute
   '/automation/events': typeof AppAutomationEventsRoute
-  '/automation/workflows': typeof AppAutomationWorkflowsRoute
   '/inbox/approvals': typeof AppInboxApprovalsRoute
   '/settings/api': typeof AppSettingsApiRoute
   '/settings/reference': typeof AppSettingsReferenceRoute
@@ -247,6 +255,7 @@ export interface FileRoutesByTo {
   '/activity/changes/$id': typeof AppActivityChangesIdRoute
   '/activity/events/$id': typeof AppActivityEventsIdRoute
   '/activity/runs/$id': typeof AppActivityRunsIdRoute
+  '/automation/workflows/$key': typeof AppAutomationWorkflowsKeyRoute
   '/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/data/objects/$object': typeof AppDataObjectsObjectRoute
   '/o/$object/$id': typeof AppOObjectIdRoute
@@ -255,6 +264,7 @@ export interface FileRoutesByTo {
   '/activity/changes': typeof AppActivityChangesIndexRoute
   '/activity/events': typeof AppActivityEventsIndexRoute
   '/activity/runs': typeof AppActivityRunsIndexRoute
+  '/automation/workflows': typeof AppAutomationWorkflowsIndexRoute
   '/config/drafts': typeof AppConfigDraftsIndexRoute
   '/data/objects': typeof AppDataObjectsIndexRoute
   '/o/$object': typeof AppOObjectIndexRoute
@@ -273,7 +283,6 @@ export interface FileRoutesById {
   '/_app/account/agents': typeof AppAccountAgentsRoute
   '/_app/automation/actions': typeof AppAutomationActionsRoute
   '/_app/automation/events': typeof AppAutomationEventsRoute
-  '/_app/automation/workflows': typeof AppAutomationWorkflowsRoute
   '/_app/inbox/approvals': typeof AppInboxApprovalsRoute
   '/_app/settings/api': typeof AppSettingsApiRoute
   '/_app/settings/reference': typeof AppSettingsReferenceRoute
@@ -281,6 +290,7 @@ export interface FileRoutesById {
   '/_app/activity/changes/$id': typeof AppActivityChangesIdRoute
   '/_app/activity/events/$id': typeof AppActivityEventsIdRoute
   '/_app/activity/runs/$id': typeof AppActivityRunsIdRoute
+  '/_app/automation/workflows/$key': typeof AppAutomationWorkflowsKeyRoute
   '/_app/config/drafts/$id': typeof AppConfigDraftsIdRoute
   '/_app/data/objects/$object': typeof AppDataObjectsObjectRoute
   '/_app/o/$object/$id': typeof AppOObjectIdRoute
@@ -289,6 +299,7 @@ export interface FileRoutesById {
   '/_app/activity/changes/': typeof AppActivityChangesIndexRoute
   '/_app/activity/events/': typeof AppActivityEventsIndexRoute
   '/_app/activity/runs/': typeof AppActivityRunsIndexRoute
+  '/_app/automation/workflows/': typeof AppAutomationWorkflowsIndexRoute
   '/_app/config/drafts/': typeof AppConfigDraftsIndexRoute
   '/_app/data/objects/': typeof AppDataObjectsIndexRoute
   '/_app/o/$object/': typeof AppOObjectIndexRoute
@@ -307,7 +318,6 @@ export interface FileRouteTypes {
     | '/account/agents'
     | '/automation/actions'
     | '/automation/events'
-    | '/automation/workflows'
     | '/inbox/approvals'
     | '/settings/api'
     | '/settings/reference'
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/activity/changes/$id'
     | '/activity/events/$id'
     | '/activity/runs/$id'
+    | '/automation/workflows/$key'
     | '/config/drafts/$id'
     | '/data/objects/$object'
     | '/o/$object/$id'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/activity/changes/'
     | '/activity/events/'
     | '/activity/runs/'
+    | '/automation/workflows/'
     | '/config/drafts/'
     | '/data/objects/'
     | '/o/$object/'
@@ -339,7 +351,6 @@ export interface FileRouteTypes {
     | '/account/agents'
     | '/automation/actions'
     | '/automation/events'
-    | '/automation/workflows'
     | '/inbox/approvals'
     | '/settings/api'
     | '/settings/reference'
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/activity/changes/$id'
     | '/activity/events/$id'
     | '/activity/runs/$id'
+    | '/automation/workflows/$key'
     | '/config/drafts/$id'
     | '/data/objects/$object'
     | '/o/$object/$id'
@@ -355,6 +367,7 @@ export interface FileRouteTypes {
     | '/activity/changes'
     | '/activity/events'
     | '/activity/runs'
+    | '/automation/workflows'
     | '/config/drafts'
     | '/data/objects'
     | '/o/$object'
@@ -372,7 +385,6 @@ export interface FileRouteTypes {
     | '/_app/account/agents'
     | '/_app/automation/actions'
     | '/_app/automation/events'
-    | '/_app/automation/workflows'
     | '/_app/inbox/approvals'
     | '/_app/settings/api'
     | '/_app/settings/reference'
@@ -380,6 +392,7 @@ export interface FileRouteTypes {
     | '/_app/activity/changes/$id'
     | '/_app/activity/events/$id'
     | '/_app/activity/runs/$id'
+    | '/_app/automation/workflows/$key'
     | '/_app/config/drafts/$id'
     | '/_app/data/objects/$object'
     | '/_app/o/$object/$id'
@@ -388,6 +401,7 @@ export interface FileRouteTypes {
     | '/_app/activity/changes/'
     | '/_app/activity/events/'
     | '/_app/activity/runs/'
+    | '/_app/automation/workflows/'
     | '/_app/config/drafts/'
     | '/_app/data/objects/'
     | '/_app/o/$object/'
@@ -478,13 +492,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAutomationEventsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/automation/workflows': {
-      id: '/_app/automation/workflows'
-      path: '/automation/workflows'
-      fullPath: '/automation/workflows'
-      preLoaderRoute: typeof AppAutomationWorkflowsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/inbox/approvals': {
       id: '/_app/inbox/approvals'
       path: '/inbox/approvals'
@@ -553,6 +560,20 @@ declare module '@tanstack/react-router' {
       path: '/activity/runs/$id'
       fullPath: '/activity/runs/$id'
       preLoaderRoute: typeof AppActivityRunsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/automation/workflows/': {
+      id: '/_app/automation/workflows/'
+      path: '/automation/workflows'
+      fullPath: '/automation/workflows/'
+      preLoaderRoute: typeof AppAutomationWorkflowsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/automation/workflows/$key': {
+      id: '/_app/automation/workflows/$key'
+      path: '/automation/workflows/$key'
+      fullPath: '/automation/workflows/$key'
+      preLoaderRoute: typeof AppAutomationWorkflowsKeyRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/config/drafts/': {
@@ -631,7 +652,6 @@ interface AppRouteChildren {
   AppAccountAgentsRoute: typeof AppAccountAgentsRoute
   AppAutomationActionsRoute: typeof AppAutomationActionsRoute
   AppAutomationEventsRoute: typeof AppAutomationEventsRoute
-  AppAutomationWorkflowsRoute: typeof AppAutomationWorkflowsRoute
   AppInboxApprovalsRoute: typeof AppInboxApprovalsRoute
   AppSettingsApiRoute: typeof AppSettingsApiRoute
   AppSettingsReferenceRoute: typeof AppSettingsReferenceRoute
@@ -639,6 +659,7 @@ interface AppRouteChildren {
   AppActivityChangesIdRoute: typeof AppActivityChangesIdRoute
   AppActivityEventsIdRoute: typeof AppActivityEventsIdRoute
   AppActivityRunsIdRoute: typeof AppActivityRunsIdRoute
+  AppAutomationWorkflowsKeyRoute: typeof AppAutomationWorkflowsKeyRoute
   AppConfigDraftsIdRoute: typeof AppConfigDraftsIdRoute
   AppDataObjectsObjectRoute: typeof AppDataObjectsObjectRoute
   AppOObjectIdRoute: typeof AppOObjectIdRoute
@@ -647,6 +668,7 @@ interface AppRouteChildren {
   AppActivityChangesIndexRoute: typeof AppActivityChangesIndexRoute
   AppActivityEventsIndexRoute: typeof AppActivityEventsIndexRoute
   AppActivityRunsIndexRoute: typeof AppActivityRunsIndexRoute
+  AppAutomationWorkflowsIndexRoute: typeof AppAutomationWorkflowsIndexRoute
   AppConfigDraftsIndexRoute: typeof AppConfigDraftsIndexRoute
   AppDataObjectsIndexRoute: typeof AppDataObjectsIndexRoute
   AppOObjectIndexRoute: typeof AppOObjectIndexRoute
@@ -663,7 +685,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountAgentsRoute: AppAccountAgentsRoute,
   AppAutomationActionsRoute: AppAutomationActionsRoute,
   AppAutomationEventsRoute: AppAutomationEventsRoute,
-  AppAutomationWorkflowsRoute: AppAutomationWorkflowsRoute,
   AppInboxApprovalsRoute: AppInboxApprovalsRoute,
   AppSettingsApiRoute: AppSettingsApiRoute,
   AppSettingsReferenceRoute: AppSettingsReferenceRoute,
@@ -671,6 +692,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivityChangesIdRoute: AppActivityChangesIdRoute,
   AppActivityEventsIdRoute: AppActivityEventsIdRoute,
   AppActivityRunsIdRoute: AppActivityRunsIdRoute,
+  AppAutomationWorkflowsKeyRoute: AppAutomationWorkflowsKeyRoute,
   AppConfigDraftsIdRoute: AppConfigDraftsIdRoute,
   AppDataObjectsObjectRoute: AppDataObjectsObjectRoute,
   AppOObjectIdRoute: AppOObjectIdRoute,
@@ -679,6 +701,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivityChangesIndexRoute: AppActivityChangesIndexRoute,
   AppActivityEventsIndexRoute: AppActivityEventsIndexRoute,
   AppActivityRunsIndexRoute: AppActivityRunsIndexRoute,
+  AppAutomationWorkflowsIndexRoute: AppAutomationWorkflowsIndexRoute,
   AppConfigDraftsIndexRoute: AppConfigDraftsIndexRoute,
   AppDataObjectsIndexRoute: AppDataObjectsIndexRoute,
   AppOObjectIndexRoute: AppOObjectIndexRoute,
