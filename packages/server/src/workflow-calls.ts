@@ -35,8 +35,8 @@ export type WorkflowCallResult =
       readonly output: unknown;
       readonly runId: string;
       readonly replayed: boolean;
-      /** It paused, or is still going (P2.20): no output yet. */
-      readonly pending?: "running" | "waiting";
+      /** It paused, is still going, or needs attention (P2.20): no output yet. */
+      readonly pending?: "running" | "waiting" | "needs_attention";
     }
   | {
       readonly ok: false;
@@ -157,6 +157,16 @@ export const createWorkflowCalls = ({
           "This retry key was already used for a different call. Use a new key."
         ).error,
         runId: null,
+      };
+    }
+    if (earlier.status !== "succeeded") {
+      // Still going: the same run, not a second one (P2.20).
+      return {
+        ok: true,
+        output: null,
+        runId: earlier.id,
+        replayed: true,
+        pending: earlier.status as "running" | "waiting" | "needs_attention",
       };
     }
     return {

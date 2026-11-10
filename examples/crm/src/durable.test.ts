@@ -334,6 +334,35 @@ describe("durable runs (P2.20)", { timeout: 30_000 }, () => {
     ]);
   });
 
+  it("replays a run still waiting when the caller sends its retry key again", async () => {
+    const input = { deal: await newDeal(), amount: 120 };
+    const first = await server.workflowCalls.call(
+      "payment_make",
+      input,
+      seeded.admin,
+      { retryKey: "pay-once" }
+    );
+    const again = await server.workflowCalls.call(
+      "payment_make",
+      input,
+      seeded.admin,
+      { retryKey: "pay-once" }
+    );
+    expect(again).toStrictEqual({
+      ok: true,
+      output: null,
+      runId: first.runId,
+      replayed: true,
+      pending: "waiting",
+    });
+    await settled(runIdOf(first));
+    const made = await server.db
+      .select({ id: runs.id })
+      .from(runs)
+      .where(eq(runs.retryKey, "pay-once"));
+    expect(made).toHaveLength(1);
+  });
+
   it("tries a temporary failure again with the same retry key, and charges once", async () => {
     bank.lostReplies = 1;
     const result = await pay(await newDeal());
