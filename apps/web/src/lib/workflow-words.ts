@@ -10,7 +10,7 @@ import type {
 } from "@workspace/workflows";
 
 /** `check_reason` → "check reason". */
-const plain = (name: string) => name.replaceAll("_", " ");
+export const plain = (name: string) => name.replaceAll("_", " ");
 
 /** `check_reason` → "Check reason". */
 export const titleOf = (name: string) => {

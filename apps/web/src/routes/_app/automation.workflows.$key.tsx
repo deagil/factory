@@ -10,16 +10,17 @@ import {
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
-import type { Step } from "@workspace/workflows";
 import { useState } from "react";
 
 import { ErrorText } from "../../components/activity.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { WorkflowForm } from "../../components/workflow-form.tsx";
+import { WorkflowOutline } from "../../components/workflow-outline.tsx";
 import { useWorkingDraft } from "../../components/working-draft.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import type { SystemDescription } from "../../lib/api.ts";
 import type { WorkflowDescription } from "../../lib/forms.ts";
+import type { WorkflowTree } from "../../lib/workflow-tree.ts";
 import { titleOf } from "../../lib/workflow-words.ts";
 import type {
   FactRow,
@@ -34,7 +35,6 @@ import {
   readsAreReady,
   showsReadOnly,
   sourceLabel,
-  stepLabel,
   workflowGetEnabled,
   workflowGetKey,
   workflowListKey,
@@ -137,49 +137,13 @@ const VersionToggle = ({
   </fieldset>
 );
 
-const StepList = ({
-  steps,
-  selected,
-  onSelect,
-}: {
-  steps: readonly Step[];
-  selected: string | undefined;
-  onSelect: (step: string | undefined) => void;
-}) => {
-  if (steps.length === 0) {
-    return null;
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">Steps</h2>
-      <ol className="flex flex-col gap-1">
-        {steps.map((step, index) => {
-          const id = stepLabel(step);
-          const pressed = selected === id;
-          return (
-            <li key={`${id}:${index}`}>
-              <Button
-                size="sm"
-                variant={pressed ? "secondary" : "outline"}
-                aria-pressed={pressed}
-                onClick={() => onSelect(pressed ? undefined : id)}
-              >
-                {id}
-              </Button>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-};
-
 const WorkflowTabs = ({
   tab,
   description,
   starts,
   facts,
-  steps,
+  tree,
+  workflow,
   selected,
   content,
   onTab,
@@ -189,43 +153,41 @@ const WorkflowTabs = ({
   facts: WorkflowFacts;
   description: string;
   starts: StartWords;
-  steps: readonly Step[];
+  tree: WorkflowTree;
+  workflow: string;
   selected: string | undefined;
   content: string | null;
   onTab: (tab: "file" | undefined) => void;
   onSelect: (step: string | undefined) => void;
-}) => {
-  const known = steps.some((step) => stepLabel(step) === selected);
-  return (
-    <Tabs
-      value={tab}
-      onValueChange={(value) => {
-        if (value === "workflow" || value === "file") {
-          onTab(value === "file" ? "file" : undefined);
-        }
-      }}
-    >
-      <TabsList>
-        <TabsTrigger value="workflow">Workflow</TabsTrigger>
-        <TabsTrigger value="file">File</TabsTrigger>
-      </TabsList>
-      <TabsContent value="workflow" className="flex flex-col gap-4">
-        <WorkflowFactsView
-          description={description}
-          starts={starts}
-          facts={facts}
-          steps={steps}
-          selected={selected}
-          known={known}
-          onSelect={onSelect}
-        />
-      </TabsContent>
-      <TabsContent value="file">
-        <FileText content={content} />
-      </TabsContent>
-    </Tabs>
-  );
-};
+}) => (
+  <Tabs
+    value={tab}
+    onValueChange={(value) => {
+      if (value === "workflow" || value === "file") {
+        onTab(value === "file" ? "file" : undefined);
+      }
+    }}
+  >
+    <TabsList>
+      <TabsTrigger value="workflow">Workflow</TabsTrigger>
+      <TabsTrigger value="file">File</TabsTrigger>
+    </TabsList>
+    <TabsContent value="workflow" className="flex flex-col gap-4">
+      <WorkflowFactsView
+        description={description}
+        starts={starts}
+        facts={facts}
+        tree={tree}
+        workflow={workflow}
+        selected={selected}
+        onSelect={onSelect}
+      />
+    </TabsContent>
+    <TabsContent value="file">
+      <FileText content={content} />
+    </TabsContent>
+  </Tabs>
+);
 
 const FactList = ({
   title,
@@ -268,25 +230,29 @@ const WorkflowFactsView = ({
   description,
   starts,
   facts,
-  steps,
+  tree,
+  workflow,
   selected,
-  known,
   onSelect,
 }: {
   description: string;
   starts: StartWords;
   facts: WorkflowFacts;
-  steps: readonly Step[];
+  tree: WorkflowTree;
+  workflow: string;
   selected: string | undefined;
-  known: boolean;
   onSelect: (step: string | undefined) => void;
 }) => (
   <>
     <Description text={description} />
     <Starts starts={starts} />
     <FactList title="What it takes" rows={facts.input} code={false} />
-    <StepList steps={steps} selected={selected} onSelect={onSelect} />
-    <SelectedStep selected={selected} known={known} />
+    <WorkflowOutline
+      workflow={workflow}
+      tree={tree}
+      selected={selected}
+      onSelect={onSelect}
+    />
     <FactList title="What it gives back" rows={facts.output} code={false} />
     <FactList title="How it can fail" rows={facts.errors} code />
   </>
@@ -294,23 +260,6 @@ const WorkflowFactsView = ({
 
 const Description = ({ text }: { text: string }) =>
   text === "" ? null : <p className="text-sm">{text}</p>;
-
-const SelectedStep = ({
-  selected,
-  known,
-}: {
-  selected: string | undefined;
-  known: boolean;
-}) => {
-  if (selected === undefined || known) {
-    return null;
-  }
-  return (
-    <p className="text-sm">
-      Selected step <span className="font-mono text-xs">{selected}</span>
-    </p>
-  );
-};
 
 const FileText = ({ content }: { content: string | null }) =>
   content === null ? null : (
@@ -444,7 +393,8 @@ const WorkflowScreen = () => {
         description={present.description}
         starts={present.starts}
         facts={present.facts}
-        steps={present.steps}
+        tree={present.tree}
+        workflow={key}
         selected={search.step}
         content={present.content}
         onTab={(tab) => setSearch({ tab })}
