@@ -1,14 +1,15 @@
 // Pieces the Activity screens share (P1b.03): times, who did something,
 // links to records and actions, raw JSON, filters and paging. Filters and
 // the page are in the URL, like the object lists.
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { cn } from "@workspace/ui/lib/utils";
-import { X } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+import { objectApi, runQuery } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
 import { findObject, titleOf } from "../lib/records.ts";
 import { RecordTitle } from "./record-title.tsx";
@@ -123,6 +124,72 @@ export const StatusBadge = ({
   </span>
 );
 
+/**
+ * The record's current display name. One query per object and id, shared by
+ * every cell on the page. Returns nothing until it loads.
+ */
+export const useRecordName = (
+  target: string,
+  id: string,
+  description: SystemDescription | undefined
+) => {
+  const object = findObject(description, target);
+  const isActor = target === "actor";
+  return useQuery({
+    queryKey: ["ref", target, id],
+    queryFn: async () => {
+      if (isActor) {
+        const { actor } = await runQuery<{ actor: { name: string } }>(
+          "actor.get",
+          { id }
+        );
+        return actor.name;
+      }
+      const { record } = await objectApi(target, object?.endpoints).get<{
+        record: Record<string, unknown>;
+      }>(id, { archived: "include" });
+      return titleOf(record, object);
+    },
+    enabled: id !== "" && (isActor || object !== undefined),
+    retry: false,
+  });
+};
+
+/**
+ * The name of the record a ref points at. While it loads, or if the caller
+ * can't read it, the id shows.
+ */
+export const RefName = ({
+  target,
+  id,
+  description,
+}: {
+  target: string;
+  id: string;
+  description: SystemDescription | undefined;
+}) => {
+  const found = useRecordName(target, id, description);
+  return found.data ?? id;
+};
+
+/** A ref's display name, or "empty" when the change cleared it. */
+const RefValue = ({
+  target,
+  value,
+  description,
+}: {
+  target: string;
+  value: unknown;
+  description: SystemDescription | undefined;
+}) => {
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-muted-foreground">empty</span>;
+  }
+  return (
+    <RefName target={target} id={String(value)} description={description} />
+  );
+};
+
 /** A changed value, short enough for one line. */
 export const shortValue = (value: unknown) => {
   if (value === null || value === undefined || value === "") {
@@ -134,8 +201,8 @@ export const shortValue = (value: unknown) => {
 const noValues: Record<string, unknown> = {};
 
 /**
- * A link to a record, called by its title where the change carries it
- * ("Ada"), else by its object and the end of its id.
+ * A link to a record, called by its current display name. Until that loads,
+ * a title the change carries, or the object and the end of its id.
  */
 export const RecordLink = ({
   object,
@@ -151,7 +218,8 @@ export const RecordLink = ({
 }) => {
   const found = findObject(description, object);
   const record = { id: recordId, ...values };
-  const named = titleOf(record, found);
+  const live = useRecordName(object, recordId, description);
+  const named = live.data || titleOf(record, found);
   const label =
     named === "" || named === recordId
       ? `${found?.label ?? object} …${recordId.slice(-6)}`
@@ -191,15 +259,42 @@ export const ChangedFields = ({
     <ul className="flex flex-col gap-0.5">
       {Object.keys(after)
         .toSorted((a, b) => order(a) - order(b))
-        .map((key) => (
-          <li key={key}>
-            <span className="text-muted-foreground">
-              {fields.find((field) => field.key === key)?.label ?? key}:
-            </span>{" "}
-            {key in before ? `${shortValue(before[key])} → ` : null}
-            {shortValue(after[key])}
-          </li>
-        ))}
+        .map((key) => {
+          const field = fields.find((each) => each.key === key);
+          const ref =
+            field?.type === "ref" && field.target ? field.target : undefined;
+          return (
+            <li key={key}>
+              <span className="text-muted-foreground">
+                {field?.label ?? key}:
+              </span>{" "}
+              {ref ? (
+                <>
+                  {key in before ? (
+                    <>
+                      <RefValue
+                        target={ref}
+                        value={before[key]}
+                        description={description}
+                      />
+                      {" → "}
+                    </>
+                  ) : null}
+                  <RefValue
+                    target={ref}
+                    value={after[key]}
+                    description={description}
+                  />
+                </>
+              ) : (
+                <>
+                  {key in before ? `${shortValue(before[key])} → ` : null}
+                  {shortValue(after[key])}
+                </>
+              )}
+            </li>
+          );
+        })}
     </ul>
   );
 };
@@ -258,55 +353,6 @@ export const TextFilter = ({
     </label>
   );
 };
-
-export const SelectFilter = ({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string | undefined;
-  options: { value: string; label: string }[];
-  onChange: (value: string | undefined) => void;
-}) => (
-  <label className="flex items-center gap-2 text-sm">
-    <span className="text-muted-foreground">{label}</span>
-    <select
-      className="h-8 rounded-2xl border bg-background px-2 text-sm"
-      value={value ?? ""}
-      onChange={(event) => onChange(event.target.value || undefined)}
-    >
-      <option value="">Any</option>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </label>
-);
-
-/** A filter set from a link, such as an actor: shown as a removable chip. */
-export const Chip = ({
-  children,
-  onRemove,
-}: {
-  children: ReactNode;
-  onRemove: () => void;
-}) => (
-  <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-sm">
-    {children}
-    <button
-      type="button"
-      aria-label="Remove filter"
-      className="text-muted-foreground hover:text-foreground"
-      onClick={onRemove}
-    >
-      <X className="size-3.5" />
-    </button>
-  </span>
-);
 
 export interface PageSearch {
   cursor?: string;

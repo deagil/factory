@@ -4,7 +4,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
-import { ErrorText, TextFilter, text } from "../../components/activity.tsx";
+import { text } from "../../components/activity.tsx";
+import {
+  DataTable,
+  tableBodyRow,
+  tableHeadCell,
+} from "../../components/data-table.tsx";
+import { LogFilterBar } from "../../components/log-filters.tsx";
+import type { LogFilterSpec } from "../../components/log-filters.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem, readWorkflow } from "../../lib/api.ts";
 import { humanise } from "../../lib/forms.ts";
@@ -12,8 +19,17 @@ import { actionListKey, mayCall } from "../../lib/workflow-events.ts";
 import type { ActionListItem } from "../../lib/workflow-events.ts";
 
 interface ActionsSearch {
-  q?: string;
+  name?: string;
+  kind?: "internal" | "external";
+  object?: string;
+  emits?: string;
 }
+
+const kindOf = (value: unknown): ActionsSearch["kind"] =>
+  value === "internal" || value === "external" ? value : undefined;
+
+const contains = (needle: string | undefined, haystack: string) =>
+  needle === undefined || haystack.toLowerCase().includes(needle.toLowerCase());
 
 const cell = "px-3 py-2 align-top";
 
@@ -60,77 +76,155 @@ const ActionsScreen = () => {
     queryFn: fetchActions,
     enabled: mayCall(described.data?.workflows, actionListKey),
   });
+  const update = (next: Partial<ActionsSearch>) =>
+    navigate({ search: (previous) => ({ ...previous, ...next }) });
   const all: ActionRow[] = stepActions.data ?? described.data?.actions ?? [];
-  const q = search.q?.toLowerCase() ?? "";
+  const objects = [
+    ...new Set(all.flatMap((action) => (action.object ? [action.object] : []))),
+  ].toSorted();
+  const filters: LogFilterSpec[] = [
+    {
+      key: "name",
+      label: "Action",
+      operator: "contains",
+      kind: "text",
+      placeholder: "contact_create",
+    },
+    {
+      key: "kind",
+      label: "Kind",
+      operator: "is",
+      kind: "choice",
+      options: [
+        { value: "internal", label: "Internal" },
+        { value: "external", label: "External" },
+      ],
+    },
+    ...(objects.length > 0 || search.object
+      ? [
+          {
+            key: "object",
+            label: "Object",
+            operator: "is",
+            kind: "choice" as const,
+            options: objects.map((object) => ({
+              value: object,
+              label: humanise(object),
+            })),
+          },
+        ]
+      : []),
+    {
+      key: "emits",
+      label: "Emits",
+      operator: "contains",
+      kind: "text",
+      placeholder: "contact_created",
+    },
+  ];
+  const filtering =
+    search.name !== undefined ||
+    search.kind !== undefined ||
+    search.object !== undefined ||
+    search.emits !== undefined;
   const actions = all
     .filter(
       (action) =>
-        q === "" ||
-        action.name.toLowerCase().includes(q) ||
-        action.description.toLowerCase().includes(q)
+        contains(
+          search.name,
+          `${humanise(action.name)} ${action.name} ${action.description}`
+        ) &&
+        (search.kind === undefined || action.kind === search.kind) &&
+        (search.object === undefined || action.object === search.object) &&
+        contains(search.emits, action.emits.join(" "))
     )
     .toSorted((a, b) => a.name.localeCompare(b.name));
+  const problem = described.error ?? stepActions.error;
   return (
-    <div className="flex max-w-4xl flex-col gap-4">
+    <div className="flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
       <PageHeader title="Actions" />
-      <p className="text-sm text-muted-foreground">
+      <p className="shrink-0 text-sm text-muted-foreground">
         {stepActions.data
           ? "What a workflow step can run. Nothing else reaches these; each run is in Activity."
           : "Operations this system can run. A workflow step calls one; each run is in Activity."}
       </p>
-      <TextFilter
-        key={search.q ?? ""}
-        label="Find"
-        placeholder="contact_create"
-        value={search.q}
-        onChange={(next) => navigate({ search: { q: next } })}
-      />
-      <ErrorText error={described.error ?? stepActions.error} />
-      {described.isSuccess && actions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {q === ""
-            ? "None of your roles lets you run an action."
-            : "No actions match."}
-        </p>
-      ) : null}
-      {actions.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className={`${cell} font-medium`}>Action</th>
-                <th className={`${cell} font-medium`}>Kind</th>
-                <th className={`${cell} font-medium`}>Emits</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actions.map((action) => (
-                <tr key={action.name} className="border-b last:border-0">
-                  <td className={cell}>
-                    <p className="font-medium">{humanise(action.name)}</p>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {action.name}
-                    </p>
-                    {action.description ? (
-                      <p className="mt-1 text-muted-foreground">
-                        {action.description}
-                      </p>
-                    ) : null}
-                  </td>
-                  <td className={`${cell} first-letter:uppercase`}>
-                    {marksOf(action)}
-                  </td>
-                  <td
-                    className={`${cell} font-mono text-xs text-muted-foreground`}
-                  >
-                    {action.emits.length > 0 ? action.emits.join(", ") : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <DataTable
+        fill
+        error={problem?.message}
+        toolbar={
+          <LogFilterBar
+            filters={filters}
+            values={{
+              name: search.name,
+              kind: search.kind,
+              object: search.object,
+              emits: search.emits,
+            }}
+            onChange={(key, value) => update({ [key]: value })}
+            onClear={() =>
+              update({
+                name: undefined,
+                kind: undefined,
+                object: undefined,
+                emits: undefined,
+              })
+            }
+          />
+        }
+      >
+        <thead>
+          <tr>
+            <th scope="col" className={tableHeadCell}>
+              Action
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              Kind
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              Emits
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {actions.map((action) => (
+            <tr key={action.name} className={tableBodyRow}>
+              <td className={cell}>
+                <p className="font-medium">{humanise(action.name)}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {action.name}
+                </p>
+                {action.description ? (
+                  <p className="mt-1 text-muted-foreground">
+                    {action.description}
+                  </p>
+                ) : null}
+              </td>
+              <td
+                className={`${cell} whitespace-nowrap first-letter:uppercase`}
+              >
+                {marksOf(action)}
+              </td>
+              <td
+                className={`${cell} font-mono text-xs whitespace-nowrap text-muted-foreground`}
+              >
+                {action.emits.length > 0 ? action.emits.join(", ") : "—"}
+              </td>
+            </tr>
+          ))}
+          {described.isSuccess && actions.length === 0 ? (
+            <tr>
+              <td
+                colSpan={3}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                {filtering
+                  ? "No actions match."
+                  : "None of your roles lets you run an action."}
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </DataTable>
     </div>
   );
 };
@@ -138,7 +232,10 @@ const ActionsScreen = () => {
 export const Route = createFileRoute("/_app/automation/actions")({
   staticData: { section: "automation" },
   validateSearch: (search: Record<string, unknown>): ActionsSearch => ({
-    q: text(search.q),
+    name: text(search.name),
+    kind: kindOf(search.kind),
+    object: text(search.object),
+    emits: text(search.emits),
   }),
   component: ActionsScreen,
 });

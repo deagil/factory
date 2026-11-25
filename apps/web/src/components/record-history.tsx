@@ -4,46 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { HistoryEntry } from "@workspace/actions";
 
-import { objectApi, runQuery } from "../lib/api.ts";
+import { objectApi } from "../lib/api.ts";
 import type { SystemDescription } from "../lib/api.ts";
-import { displayValue, findObject, titleOf } from "../lib/records.ts";
+import { displayValue } from "../lib/records.ts";
 import type { ObjectDescription } from "../lib/records.ts";
-import { canQuery } from "./activity.tsx";
+import { canQuery, RefName } from "./activity.tsx";
 import { opensItem } from "./open-row.tsx";
-
-/** The name of the record a ref points at, if the caller can read it. */
-const RefName = ({
-  target,
-  id,
-  description,
-}: {
-  target: string;
-  id: string;
-  description: SystemDescription | undefined;
-}) => {
-  const object = findObject(description, target);
-  // Refs to actors (an account owner) are named through `actor.get`.
-  const isActor = target === "actor";
-  const found = useQuery({
-    queryKey: ["ref", target, id],
-    queryFn: async () => {
-      if (isActor) {
-        const { actor } = await runQuery<{ actor: { name: string } }>(
-          "actor.get",
-          { id }
-        );
-        return actor.name;
-      }
-      const { record } = await objectApi(target, object?.endpoints).get<{
-        record: Record<string, unknown>;
-      }>(id, { archived: "include" });
-      return titleOf(record, object);
-    },
-    enabled: isActor || object !== undefined,
-    retry: false,
-  });
-  return found.data ?? id;
-};
 
 const Value = ({
   object,

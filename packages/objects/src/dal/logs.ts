@@ -147,6 +147,10 @@ export interface ChangeFilter extends TimeRange {
   /** Only changes to this field. */
   field?: string;
   actorId?: string;
+  /** The action that wrote the change, as `organisation_update`. */
+  action?: string;
+  /** An action prefix, as `organisation_` for every organisation action. */
+  actionPrefix?: string;
   runId?: string;
 }
 
@@ -154,6 +158,8 @@ export interface EventFilter extends TimeRange {
   type?: string;
   /** A type prefix, as `contact_` for every contact event. */
   typePrefix?: string;
+  /** The person the event was for: the user at the start of the chain. */
+  originUserId?: string;
   runId?: string;
 }
 
@@ -441,6 +447,10 @@ export const createLogReader = (executor: Executor) => {
         filter.recordId ? eq(auditLog.recordId, filter.recordId) : undefined,
         filter.field ? jsonbHasKey(auditLog.after, filter.field) : undefined,
         filter.actorId ? eq(auditLog.actorId, filter.actorId) : undefined,
+        filter.action ? eq(runSteps.name, filter.action) : undefined,
+        filter.actionPrefix
+          ? like(runSteps.name, prefixPattern(filter.actionPrefix))
+          : undefined,
         filter.runId ? eq(auditLog.runId, filter.runId) : undefined,
         ...within(auditLog.at, filter),
         before(auditLog.at, auditLog.id, decode(page.cursor))
@@ -461,6 +471,9 @@ export const createLogReader = (executor: Executor) => {
         filter.type ? eq(eventLog.type, filter.type) : undefined,
         filter.typePrefix
           ? like(eventLog.type, prefixPattern(filter.typePrefix))
+          : undefined,
+        filter.originUserId
+          ? eq(eventLog.originUserId, filter.originUserId)
           : undefined,
         filter.runId ? eq(eventLog.runId, filter.runId) : undefined,
         ...within(eventLog.createdAt, filter),

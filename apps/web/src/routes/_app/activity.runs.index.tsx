@@ -7,21 +7,24 @@ import type { RunEntry } from "@workspace/actions";
 
 import {
   RunLink,
-  Chip,
-  ErrorText,
   Pager,
-  SelectFilter,
   StatusBadge,
-  TextFilter,
   WhoDid,
   pageSearch,
   text,
   when,
 } from "../../components/activity.tsx";
 import type { PageSearch } from "../../components/activity.tsx";
+import { DataTable, tableHeadCell } from "../../components/data-table.tsx";
+import { LogFilterBar, useLogPeople } from "../../components/log-filters.tsx";
+import type {
+  LogFilterSpec,
+  PinnedFilter,
+} from "../../components/log-filters.tsx";
 import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { runQuery } from "../../lib/api.ts";
+import { day, dayEnd, dayStart } from "../../lib/day-range.ts";
 
 interface RunsSearch extends PageSearch {
   /** An endpoint prefix, as `contact.`. */
@@ -30,28 +33,26 @@ interface RunsSearch extends PageSearch {
   workflow?: string;
   status?: string;
   actor?: string;
+  /** A calendar day, inclusive, as `YYYY-MM-DD`. */
+  since?: string;
+  until?: string;
 }
 
-const statuses = ["succeeded", "failed", "waiting", "rejected", "withdrawn"];
+const statuses = [
+  "running",
+  "waiting",
+  "succeeded",
+  "failed",
+  "needs_attention",
+  "resolved",
+  "rejected",
+  "withdrawn",
+  "cancelled",
+];
 
 const RunsScreen = () => {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const page = useQuery({
-    queryKey: ["run.list", search],
-    queryFn: () =>
-      runQuery<{ entries: RunEntry[]; nextCursor: string | null }>("run.list", {
-        endpointPrefix: search.name,
-        endpoint: search.workflow,
-        status: search.status,
-        actorId: search.actor,
-        cursor: search.cursor,
-        limit: 25,
-      }),
-    placeholderData: keepPreviousData,
-  });
-
-  // Any change but paging starts again from the first page.
   const update = (next: Partial<RunsSearch>) =>
     navigate({
       search: (previous) => ({
@@ -61,105 +62,165 @@ const RunsScreen = () => {
         ...next,
       }),
     });
+  const people = useLogPeople("actor");
+  const filters: LogFilterSpec[] = [
+    {
+      key: "name",
+      label: "Endpoint",
+      operator: "starts with",
+      kind: "text",
+      placeholder: "contact_",
+    },
+    {
+      key: "status",
+      label: "Status",
+      operator: "is",
+      kind: "choice",
+      options: statuses.map((status) => ({
+        value: status,
+        label: status.replaceAll("_", " "),
+      })),
+    },
+    {
+      key: "actor",
+      label: "By",
+      operator: "is",
+      kind: "choice",
+      options: people,
+    },
+    {
+      key: "since",
+      label: "When",
+      operator: "from",
+      kind: "date",
+    },
+    {
+      key: "until",
+      label: "When",
+      operator: "until",
+      kind: "date",
+    },
+  ];
+  const pinned: PinnedFilter[] = search.workflow
+    ? [
+        {
+          key: "workflow",
+          label: "Workflow",
+          operator: "is",
+          value: search.workflow,
+          onRemove: () => update({ workflow: undefined }),
+        },
+      ]
+    : [];
+  const page = useQuery({
+    queryKey: ["run.list", search],
+    queryFn: () =>
+      runQuery<{ entries: RunEntry[]; nextCursor: string | null }>("run.list", {
+        endpointPrefix: search.name,
+        endpoint: search.workflow,
+        status: search.status,
+        actorId: search.actor,
+        since: dayStart(search.since),
+        until: dayEnd(search.until),
+        cursor: search.cursor,
+        limit: 25,
+      }),
+    placeholderData: keepPreviousData,
+  });
 
-  const actorName =
-    page.data?.entries.find((entry) => entry.actor.id === search.actor)?.actor
-      .name ?? search.actor?.slice(0, 8);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title="Workflow runs" />
-      <div className="flex flex-wrap items-center gap-3">
-        <TextFilter
-          key={search.name ?? ""}
-          label="Endpoint"
-          placeholder="contact. or contact_create"
-          value={search.name}
-          onChange={(name) => update({ name })}
-        />
-        <SelectFilter
-          label="Status"
-          value={search.status}
-          options={statuses.map((status) => ({
-            value: status,
-            label: status.replaceAll("_", " "),
-          }))}
-          onChange={(status) => update({ status })}
-        />
-        {search.workflow ? (
-          <Chip onRemove={() => update({ workflow: undefined })}>
-            Workflow {search.workflow}
-          </Chip>
-        ) : null}
-        {search.actor ? (
-          <Chip onRemove={() => update({ actor: undefined })}>
-            By {actorName}
-          </Chip>
-        ) : null}
-      </div>
-      <ErrorText error={page.error} />
-      <div className="overflow-x-auto rounded-2xl border">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              <th scope="col" className="px-3 py-2 font-medium">
-                Endpoint
-              </th>
-              <th scope="col" className="px-3 py-2 font-medium">
-                By
-              </th>
-              <th scope="col" className="px-3 py-2 font-medium">
-                Status
-              </th>
-              <th scope="col" className="px-3 py-2 font-medium">
-                When
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {page.data?.entries.map((entry) => (
-              <OpenRow
-                key={entry.id}
-                onOpen={() =>
-                  navigate({
-                    to: "/activity/runs/$id",
-                    params: { id: entry.id },
-                  })
-                }
-              >
-                <td className="px-3 py-2">
-                  <RunLink id={entry.id}>{entry.endpoint}</RunLink>
-                </td>
-                <td className="px-3 py-2">
-                  <WhoDid who={entry} onActor={(actor) => update({ actor })} />
-                </td>
-                <td className="px-3 py-2">
-                  <StatusBadge status={entry.status} dryRun={entry.dryRun} />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground tabular-nums">
-                  {when(entry.at)}
-                </td>
-              </OpenRow>
-            ))}
-            {page.data?.entries.length === 0 && (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-3 py-6 text-center text-muted-foreground"
-                >
-                  No runs match.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <Pager
-        search={search}
-        nextCursor={page.data?.nextCursor}
-        onPage={(next) =>
-          navigate({ search: (previous) => ({ ...previous, ...next }) })
+      <DataTable
+        fill
+        error={page.error?.message}
+        toolbar={
+          <LogFilterBar
+            filters={filters}
+            values={{
+              name: search.name,
+              status: search.status,
+              actor: search.actor,
+              since: search.since,
+              until: search.until,
+            }}
+            pinned={pinned}
+            onChange={(key, value) => update({ [key]: value })}
+            onClear={() =>
+              update({
+                name: undefined,
+                status: undefined,
+                actor: undefined,
+                since: undefined,
+                until: undefined,
+                workflow: undefined,
+              })
+            }
+          />
         }
-      />
+        footer={
+          <Pager
+            search={search}
+            nextCursor={page.data?.nextCursor}
+            onPage={(next) =>
+              navigate({ search: (previous) => ({ ...previous, ...next }) })
+            }
+          />
+        }
+      >
+        <thead>
+          <tr>
+            <th scope="col" className={tableHeadCell}>
+              Endpoint
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              By
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              Status
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              When
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {page.data?.entries.map((entry) => (
+            <OpenRow
+              key={entry.id}
+              onOpen={() =>
+                navigate({
+                  to: "/activity/runs/$id",
+                  params: { id: entry.id },
+                })
+              }
+            >
+              <td className="px-3 py-2">
+                <RunLink id={entry.id}>{entry.endpoint}</RunLink>
+              </td>
+              <td className="px-3 py-2">
+                <WhoDid who={entry} onActor={(actor) => update({ actor })} />
+              </td>
+              <td className="px-3 py-2">
+                <StatusBadge status={entry.status} dryRun={entry.dryRun} />
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-muted-foreground tabular-nums">
+                {when(entry.at)}
+              </td>
+            </OpenRow>
+          ))}
+          {page.data?.entries.length === 0 && (
+            <tr>
+              <td
+                colSpan={4}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                No runs match.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </DataTable>
     </div>
   );
 };
@@ -171,6 +232,8 @@ export const Route = createFileRoute("/_app/activity/runs/")({
     workflow: text(search.workflow),
     status: text(search.status),
     actor: text(search.actor),
+    since: day(search.since),
+    until: day(search.until),
     ...pageSearch(search),
   }),
   component: RunsScreen,

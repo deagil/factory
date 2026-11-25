@@ -5,6 +5,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ErrorText } from "../../components/activity.tsx";
 import { ListUses, useChoiceLists } from "../../components/choice-lists.tsx";
 import { OptionBadge } from "../../components/config-editors.tsx";
+import { DataTable, tableHeadCell } from "../../components/data-table.tsx";
 import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { canEditConfig, listLabel, optionsOf } from "../../lib/choice-lists.ts";
@@ -36,52 +37,47 @@ const ChoiceListsScreen = () => {
         <p className="text-sm text-muted-foreground">No choice lists.</p>
       ) : null}
       {lists.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className={`${cell} font-medium`}>List</th>
-                <th className={`${cell} font-medium`}>Used by</th>
-                <th className={`${cell} font-medium`}>Live options</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lists.map(({ file, edited, live }) => (
-                <OpenRow
-                  key={file.path}
-                  onOpen={() =>
-                    navigate({
-                      to: "/settings/choices/$list",
-                      params: { list: file.key },
-                    })
-                  }
-                >
-                  <td className={cell}>
-                    <span className="flex items-center gap-2">
-                      <Link
-                        to="/settings/choices/$list"
-                        params={{ list: file.key }}
-                        className="font-medium hover:underline"
-                      >
-                        {listLabel(file.key)}
-                      </Link>
-                      {edited ? <OptionBadge mark="changed" /> : null}
-                    </span>
-                  </td>
-                  <td className={cell}>
-                    <ListUses description={described.data} list={file.key} />
-                  </td>
-                  <td className={cell}>
-                    {
-                      optionsOf(live).filter((option) => !option.archived)
-                        .length
-                    }
-                  </td>
-                </OpenRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <th className={tableHeadCell}>List</th>
+              <th className={tableHeadCell}>Used by</th>
+              <th className={tableHeadCell}>Live options</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lists.map(({ file, edited, live }) => (
+              <OpenRow
+                key={file.path}
+                onOpen={() =>
+                  navigate({
+                    to: "/settings/choices/$list",
+                    params: { list: file.key },
+                  })
+                }
+              >
+                <td className={cell}>
+                  <span className="flex items-center gap-2">
+                    <Link
+                      to="/settings/choices/$list"
+                      params={{ list: file.key }}
+                      className="font-medium hover:underline"
+                    >
+                      {listLabel(file.key)}
+                    </Link>
+                    {edited ? <OptionBadge mark="changed" /> : null}
+                  </span>
+                </td>
+                <td className={cell}>
+                  <ListUses description={described.data} list={file.key} />
+                </td>
+                <td className={cell}>
+                  {optionsOf(live).filter((option) => !option.archived).length}
+                </td>
+              </OpenRow>
+            ))}
+          </tbody>
+        </DataTable>
       ) : null}
     </div>
   );

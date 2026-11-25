@@ -3,8 +3,10 @@
 // are in the URL (P1.20).
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Button, buttonVariants } from "@workspace/ui/components/button";
+import { buttonVariants } from "@workspace/ui/components/button";
 
+import { Pager } from "../../components/activity.tsx";
+import { DataTable, tableHeadCell } from "../../components/data-table.tsx";
 import { FilterBar } from "../../components/filter-bar.tsx";
 import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
@@ -89,12 +91,11 @@ const ListScreen = () => {
     );
   }
 
-  const back = search.back ?? [];
   const canCreate = described.data?.actions.some(
     (action) => action.name === `${name}_create`
   );
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title={plural(object.label)}
         trail={[{ label: "Objects", link: { to: "/data/objects" } }]}
@@ -110,8 +111,9 @@ const ListScreen = () => {
           ) : null
         }
       />
-      <div className="min-w-0 overflow-hidden rounded-2xl border bg-background">
-        <div className="border-b px-3 py-2">
+      <DataTable
+        fill
+        toolbar={
           <FilterBar
             fields={readableFields(object)}
             filter={search.filter ?? {}}
@@ -125,146 +127,107 @@ const ListScreen = () => {
               update({ archived: next ? true : undefined })
             }
           />
-        </div>
-        {page.isError && (
-          <p
-            role="alert"
-            className="border-b px-3 py-2 text-sm text-destructive"
-          >
-            {page.error.message}
-          </p>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                {columns.map((field) => (
-                  <th
-                    key={field.key}
-                    scope="col"
-                    className="px-3 py-2 font-medium"
+        }
+        error={page.isError ? page.error.message : undefined}
+        footer={
+          <Pager
+            search={search}
+            nextCursor={page.data?.nextCursor}
+            onPage={(next) =>
+              navigate({ search: (previous) => ({ ...previous, ...next }) })
+            }
+          />
+        }
+      >
+        <thead>
+          <tr>
+            {columns.map((field) => (
+              <th key={field.key} scope="col" className={tableHeadCell}>
+                {isSortable(field) ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:underline"
+                    onClick={() =>
+                      update({ sort: nextSort(search.sort, field.key) })
+                    }
                   >
-                    {isSortable(field) ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:underline"
-                        onClick={() =>
-                          update({ sort: nextSort(search.sort, field.key) })
-                        }
-                      >
-                        {field.label}
-                        {search.sort === field.key && " ↑"}
-                        {search.sort === `-${field.key}` && " ↓"}
-                      </button>
-                    ) : (
-                      field.label
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {page.data?.records.map((record) => (
-                <OpenRow
-                  key={String(record.id)}
-                  onOpen={() =>
-                    navigate({
-                      to: "/o/$object/$id",
-                      params: { object: name, id: String(record.id) },
-                    })
-                  }
-                >
-                  {columns.map((field, index) => {
-                    const text = displayValue(
+                    {field.label}
+                    {search.sort === field.key && " ↑"}
+                    {search.sort === `-${field.key}` && " ↓"}
+                  </button>
+                ) : (
+                  field.label
+                )}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {page.data?.records.map((record) => (
+            <OpenRow
+              key={String(record.id)}
+              onOpen={() =>
+                navigate({
+                  to: "/o/$object/$id",
+                  params: { object: name, id: String(record.id) },
+                })
+              }
+            >
+              {columns.map((field, index) => {
+                const text = displayValue(
+                  field,
+                  record,
+                  page.data.related,
+                  described.data
+                );
+                const shown = (
+                  <WithAvatar
+                    src={leadingSrc(
                       field,
                       record,
                       page.data.related,
-                      described.data
-                    );
-                    const shown = (
-                      <WithAvatar
-                        src={leadingSrc(
-                          field,
-                          record,
-                          page.data.related,
-                          described.data,
-                          object
-                        )}
-                      >
-                        {text || (index === 0 ? "(blank)" : "")}
-                      </WithAvatar>
-                    );
-                    return (
-                      <td key={field.key} className="px-3 py-2">
-                        {index === 0 ? (
-                          <Link
-                            to="/o/$object/$id"
-                            params={{ object: name, id: String(record.id) }}
-                            className="font-medium hover:underline"
-                          >
-                            {shown}
-                          </Link>
-                        ) : (
-                          shown
-                        )}
-                        {index === 0 && record.archivedAt ? (
-                          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            Archived
-                          </span>
-                        ) : null}
-                      </td>
-                    );
-                  })}
-                </OpenRow>
-              ))}
-              {page.data?.records.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-3 py-6 text-center text-muted-foreground"
+                      described.data,
+                      object
+                    )}
                   >
-                    No {object.label.toLowerCase()}s match.
+                    {text || (index === 0 ? "(blank)" : "")}
+                  </WithAvatar>
+                );
+                return (
+                  <td key={field.key} className="px-3 py-2">
+                    {index === 0 ? (
+                      <Link
+                        to="/o/$object/$id"
+                        params={{ object: name, id: String(record.id) }}
+                        className="font-medium hover:underline"
+                      >
+                        {shown}
+                      </Link>
+                    ) : (
+                      shown
+                    )}
+                    {index === 0 && record.archivedAt ? (
+                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        Archived
+                      </span>
+                    ) : null}
                   </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-end gap-2 border-t px-3 py-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={back.length === 0}
-            onClick={() =>
-              navigate({
-                search: (previous) => ({
-                  ...previous,
-                  cursor: back.at(-1) || undefined,
-                  back: back.length > 1 ? back.slice(0, -1) : undefined,
-                }),
-              })
-            }
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!page.data?.nextCursor}
-            onClick={() =>
-              navigate({
-                search: (previous) => ({
-                  ...previous,
-                  cursor: page.data?.nextCursor ?? undefined,
-                  back: [...back, search.cursor ?? ""],
-                }),
-              })
-            }
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+                );
+              })}
+            </OpenRow>
+          ))}
+          {page.data?.records.length === 0 && (
+            <tr>
+              <td
+                colSpan={columns.length}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                No {object.label.toLowerCase()}s match.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </DataTable>
     </div>
   );
 };

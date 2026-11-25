@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { ErrorText } from "../../components/activity.tsx";
+import { DataTable, tableHeadCell } from "../../components/data-table.tsx";
 import { OpenRow } from "../../components/open-row.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import { describeSystem } from "../../lib/api.ts";
@@ -34,50 +35,48 @@ const ObjectsScreen = () => {
         </p>
       ) : null}
       {objects.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className={`${cell} font-medium`}>Object</th>
-                <th className={`${cell} font-medium`}>About</th>
-                <th className={`${cell} font-medium`}>Fields</th>
-              </tr>
-            </thead>
-            <tbody>
-              {objects.map((object) => (
-                <OpenRow
-                  key={object.name}
-                  onOpen={() =>
-                    navigate({
-                      to: "/o/$object",
-                      params: { object: object.name },
-                    })
-                  }
-                >
-                  <td className={cell}>
-                    <Link
-                      to="/data/objects/$object"
-                      params={{ object: object.name }}
-                      className="font-medium hover:underline"
-                    >
-                      {plural(object.label)}
-                    </Link>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {object.name}
-                    </p>
-                  </td>
-                  <td className={`${cell} text-muted-foreground`}>
-                    {object.description ??
-                      `Every ${object.label.toLowerCase()} in the system.`}
-                  </td>
-                  <td className={`${cell} tabular-nums`}>
-                    {object.fields.length}
-                  </td>
-                </OpenRow>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <th className={tableHeadCell}>Object</th>
+              <th className={tableHeadCell}>About</th>
+              <th className={tableHeadCell}>Fields</th>
+            </tr>
+          </thead>
+          <tbody>
+            {objects.map((object) => (
+              <OpenRow
+                key={object.name}
+                onOpen={() =>
+                  navigate({
+                    to: "/o/$object",
+                    params: { object: object.name },
+                  })
+                }
+              >
+                <td className={cell}>
+                  <Link
+                    to="/data/objects/$object"
+                    params={{ object: object.name }}
+                    className="font-medium hover:underline"
+                  >
+                    {plural(object.label)}
+                  </Link>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {object.name}
+                  </p>
+                </td>
+                <td className={`${cell} text-muted-foreground`}>
+                  {object.description ??
+                    `Every ${object.label.toLowerCase()} in the system.`}
+                </td>
+                <td className={`${cell} tabular-nums`}>
+                  {object.fields.length}
+                </td>
+              </OpenRow>
+            ))}
+          </tbody>
+        </DataTable>
       ) : null}
     </div>
   );
