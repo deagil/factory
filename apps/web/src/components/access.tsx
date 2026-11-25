@@ -11,6 +11,7 @@ import type { SystemDescription } from "../lib/api.ts";
 import { findAction, humanise } from "../lib/forms.ts";
 import type { Role } from "../lib/roles.ts";
 import { ErrorText, when } from "./activity.tsx";
+import { DataTable, tableHeadCell } from "./data-table.tsx";
 import { OpenRow } from "./open-row.tsx";
 import { PageHeader } from "./page-header.tsx";
 
@@ -347,65 +348,59 @@ export const ActorTable = ({
 }) => {
   const navigate = useNavigate();
   return (
-    <div className="overflow-x-auto rounded-2xl border">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b bg-muted/50">
-          <tr>
-            <th className="px-3 py-2 font-medium">Name</th>
+    <DataTable>
+      <thead>
+        <tr>
+          <th className={tableHeadCell}>Name</th>
+          {showPerson === "email" && <th className={tableHeadCell}>Email</th>}
+          {showPerson === "owner" && <th className={tableHeadCell}>For</th>}
+          <th className={tableHeadCell}>Roles</th>
+          <th className={tableHeadCell}>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {actors.map((actor) => (
+          <OpenRow
+            key={actor.id}
+            onOpen={() =>
+              navigate({ to: "/access/actors/$id", params: { id: actor.id } })
+            }
+          >
+            <td className="px-3 py-2">
+              <Link
+                to="/access/actors/$id"
+                params={{ id: actor.id }}
+                className="font-medium hover:underline"
+              >
+                {actor.name}
+              </Link>
+            </td>
             {showPerson === "email" && (
-              <th className="px-3 py-2 font-medium">Email</th>
+              <td className="px-3 py-2">{actor.user?.email}</td>
             )}
             {showPerson === "owner" && (
-              <th className="px-3 py-2 font-medium">For</th>
+              <td className="px-3 py-2">{actor.user?.name}</td>
             )}
-            <th className="px-3 py-2 font-medium">Roles</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {actors.map((actor) => (
-            <OpenRow
-              key={actor.id}
-              onOpen={() =>
-                navigate({ to: "/access/actors/$id", params: { id: actor.id } })
-              }
+            <td className="px-3 py-2">
+              <RoleBadges keys={actor.roles} roles={roles} />
+            </td>
+            <td className="px-3 py-2">
+              <StatusText status={actor.status} />
+            </td>
+          </OpenRow>
+        ))}
+        {actors.length === 0 && (
+          <tr>
+            <td
+              colSpan={4}
+              className="px-3 py-6 text-center text-muted-foreground"
             >
-              <td className="px-3 py-2">
-                <Link
-                  to="/access/actors/$id"
-                  params={{ id: actor.id }}
-                  className="font-medium hover:underline"
-                >
-                  {actor.name}
-                </Link>
-              </td>
-              {showPerson === "email" && (
-                <td className="px-3 py-2">{actor.user?.email}</td>
-              )}
-              {showPerson === "owner" && (
-                <td className="px-3 py-2">{actor.user?.name}</td>
-              )}
-              <td className="px-3 py-2">
-                <RoleBadges keys={actor.roles} roles={roles} />
-              </td>
-              <td className="px-3 py-2">
-                <StatusText status={actor.status} />
-              </td>
-            </OpenRow>
-          ))}
-          {actors.length === 0 && (
-            <tr>
-              <td
-                colSpan={4}
-                className="px-3 py-6 text-center text-muted-foreground"
-              >
-                None yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+              None yet.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </DataTable>
   );
 };
 

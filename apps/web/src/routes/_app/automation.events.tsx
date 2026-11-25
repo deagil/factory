@@ -5,12 +5,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { Json, text } from "../../components/activity.tsx";
 import {
-  ErrorText,
-  Json,
-  TextFilter,
-  text,
-} from "../../components/activity.tsx";
+  DataTable,
+  tableBodyRow,
+  tableHeadCell,
+} from "../../components/data-table.tsx";
+import { LogFilterBar } from "../../components/log-filters.tsx";
+import type { LogFilterSpec } from "../../components/log-filters.tsx";
 import { PageHeader } from "../../components/page-header.tsx";
 import {
   StartedWorkflows,
@@ -26,8 +28,12 @@ import type { EventListItem } from "../../lib/workflow-events.ts";
 import { eventWords, titleOf } from "../../lib/workflow-words.ts";
 
 interface EventsSearch {
-  q?: string;
+  type?: string;
+  starts?: string;
 }
+
+const contains = (needle: string | undefined, haystack: string) =>
+  needle === undefined || haystack.toLowerCase().includes(needle.toLowerCase());
 
 interface EventRow {
   type: string;
@@ -57,7 +63,7 @@ const Starts = ({
 }) => {
   const [starts] = event ? startedBy([event.type], [event], labels) : [];
   return event && starts ? (
-    <div className="mt-1 flex flex-col gap-1 text-sm">
+    <div className="flex flex-col gap-1">
       <p className="text-muted-foreground">
         {eventSource(event.from)} emit it.
       </p>
@@ -66,8 +72,12 @@ const Starts = ({
         <StartedWorkflows starts={starts} />
       </div>
     </div>
-  ) : null;
+  ) : (
+    <span className="text-muted-foreground">—</span>
+  );
 };
+
+const cell = "px-3 py-2";
 
 const EventsScreen = () => {
   const search = Route.useSearch();
@@ -77,53 +87,119 @@ const EventsScreen = () => {
     queryFn: describeSystem,
   });
   const eventList = useEventList();
-  const q = search.q?.toLowerCase() ?? "";
+  const update = (next: Partial<EventsSearch>) =>
+    navigate({ search: (previous) => ({ ...previous, ...next }) });
+  const filters: LogFilterSpec[] = [
+    {
+      key: "type",
+      label: "Event",
+      operator: "contains",
+      kind: "text",
+      placeholder: "contact_created",
+    },
+    {
+      key: "starts",
+      label: "Starts",
+      operator: "contains",
+      kind: "text",
+      placeholder: "deal",
+    },
+  ];
+  const filtering = search.type !== undefined || search.starts !== undefined;
   const events = rowsOf(eventList.events, described.data?.events ?? [])
-    .filter((event) => q === "" || event.type.toLowerCase().includes(q))
+    .filter((event) => {
+      const [starts] = event.listed
+        ? startedBy([event.type], [event.listed], eventList.labels)
+        : [];
+      const started = starts?.workflows
+        .map((workflow) => workflow.label)
+        .join(" ");
+      return (
+        contains(
+          search.type,
+          `${titleOf(eventWords(event.type))} ${event.type}`
+        ) &&
+        contains(
+          search.starts,
+          event.listed
+            ? `${eventSource(event.listed.from)} ${started ?? ""}`
+            : ""
+        )
+      );
+    })
     .toSorted((a, b) => a.type.localeCompare(b.type));
+  const problem = described.error ?? eventList.error;
   return (
-    <div className="flex max-w-4xl flex-col gap-4">
+    <div className="flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
       <PageHeader title="Events" />
-      <p className="text-sm text-muted-foreground">
+      <p className="shrink-0 text-sm text-muted-foreground">
         Things that can happen. A workflow can start when one of these is
         emitted. What has already happened is in the event log.
       </p>
-      <TextFilter
-        key={search.q ?? ""}
-        label="Find"
-        placeholder="contact.created"
-        value={search.q}
-        onChange={(next) => navigate({ search: { q: next } })}
-      />
-      <ErrorText error={described.error ?? eventList.error} />
-      {described.isSuccess && events.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {q === "" ? "No events you can see." : "No events match."}
-        </p>
-      ) : null}
-      {events.length > 0 ? (
-        <ul className="flex flex-col gap-2">
+      <DataTable
+        fill
+        error={problem?.message}
+        toolbar={
+          <LogFilterBar
+            filters={filters}
+            values={{ type: search.type, starts: search.starts }}
+            onChange={(key, value) => update({ [key]: value })}
+            onClear={() => update({ type: undefined, starts: undefined })}
+          />
+        }
+      >
+        <thead>
+          <tr>
+            <th scope="col" className={tableHeadCell}>
+              Event
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              Starts
+            </th>
+            <th scope="col" className={tableHeadCell}>
+              Payload
+            </th>
+          </tr>
+        </thead>
+        <tbody>
           {events.map((event) => (
-            <li key={event.type} className="rounded-2xl border p-3">
-              <p className="text-sm font-medium">
-                {titleOf(eventWords(event.type))}
-              </p>
-              <p className="font-mono text-xs text-muted-foreground">
-                {event.type}
-              </p>
-              <Starts event={event.listed} labels={eventList.labels} />
-              <details className="mt-2 text-sm">
-                <summary className="cursor-pointer text-muted-foreground">
-                  Payload
-                </summary>
-                <div className="mt-2">
-                  <Json value={event.payload} />
-                </div>
-              </details>
-            </li>
+            <tr key={event.type} className={tableBodyRow}>
+              <td className={cell}>
+                <p className="font-medium">{titleOf(eventWords(event.type))}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {event.type}
+                </p>
+              </td>
+              <td className={cell}>
+                <Starts event={event.listed} labels={eventList.labels} />
+              </td>
+              <td className={`${cell} max-w-md`}>
+                <details className="text-sm">
+                  <summary
+                    className="cursor-pointer text-muted-foreground"
+                    aria-label={`Payload of ${event.type}`}
+                  >
+                    Payload
+                  </summary>
+                  <div className="mt-2">
+                    <Json value={event.payload} />
+                  </div>
+                </details>
+              </td>
+            </tr>
           ))}
-        </ul>
-      ) : null}
+          {described.isSuccess && events.length === 0 ? (
+            <tr>
+              <td
+                colSpan={3}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                {filtering ? "No events match." : "No events you can see."}
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </DataTable>
     </div>
   );
 };
@@ -131,7 +207,8 @@ const EventsScreen = () => {
 export const Route = createFileRoute("/_app/automation/events")({
   staticData: { section: "automation" },
   validateSearch: (search: Record<string, unknown>): EventsSearch => ({
-    q: text(search.q),
+    type: text(search.type),
+    starts: text(search.starts),
   }),
   component: EventsScreen,
 });

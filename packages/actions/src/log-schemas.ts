@@ -95,8 +95,10 @@ export const page = {
 };
 
 export const range = {
-  since: timestamp.optional(),
-  until: timestamp.optional(),
+  /** Inclusive start. */
+  since: timestamp.optional().describe("Inclusive start, as an ISO timestamp."),
+  /** Inclusive end. */
+  until: timestamp.optional().describe("Inclusive end, as an ISO timestamp."),
 };
 
 export const pageOf = <TEntry extends z.ZodType>(entry: TEntry) =>

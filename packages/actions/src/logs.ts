@@ -30,7 +30,7 @@ const holds = (granted: Granted, name: string) =>
 export const runList = defineQuery({
   name: "run.list",
   description:
-    "Runs, newest first: each call of an endpoint, who made it, for whom, and how it ended. Without the run.list permission, only your own runs and those done for you.",
+    "Runs, newest first: each call of an endpoint, who made it, for whom, and how it ended. Filter by actor, endpoint or endpoint prefix, status, dry run, and since or until. Without the run.list permission, only your own runs and those done for you.",
   input: z.strictObject({
     actorId: z.uuid().optional(),
     endpoint: z.string().optional(),
@@ -101,13 +101,24 @@ export const runNeedsAttention = defineQuery({
 export const auditLogList = defineQuery({
   name: "auditLog.list",
   description:
-    "Changes to records, newest first: which fields changed from what to what, in which run, and who made them. Filter by object, record, field, actor or run.",
+    "Changes to records, newest first: which fields changed from what to what, in which run, and who made them. Filter by object, record, field, actor, action or action prefix, run, and since or until.",
   input: z.strictObject({
     object: z.string().optional(),
     recordId: z.uuid().optional(),
     /** Only changes to this field. */
     field: z.string().optional(),
     actorId: z.uuid().optional(),
+    action: z
+      .string()
+      .optional()
+      .describe("The action that wrote the change, as organisation_update."),
+    /** An action prefix, as `organisation_` for every organisation action. */
+    actionPrefix: z
+      .string()
+      .optional()
+      .describe(
+        "An action prefix, as organisation_ for every organisation action."
+      ),
     runId: z.uuid().optional(),
     ...range,
     ...page,
@@ -135,11 +146,17 @@ export const auditLogGet = defineQuery({
 export const eventLogList = defineQuery({
   name: "eventLog.list",
   description:
-    "Events runs emitted, newest first, with their payloads. Filter by type, type prefix or run.",
+    "Events runs emitted, newest first, with their payloads. Filter by type or type prefix, the person they were for, run, and since or until.",
   input: z.strictObject({
     type: z.string().optional(),
     /** A type prefix, as `contact.` for every contact event. */
     typePrefix: z.string().optional(),
+    originUserId: z
+      .uuid()
+      .optional()
+      .describe(
+        "The person the event was for: the user at the start of the chain."
+      ),
     runId: z.uuid().optional(),
     ...range,
     ...page,

@@ -75,3 +75,8 @@ TypeScript (strict), Node 26, Hono, DBOS, Drizzle, Postgres, Zod 4, Better Auth,
 - Passes typecheck, lint and tests locally before the PR. `fx ship` runs them all and stops before pushing if one fails. That green run is local. GitHub's `check` is the one that has to be green before merging, and `fx ship` waits for it.
 - Updates docs or a decision record when it changes how something works.
 - Commit messages use conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).
+
+## Learned User Preferences
+
+- Object lists, activity logs, and automation or workflow pages use one shared table: filters and page controls stay visible while rows scroll, and filters use the same chip pane as object lists.
+- A filter offered on those lists is also available through the standard access methods agents use.

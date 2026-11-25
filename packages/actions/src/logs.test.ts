@@ -62,6 +62,7 @@ describe("log queries", () => {
   let pipeline: Pipeline;
   let admin: { actorId: string };
   let sam: { actorId: string };
+  let samUserId = "";
   let samsAgent: { actorId: string };
   let acmeId = "";
   let renameId = "";
@@ -108,6 +109,7 @@ describe("log queries", () => {
       .returning();
     admin = { actorId: boss.id };
     sam = { actorId: sales.id };
+    samUserId = sales.userId ?? "";
     samsAgent = { actorId: agent?.id ?? "" };
 
     acmeId = await createOrganisation("Acme", admin);
@@ -153,6 +155,12 @@ describe("log queries", () => {
     );
     expect(second.output?.entries).toHaveLength(1);
     expect(second.output?.nextCursor).toBeNull();
+    const later = await query<{ entries: unknown[] }>(
+      runList,
+      { since: new Date(Date.now() + 60_000).toISOString() },
+      admin
+    );
+    expect(later.output?.entries).toStrictEqual([]);
   });
 
   it("shows anyone without the permission only their own runs", async () => {
@@ -205,7 +213,37 @@ describe("log queries", () => {
     expect(refused.code).toBe("permission");
   });
 
-  it("lists events by type prefix", async () => {
+  it("lists changes by action, actor and time", async () => {
+    const byAction = await query<{ entries: { action: string }[] }>(
+      auditLogList,
+      { actionPrefix: "organisation_upd" },
+      admin
+    );
+    expect(byAction.output?.entries.map((entry) => entry.action)).toStrictEqual(
+      ["organisation_update"]
+    );
+    const exact = await query<{ entries: { action: string }[] }>(
+      auditLogList,
+      { action: "organisation_create", actorId: sam.actorId },
+      admin
+    );
+    expect(exact.output?.entries).toHaveLength(1);
+    const future = new Date(Date.now() + 60_000).toISOString();
+    const later = await query<{ entries: unknown[] }>(
+      auditLogList,
+      { since: future },
+      admin
+    );
+    expect(later.output?.entries).toStrictEqual([]);
+    const early = await query<{ entries: { action: string }[] }>(
+      auditLogList,
+      { until: new Date(0).toISOString(), action: "organisation_update" },
+      admin
+    );
+    expect(early.output?.entries).toStrictEqual([]);
+  });
+
+  it("lists events by type prefix, person and time", async () => {
     const { output } = await query<{ entries: { type: string }[] }>(
       eventLogList,
       { typePrefix: "organisation_upd" },
@@ -214,6 +252,18 @@ describe("log queries", () => {
     expect(output?.entries.map((entry) => entry.type)).toStrictEqual([
       "organisation_updated",
     ]);
+    const forSam = await query<{ entries: { type: string }[] }>(
+      eventLogList,
+      { originUserId: samUserId, type: "organisation_created" },
+      admin
+    );
+    expect(forSam.output?.entries).toHaveLength(2);
+    const later = await query<{ entries: unknown[] }>(
+      eventLogList,
+      { since: new Date(Date.now() + 60_000).toISOString() },
+      admin
+    );
+    expect(later.output?.entries).toStrictEqual([]);
   });
 
   it("gets one change and one event, and needs their permissions", async () => {

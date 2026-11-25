@@ -2,6 +2,8 @@
 // its own destination; the rest of the surface opens the item.
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 
+import { tableBodyRow } from "./data-table.tsx";
+
 /** Click and keyboard props that open `onOpen`, except from a link or button. */
 export const opensItem = (onOpen: () => void) => ({
   tabIndex: 0,
@@ -32,7 +34,7 @@ export const OpenRow = ({
 }) => (
   <tr
     {...opensItem(onOpen)}
-    className="cursor-pointer border-b align-top outline-none last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40"
+    className={`cursor-pointer outline-none hover:bg-muted/40 focus-visible:bg-muted/40 ${tableBodyRow}`}
   >
     {children}
   </tr>
